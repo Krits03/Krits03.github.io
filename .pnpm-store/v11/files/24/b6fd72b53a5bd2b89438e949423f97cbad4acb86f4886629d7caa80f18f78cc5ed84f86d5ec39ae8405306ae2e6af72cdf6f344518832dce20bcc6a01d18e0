@@ -1,0 +1,168 @@
+import { withBase, withoutLeadingSlash } from "ufo";
+import { useStorage } from "#nuxtseo/nitro";
+import { getNitroOrigin } from "#site-config/server/composables/getNitroOrigin";
+import { toBase64Image } from "../../../../shared.js";
+import { decodeHtml } from "../../../util/encoding.js";
+import { fetchLocalAsset } from "../../../util/fetchLocalAsset.js";
+import { getFetchTimeout } from "../../../util/fetchTimeout.js";
+import { logger } from "../../../util/logger.js";
+import { fetchWithRedirectValidation, isBlockedUrl } from "../../../util/ssrf.js";
+import { getImageDimensions } from "../../utils/image-detector.js";
+import { defineTransformer } from "../plugins.js";
+const RE_URL_LEADING = /^url\(['"]?/;
+const RE_URL_TRAILING = /['"]?\)$/;
+const SUBREQUEST_HEADERS = { "x-nuxt-og-image": "1" };
+async function resolveLocalFilePathImage(publicStoragePath, src) {
+  const normalizedSrc = withoutLeadingSlash(
+    src.replace("_nuxt/@fs/", "").replace("_nuxt/", "").replace("./", "")
+  ).replaceAll("/", ":");
+  const key = `${publicStoragePath}:${normalizedSrc}`;
+  if (await useStorage().hasItem(key))
+    return await useStorage().getItemRaw(key);
+}
+function toBufferSourceAsBase64(buf) {
+  const ab = buf instanceof ArrayBuffer ? buf : ArrayBuffer.isView(buf) ? buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) : buf;
+  return toBase64Image(ab);
+}
+const renderCaches = /* @__PURE__ */ new WeakMap();
+function getRenderCache(e) {
+  let cache = renderCaches.get(e);
+  if (!cache) {
+    cache = /* @__PURE__ */ new Map();
+    renderCaches.set(e, cache);
+  }
+  return cache;
+}
+function resolveSrcToBuffer(src, kind, ctx) {
+  const cache = getRenderCache(ctx.e);
+  const existing = cache.get(src);
+  if (existing)
+    return existing;
+  const promise = doResolveSrcToBuffer(src, kind, ctx);
+  cache.set(src, promise);
+  return promise;
+}
+async function doResolveSrcToBuffer(src, kind, { e, publicStoragePath, runtimeConfig, timings }) {
+  const fetchTimeout = getFetchTimeout(runtimeConfig);
+  const logFailure = (url, err) => {
+    logger.debug(`[og-image] ${kind} fetch failed (${url}): ${err?.message || err}`);
+  };
+  if (src.startsWith("/")) {
+    let buffer2;
+    if (import.meta.prerender || import.meta.dev) {
+      const srcWithoutBase = src.replace(runtimeConfig.app.baseURL, "/");
+      buffer2 = await resolveLocalFilePathImage(publicStoragePath, srcWithoutBase);
+    }
+    if (!buffer2 && !import.meta.prerender) {
+      const ab = await timings.measure("image-fetch", () => fetchLocalAsset(e, src, {
+        fetchTimeout,
+        headers: SUBREQUEST_HEADERS,
+        includeExternalFallback: true,
+        onStepFailure: logFailure
+      }));
+      if (ab)
+        buffer2 = new Uint8Array(ab);
+    }
+    return buffer2 ? { buffer: buffer2 } : {};
+  }
+  const decodedSrc = decodeHtml(src);
+  if (!import.meta.dev && isBlockedUrl(decodedSrc)) {
+    logger.warn(`Blocked internal ${kind} fetch: ${decodedSrc}`);
+    return { blocked: true };
+  }
+  const end = timings.start("image-fetch");
+  let buffer;
+  if (import.meta.dev) {
+    buffer = await $fetch(decodedSrc, {
+      responseType: "arrayBuffer",
+      timeout: fetchTimeout
+    }).catch((err) => {
+      logFailure(decodedSrc, err);
+    }).finally(end);
+  } else {
+    const ab = await fetchWithRedirectValidation(decodedSrc, {
+      timeout: fetchTimeout
+    }).catch((err) => {
+      logFailure(decodedSrc, err);
+      return null;
+    }).finally(end);
+    if (ab)
+      buffer = new Uint8Array(ab);
+  }
+  return buffer ? { buffer } : {};
+}
+function applyImageDimensions(node, buffer) {
+  if (typeof node.props.width === "string")
+    node.props.width = Number(node.props.width) || void 0;
+  if (typeof node.props.height === "string")
+    node.props.height = Number(node.props.height) || void 0;
+  if (node.props.width && node.props.height)
+    return;
+  const view = buffer instanceof Uint8Array ? buffer : ArrayBuffer.isView(buffer) ? new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength) : new Uint8Array(buffer);
+  const dimensions = getImageDimensions(view);
+  if (!dimensions?.width || !dimensions?.height)
+    return;
+  const naturalAspectRatio = dimensions.width / dimensions.height;
+  if (node.props.width && !node.props.height) {
+    node.props.height = Math.round(node.props.width / naturalAspectRatio);
+  } else if (node.props.height && !node.props.width) {
+    node.props.width = Math.round(node.props.height * naturalAspectRatio);
+  } else {
+    node.props.width = dimensions.width;
+    node.props.height = dimensions.height;
+  }
+}
+export default defineTransformer([
+  // fix <img src="">
+  {
+    filter: (node) => node.type === "img" && node.props?.src,
+    transform: async (node, ctx) => {
+      let src = node.props.src;
+      if (src.startsWith("data:"))
+        return;
+      if (ctx.renderer.name === "satori" && src.endsWith(".webp")) {
+        logger.warn("Using WebP images with Satori is not supported. Please consider switching image format or use the takumi or browser renderer.", src);
+      }
+      const isRelative = src.startsWith("/");
+      if (!isRelative)
+        src = node.props.src = decodeHtml(src);
+      const result = await resolveSrcToBuffer(src, "image", ctx);
+      if (result.blocked) {
+        delete node.props.src;
+        return;
+      }
+      if (result.buffer) {
+        node.props.src = toBufferSourceAsBase64(result.buffer);
+        applyImageDimensions(node, result.buffer);
+        return;
+      }
+      if (isRelative) {
+        node.props.src = withBase(src, `${getNitroOrigin(ctx.e)}`);
+        return;
+      }
+      if (!import.meta.dev)
+        delete node.props.src;
+    }
+  },
+  // fix style="background-image: url('')"
+  {
+    filter: (node) => node.props?.style?.backgroundImage?.includes("url("),
+    transform: async (node, ctx) => {
+      const backgroundImage = node.props.style.backgroundImage;
+      const src = backgroundImage.replace(RE_URL_LEADING, "").replace(RE_URL_TRAILING, "");
+      if (src.startsWith("data:"))
+        return;
+      const result = await resolveSrcToBuffer(src, "background-image", ctx);
+      if (result.blocked) {
+        delete node.props.style.backgroundImage;
+        return;
+      }
+      if (result.buffer) {
+        node.props.style.backgroundImage = `url(${toBufferSourceAsBase64(result.buffer)})`;
+        return;
+      }
+      if (!import.meta.dev && !src.startsWith("/"))
+        delete node.props.style.backgroundImage;
+    }
+  }
+]);

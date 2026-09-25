@@ -1,0 +1,26 @@
+import { computed, toValue } from "vue";
+import { useSiteConfig } from "#site-config/app/composables/useSiteConfig";
+export function useSchemaOrg() {
+}
+export function defineWebSite() {
+}
+export function defineWebPage() {
+}
+export function defineBreadcrumb() {
+}
+export function useI18n() {
+  const siteConfig = useSiteConfig({
+    resolveRefs: false
+  });
+  return {
+    t: (_, fallback, _options) => fallback,
+    te: (_) => false,
+    strategy: "no_prefix",
+    defaultLocale: computed(() => {
+      return toValue(siteConfig.defaultLocale) || "en";
+    }),
+    locale: computed(() => {
+      return toValue(siteConfig.currentLocale) || toValue(siteConfig.defaultLocale) || "en";
+    })
+  };
+}

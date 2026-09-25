@@ -1,0 +1,24 @@
+import type { ModalProps } from "#modals";
+type __VLS_Props = ModalProps & {
+    /**
+     * 目标 `<img>` 元素
+     */
+    target: HTMLImageElement;
+    /**
+     * 放大后占窗口比率
+     * @default 0.9
+     */
+    rate?: number;
+    /**
+     * 是否限制缩放比例
+     * @default false
+     */
+    clamp?: boolean;
+};
+declare const __VLS_export: import("vue").DefineComponent<__VLS_Props, {}, {}, {}, {}, import("vue").ComponentOptionsMixin, import("vue").ComponentOptionsMixin, {
+    close: () => any;
+}, string, import("vue").PublicProps, Readonly<__VLS_Props> & Readonly<{
+    onClose?: (() => any) | undefined;
+}>, {}, {}, {}, {}, string, import("vue").ComponentProvideOptions, false, {}, any>;
+declare const _default: typeof __VLS_export;
+export default _default;

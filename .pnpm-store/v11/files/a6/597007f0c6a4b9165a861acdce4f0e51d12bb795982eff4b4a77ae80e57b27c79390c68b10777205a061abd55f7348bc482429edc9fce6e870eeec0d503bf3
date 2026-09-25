@@ -1,0 +1,51 @@
+import { defineEventHandler } from "#nuxtseo/h3";
+import { getNitroOrigin, getSiteConfig } from "#site-config/server/composables";
+import { validateSitemapUrl } from "../../sitemap/urlset/normalise.js";
+import {
+  childSitemapSources,
+  globalSitemapSources,
+  resolveSitemapSources
+} from "../../sitemap/urlset/sources.js";
+import { useResolvedSitemapRuntimeConfig } from "../../utils.js";
+function attachUrlWarnings(sources) {
+  for (const source of sources) {
+    if (!source.urls?.length)
+      continue;
+    const warnings = [];
+    for (const url of source.urls) {
+      const msgs = validateSitemapUrl(url);
+      if (msgs.length) {
+        const loc = typeof url === "string" ? url : url.loc || "";
+        for (const message of msgs)
+          warnings.push({ loc, message });
+      }
+    }
+    if (warnings.length)
+      source._urlWarnings = warnings;
+  }
+  return sources;
+}
+export default defineEventHandler(async (e) => {
+  const _runtimeConfig = await useResolvedSitemapRuntimeConfig(e);
+  const siteConfig = getSiteConfig(e);
+  const { sitemaps: _sitemaps } = _runtimeConfig;
+  const runtimeConfig = { ..._runtimeConfig };
+  delete runtimeConfig.sitemaps;
+  const globalSources = await globalSitemapSources();
+  const nitroOrigin = getNitroOrigin(e);
+  const sitemaps = {};
+  for (const s of Object.keys(_sitemaps)) {
+    const sitemap = _sitemaps[s];
+    sitemaps[s] = {
+      ...sitemap,
+      sources: attachUrlWarnings(await resolveSitemapSources(await childSitemapSources(sitemap), e))
+    };
+  }
+  return {
+    nitroOrigin,
+    sitemaps,
+    runtimeConfig,
+    globalSources: attachUrlWarnings(await resolveSitemapSources(globalSources, e)),
+    siteConfig: { ...siteConfig }
+  };
+});

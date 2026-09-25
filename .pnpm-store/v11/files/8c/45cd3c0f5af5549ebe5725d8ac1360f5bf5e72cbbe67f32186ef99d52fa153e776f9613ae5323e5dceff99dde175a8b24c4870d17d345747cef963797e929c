@@ -1,0 +1,97 @@
+import { existsSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import process from 'node:process';
+import { loadNuxtConfig } from '@nuxt/kit';
+import { defineCommand, runMain } from 'citty';
+import { colors } from 'consola/utils';
+import { resolve } from 'pathe';
+import { p as pngToIco } from './shared/nuxt-seo-utils.NAV2YNQn.mjs';
+import 'node:buffer';
+
+const name = "nuxt-seo-utils";
+const version = "8.5.0";
+const description = "SEO utilities to improve your Nuxt sites discoverability and shareability";
+
+const ICON_SIZES = [
+  { name: "icon-16x16.png", width: 16, height: 16 },
+  { name: "icon-32x32.png", width: 32, height: 32 },
+  { name: "apple-touch-icon.png", width: 180, height: 180 },
+  { name: "icon-192x192.png", width: 192, height: 192 },
+  { name: "icon-512x512.png", width: 512, height: 512 }
+];
+const SUPPORTED_FORMATS = /* @__PURE__ */ new Set(["svg", "png", "jpg", "jpeg", "webp"]);
+const cwdArgs = {
+  cwd: {
+    type: "string",
+    description: "Specify the working directory",
+    valueHint: "directory",
+    default: "."
+  }
+};
+async function loadSharp() {
+  const mod = await import('sharp').catch(() => {
+    console.error(colors.red("sharp is required for icon generation. Install it with:"));
+    console.error(colors.cyan("  pnpm add -D sharp"));
+    process.exit(1);
+  });
+  return mod.default;
+}
+const main = defineCommand({
+  meta: { name, version, description },
+  args: {
+    command: {
+      type: "positional",
+      required: false
+    },
+    ...cwdArgs
+  },
+  subCommands: {
+    icons: defineCommand({
+      meta: {
+        name: "icons",
+        description: "Generate favicon and icon variants from a source image"
+      },
+      args: {
+        ...cwdArgs,
+        source: {
+          type: "string",
+          description: "Source image file relative to the public directory (e.g. logo.svg)",
+          required: true
+        }
+      },
+      async run(ctx) {
+        const cwd = resolve(String(ctx.args.cwd));
+        const nuxtConfig = await loadNuxtConfig({ cwd });
+        const publicDir = resolve(cwd, nuxtConfig.dir?.public ?? "public");
+        const source = String(ctx.args.source);
+        const sourcePath = resolve(publicDir, source);
+        if (!existsSync(sourcePath)) {
+          console.error(colors.red(`Source file not found: ${sourcePath}`));
+          process.exit(1);
+        }
+        const ext = source.split(".").pop()?.toLowerCase();
+        if (!ext || !SUPPORTED_FORMATS.has(ext)) {
+          console.error(colors.red(`Unsupported format "${ext}". Use: ${[...SUPPORTED_FORMATS].join(", ")}`));
+          process.exit(1);
+        }
+        const sharp = await loadSharp();
+        console.log(colors.cyan(`Generating icons from ${colors.bold(String(source))}...`));
+        for (const icon of ICON_SIZES) {
+          const outputPath = resolve(publicDir, icon.name);
+          await sharp(sourcePath).resize(icon.width, icon.height, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toFile(outputPath);
+          console.log(colors.green(`  ${icon.name} (${icon.width}x${icon.height})`));
+        }
+        const faviconSizes = [16, 32, 48];
+        const faviconPngs = await Promise.all(faviconSizes.map(async (size) => ({
+          buffer: await sharp(sourcePath).resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer(),
+          width: size,
+          height: size
+        })));
+        await writeFile(resolve(publicDir, "favicon.ico"), pngToIco(faviconPngs));
+        console.log(colors.green("  favicon.ico (16x16, 32x32, 48x48)"));
+        console.log(colors.bold(colors.green("\nDone! Generated all icon variants.")));
+      }
+    })
+  }
+});
+runMain(main);

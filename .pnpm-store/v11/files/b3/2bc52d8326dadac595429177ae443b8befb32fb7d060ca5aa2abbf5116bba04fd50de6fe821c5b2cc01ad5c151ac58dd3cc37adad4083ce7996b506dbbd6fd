@@ -1,0 +1,37 @@
+import { type ComputedRef, type Ref, type VNode } from "#imports";
+interface ModalContext {
+    vnode: ComputedRef<VNode>;
+    zIndex: number;
+    duration: number;
+    open: Ref<boolean>;
+    close: ComputedRef<() => void>;
+}
+type ModalStatus = "closed" | "open" | "closing";
+export interface UseModalOptions {
+    duration?: number;
+    immediate?: boolean;
+    unique?: boolean;
+}
+export declare const useModalStore: import("pinia").StoreDefinition<"modal", Pick<{
+    modals: import("vue").ShallowReactive<ModalContext[]>;
+    use: (render: () => VNode, options?: UseModalOptions) => {
+        open: () => void;
+        close: () => Promise<void>;
+        status: Ref<ModalStatus, ModalStatus>;
+    };
+}, "modals">, Pick<{
+    modals: import("vue").ShallowReactive<ModalContext[]>;
+    use: (render: () => VNode, options?: UseModalOptions) => {
+        open: () => void;
+        close: () => Promise<void>;
+        status: Ref<ModalStatus, ModalStatus>;
+    };
+}, never>, Pick<{
+    modals: import("vue").ShallowReactive<ModalContext[]>;
+    use: (render: () => VNode, options?: UseModalOptions) => {
+        open: () => void;
+        close: () => Promise<void>;
+        status: Ref<ModalStatus, ModalStatus>;
+    };
+}, "use">>;
+export {};

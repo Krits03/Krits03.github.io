@@ -1,0 +1,2069 @@
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { useNuxt, extendPages, extendRouteRules, useRuntimeConfig, defineNuxtModule, createResolver, hasNuxtModule, hasNuxtModuleCompatibility, addPlugin, addServerHandler, addServerTemplate, resolveModule } from '@nuxt/kit';
+import { useSiteConfig, installNuxtSiteConfig } from 'nuxt-site-config/kit';
+import { expandCompactLocaleRoute, resolveI18nModule, normalizeLocales } from 'nuxtseo-shared/i18n';
+import { isNuxtGenerate, useModuleLogger, setupNitroRuntimeCompatibility, getNuxtModuleOptions, resolveContentProvider, setupContentRuntime } from 'nuxtseo-shared/kit';
+import { $fetch } from 'ofetch';
+import { resolve, relative, dirname, join } from 'pathe';
+import { readPackageJSON } from 'pkg-types';
+import { diffArrays } from 'diff';
+import { setupDevToolsUI as setupDevToolsUI$1, setupDevToolsRpc } from 'nuxtseo-shared/devtools';
+import { generateLinkDiff } from '../dist/runtime/shared/diff.js';
+import { joinURL, withoutLeadingSlash } from 'ufo';
+import { existsSync } from 'node:fs';
+import { colors } from 'consola/utils';
+import Fuse from 'fuse.js';
+import { parse, walkSync, ELEMENT_NODE } from 'ultrahtml';
+import { createStorage } from 'unstorage';
+import fsDriver from 'unstorage/drivers/fs';
+import { setLinkResponse, getResolvedLinkResponses, getLinkResponse, crawlFetch } from '../dist/runtime/shared/crawl.js';
+import { inspect } from '../dist/runtime/shared/inspect.js';
+import { createFilter, serializeFilters } from '../dist/runtime/shared/sharedUtils.js';
+
+function convertNuxtPagesToPaths(pages, options) {
+  return pages.map((page) => {
+    return page.children?.length ? page.children.map((child) => {
+      return {
+        path: joinURL(page.path, child.path),
+        page: child
+      };
+    }) : { page, path: page.path };
+  }).flat().flatMap((p) => {
+    const expanded = expandCompactLocaleRoute(p.path, options?.locales);
+    return expanded ? expanded.map((e) => ({ ...p, path: e.path })) : [p];
+  }).filter((p) => options?.keepDynamic || !p.path.includes(":")).map((p) => ({
+    title: p.page?.meta?.title || "",
+    link: p.path,
+    file: p.page?.file
+  }));
+}
+function resolveViteWebSocket(nuxt = useNuxt()) {
+  return new Promise((_resolve) => {
+    nuxt.hooks.hook("vite:serverCreated", (viteServer) => {
+      _resolve(viteServer.ws);
+    });
+  });
+}
+
+const RPC_NAMESPACE = "nuxt-link-checker-rpc";
+function setupDevToolsUI(options, moduleResolve, i18nLocales = [], nuxt = useNuxt()) {
+  setupDevToolsUI$1({
+    route: "/__nuxt-link-checker",
+    name: "nuxt-link-checker",
+    title: "Link Checker",
+    icon: "carbon:cloud-satellite-link"
+  }, moduleResolve, nuxt);
+  let isConnected = false;
+  const viteServerWs = resolveViteWebSocket();
+  const rpc = setupDevToolsRpc(RPC_NAMESPACE, {
+    getOptions() {
+      return options;
+    },
+    async reset() {
+      const ws = await viteServerWs;
+      ws.send("nuxt-link-checker:reset");
+    },
+    async scrollToLink(link) {
+      const ws = await viteServerWs;
+      ws.send("nuxt-link-checker:scroll-to-link", link);
+    },
+    async applyLinkFixes(diff, original, replacement) {
+      for (const { filepath } of diff) {
+        const rootDirFolderName = nuxt.options.rootDir.split("/").pop();
+        const filepathWithoutRoot = filepath.replace(new RegExp(`^${nuxt.options.rootDir}/`), "").replace(new RegExp(`^${rootDirFolderName}/`), "");
+        const fp = resolve(nuxt.options.rootDir, filepathWithoutRoot);
+        const contents = await readFile(fp, "utf8");
+        const diff2 = generateLinkDiff(contents, original, replacement);
+        await writeFile(fp, diff2.code, "utf8");
+      }
+      const ws = await viteServerWs;
+      ws.send("nuxt-link-checker:reset");
+    },
+    async toggleLiveInspections(enabled) {
+      const ws = await viteServerWs;
+      ws.send("nuxt-link-checker:live-inspections", { enabled });
+    },
+    async connected() {
+      const ws = await viteServerWs;
+      ws.send("nuxt-link-checker:connected");
+      isConnected = true;
+    }
+  }, nuxt);
+  function reportBroadcastError(event, error) {
+    console.warn(`[nuxt-link-checker] Failed to broadcast devtools event "${event}".`, error);
+  }
+  viteServerWs.then((ws) => {
+    ws.on("nuxt-link-checker:queueWorking", async (payload) => {
+      if (isConnected) {
+        const _rpc = await rpc;
+        _rpc.broadcast.queueWorking(payload).catch((error) => reportBroadcastError("queueWorking", error));
+      }
+    });
+    ws.on("nuxt-link-checker:updated", async () => {
+      if (isConnected) {
+        const _rpc = await rpc;
+        _rpc.broadcast.updated().catch((error) => reportBroadcastError("updated", error));
+      }
+    });
+    ws.on("nuxt-link-checker:filter", async (payload) => {
+      if (isConnected) {
+        const _rpc = await rpc;
+        _rpc.broadcast.filter(payload).catch((error) => reportBroadcastError("filter", error));
+      }
+    });
+    let lastRoutes = [];
+    extendPages(async (pages) => {
+      const routes = convertNuxtPagesToPaths(pages, { locales: i18nLocales });
+      if (lastRoutes.length) {
+        const routeDiff = diffArrays(lastRoutes, routes);
+        if (routeDiff?.some((diff) => diff.added || diff.removed))
+          ws.send("nuxt-link-checker:reset");
+      }
+      lastRoutes = routes;
+    });
+  });
+}
+
+var __freeze = Object.freeze;
+var __defProp = Object.defineProperty;
+var __template = (cooked, raw) => __freeze(__defProp(cooked, "raw", { value: __freeze(raw || cooked.slice()) }));
+var _a;
+const html = String.raw;
+const htmlTemplate = html(_a || (_a = __template([`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><!-- SiteName --></title>
+  <style>
+  :root {
+    --color-bg: #121212;
+    --color-bg-secondary: #1e1e1e;
+    --color-text: #e0e0e0;
+    --color-muted: #a0a0a0;
+    --color-border: #333333;
+    --color-primary: #4f8ef7;
+    --color-primary-dark: #3a6bc5;
+    --color-error: #f44336;
+    --color-error-bg: rgba(244, 67, 54, 0.15);
+    --color-warning: #ff9800;
+    --color-warning-bg: rgba(255, 152, 0, 0.15);
+    --color-success: #00c853;
+    --color-success-bg: rgba(0, 200, 83, 0.15);
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --border-radius: 0.5rem;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --color-bg: #f8f9fa;
+      --color-bg-secondary: #ffffff;
+      --color-text: #212529;
+      --color-muted: #6c757d;
+      --color-border: #dee2e6;
+      --color-primary: #3a6bc5;
+      --color-primary-dark: #2a4d8f;
+      --color-error: #dc3545;
+      --color-error-bg: rgba(220, 53, 69, 0.1);
+      --color-warning: #fd7e14;
+      --color-warning-bg: rgba(253, 126, 20, 0.1);
+      --color-success: #20c997;
+      --color-success-bg: rgba(32, 201, 151, 0.1);
+      --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  a:hover {
+    color: var(--color-primary-dark);
+    text-decoration: none;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    font-size: 15px;
+  }
+
+  .container {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .report-header {
+    margin-bottom: 2.5rem;
+  }
+
+  .timestamp {
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .timestamp::before {
+    content: '\u23F1\uFE0F';
+    margin-right: 0.5rem;
+  }
+
+  .report-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+
+  .report-meta .version {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .report-meta .version::before {
+    content: "\u{1F50D}";
+  }
+
+  .report-meta .timestamp {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .report-meta .timestamp::before {
+    content: "\u23F1\uFE0F";
+  }
+
+  .summary {
+    margin-bottom: 2.5rem;
+  }
+
+  .summary h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .summary-stats li {
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--box-shadow);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .summary-stats li:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .summary-stats li::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background-color: var(--color-primary);
+  }
+
+  .summary-stats li:nth-child(2)::before {
+    background-color: var(--color-error);
+  }
+
+  .summary-stats li:nth-child(3)::before {
+    background-color: var(--color-warning);
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .stat-value {
+    font-size: 2.25rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.25rem;
+  }
+
+  .error-count {
+    color: var(--color-error);
+  }
+
+  .warning-count {
+    color: var(--color-warning);
+  }
+
+  .stat-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.25rem;
+    opacity: 0.15;
+  }
+
+  .table-of-contents {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--box-shadow);
+  }
+
+  .table-of-contents h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    font-size: 1.25rem;
+  }
+
+  .toc-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  .toc-list li {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.15s ease;
+  }
+
+  .toc-list li:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .toc-list a {
+    text-decoration: none;
+    color: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .toc-status {
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  .toc-error a {
+    font-weight: 600;
+    color: var(--color-error);
+  }
+
+  .toc-warning a {
+    color: var(--color-warning);
+  }
+
+  .route-section {
+    margin-bottom: 2rem;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--box-shadow);
+  }
+
+  .route-header {
+    padding: 1rem 1.5rem;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 1.125rem;
+  }
+
+  .route-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    word-break: break-all;
+    font-weight: 600;
+  }
+
+  .route-status {
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .status-error .route-status {
+    color: var(--color-error);
+    background: var(--color-error-bg);
+  }
+
+  .status-warning .route-status {
+    color: var(--color-warning);
+    background: var(--color-warning-bg);
+  }
+
+  .route-issues {
+    padding: 1.5rem;
+  }
+
+  .link-item {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-radius: 0.375rem;
+    border-left: 4px solid transparent;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .link-error {
+    background-color: var(--color-error-bg);
+    border-left-color: var(--color-error);
+  }
+
+  .link-warning {
+    background-color: var(--color-warning-bg);
+    border-left-color: var(--color-warning);
+  }
+
+  .link-header {
+    margin-bottom: 1rem;
+  }
+
+  .link-url {
+    display: block;
+    font-weight: 600;
+    word-break: break-all;
+    color: var(--color-primary);
+    text-decoration: none;
+    padding-bottom: 0.5rem;
+  }
+
+  .link-text {
+    font-style: italic;
+    color: var(--color-muted);
+    margin-top: 0.375rem;
+    font-size: 0.9375rem;
+  }
+
+  .issues-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  .error, .warning {
+    padding: 0.875rem 0;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .error:last-child, .warning:last-child {
+    border-bottom: none;
+  }
+
+  .error-icon, .warning-icon {
+    font-size: 1.125rem;
+    line-height: 1.5;
+  }
+
+  .error-icon {
+    color: var(--color-error);
+  }
+
+  .warning-icon {
+    color: var(--color-warning);
+  }
+
+  .error-type, .warning-type {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  .fix-suggestion {
+    grid-column: 2 / span 2;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 0.375rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .fix-label {
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+
+  .valid-message {
+    color: var(--color-success);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+
+  .valid-message::before {
+    content: "\u2705";
+    margin-right: 0.5rem;
+  }
+
+  .no-issues {
+    color: var(--color-success);
+    text-align: center;
+    padding: 2rem;
+    font-weight: 600;
+    font-size: 1.125rem;
+  }
+
+  .back-to-top {
+    margin-top: 1.5rem;
+    text-align: right;
+    font-size: 0.875rem;
+  }
+
+  .back-to-top a {
+    color: var(--color-muted);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s ease;
+  }
+
+  .back-to-top a::before {
+    content: "\u2191";
+    margin-right: 0.375rem;
+  }
+
+  .back-to-top a:hover {
+    color: var(--color-primary);
+  }
+
+  @media (min-width: 768px) {
+    .toc-list {
+      column-count: 2;
+      column-gap: 2rem;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .toc-list {
+      column-count: 3;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .error, .warning {
+      grid-template-columns: auto 1fr;
+    }
+
+    .error-type, .warning-type {
+      grid-column: 2;
+      margin-top: -0.5rem;
+    }
+
+    .summary-stats {
+      grid-template-columns: 1fr;
+    }
+  }
+  .issues-summary {
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--box-shadow);
+    background-color: var(--color-bg-secondary);
+  }
+
+  .common-issues-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .common-issue {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .common-issue:last-child {
+    border-bottom: none;
+  }
+
+  .common-issue.error {
+    color: var(--color-error);
+  }
+
+  .common-issue.warning {
+    color: var(--color-warning);
+  }
+
+  .issue-count {
+    font-weight: bold;
+    margin-right: 0.75rem;
+    min-width: 2em;
+    text-align: right;
+  }
+
+  .error-icon, .warning-icon {
+    margin-right: 0.5rem;
+  }
+
+  .issue-text {
+    flex: 1;
+  }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1><!-- SiteName --></h1>
+  <!-- REPORT -->
+</div>
+<script>
+// Add basic interactivity if desired
+document.addEventListener('DOMContentLoaded', () => {
+  // Count and display summary information
+  const errors = document.querySelectorAll('.error').length;
+  const warnings = document.querySelectorAll('.warning').length;
+  const routes = document.querySelectorAll('.route-section').length;
+
+  if (routes > 0) {
+    const summary = document.createElement('div');
+    summary.className = 'summary';
+    summary.innerHTML = \`<strong>Summary:</strong> Found \${errors} error\${errors !== 1 ? 's' : ''} and \${warnings} warning\${warnings !== 1 ? 's' : ''} across \${routes} page\${routes !== 1 ? 's' : ''}.\`;
+    document.querySelector('h1').insertAdjacentElement('afterend', summary);
+  }
+<\/script>
+</body>
+</html>
+`], [`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><!-- SiteName --></title>
+  <style>
+  :root {
+    --color-bg: #121212;
+    --color-bg-secondary: #1e1e1e;
+    --color-text: #e0e0e0;
+    --color-muted: #a0a0a0;
+    --color-border: #333333;
+    --color-primary: #4f8ef7;
+    --color-primary-dark: #3a6bc5;
+    --color-error: #f44336;
+    --color-error-bg: rgba(244, 67, 54, 0.15);
+    --color-warning: #ff9800;
+    --color-warning-bg: rgba(255, 152, 0, 0.15);
+    --color-success: #00c853;
+    --color-success-bg: rgba(0, 200, 83, 0.15);
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    --box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --border-radius: 0.5rem;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --color-bg: #f8f9fa;
+      --color-bg-secondary: #ffffff;
+      --color-text: #212529;
+      --color-muted: #6c757d;
+      --color-border: #dee2e6;
+      --color-primary: #3a6bc5;
+      --color-primary-dark: #2a4d8f;
+      --color-error: #dc3545;
+      --color-error-bg: rgba(220, 53, 69, 0.1);
+      --color-warning: #fd7e14;
+      --color-warning-bg: rgba(253, 126, 20, 0.1);
+      --color-success: #20c997;
+      --color-success-bg: rgba(32, 201, 151, 0.1);
+      --box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  a:hover {
+    color: var(--color-primary-dark);
+    text-decoration: none;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+    font-size: 15px;
+  }
+
+  .container {
+    max-width: 1140px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+  }
+
+  h1 {
+    font-size: 2rem;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .report-header {
+    margin-bottom: 2.5rem;
+  }
+
+  .timestamp {
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .timestamp::before {
+    content: '\u23F1\uFE0F';
+    margin-right: 0.5rem;
+  }
+
+  .report-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border);
+    color: var(--color-muted);
+    font-size: 0.875rem;
+  }
+
+  .report-meta .version {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .report-meta .version::before {
+    content: "\u{1F50D}";
+  }
+
+  .report-meta .timestamp {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .report-meta .timestamp::before {
+    content: "\u23F1\uFE0F";
+  }
+
+  .summary {
+    margin-bottom: 2.5rem;
+  }
+
+  .summary h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .summary-stats li {
+    background-color: var(--color-bg-secondary);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--box-shadow);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .summary-stats li:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .summary-stats li::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background-color: var(--color-primary);
+  }
+
+  .summary-stats li:nth-child(2)::before {
+    background-color: var(--color-error);
+  }
+
+  .summary-stats li:nth-child(3)::before {
+    background-color: var(--color-warning);
+  }
+
+  .stat-label {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .stat-value {
+    font-size: 2.25rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.25rem;
+  }
+
+  .error-count {
+    color: var(--color-error);
+  }
+
+  .warning-count {
+    color: var(--color-warning);
+  }
+
+  .stat-icon {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.25rem;
+    opacity: 0.15;
+  }
+
+  .table-of-contents {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--box-shadow);
+  }
+
+  .table-of-contents h2 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    font-size: 1.25rem;
+  }
+
+  .toc-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  .toc-list li {
+    margin-bottom: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.15s ease;
+  }
+
+  .toc-list li:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .toc-list a {
+    text-decoration: none;
+    color: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .toc-status {
+    font-size: 0.75rem;
+    margin-left: 0.5rem;
+    color: var(--color-muted);
+    font-weight: 500;
+  }
+
+  .toc-error a {
+    font-weight: 600;
+    color: var(--color-error);
+  }
+
+  .toc-warning a {
+    color: var(--color-warning);
+  }
+
+  .route-section {
+    margin-bottom: 2rem;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    background-color: var(--color-bg-secondary);
+    box-shadow: var(--box-shadow);
+  }
+
+  .route-header {
+    padding: 1rem 1.5rem;
+    margin: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(255, 255, 255, 0.03);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 1.125rem;
+  }
+
+  .route-link {
+    color: var(--color-primary);
+    text-decoration: none;
+    word-break: break-all;
+    font-weight: 600;
+  }
+
+  .route-status {
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .status-error .route-status {
+    color: var(--color-error);
+    background: var(--color-error-bg);
+  }
+
+  .status-warning .route-status {
+    color: var(--color-warning);
+    background: var(--color-warning-bg);
+  }
+
+  .route-issues {
+    padding: 1.5rem;
+  }
+
+  .link-item {
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-radius: 0.375rem;
+    border-left: 4px solid transparent;
+    background-color: rgba(255, 255, 255, 0.02);
+  }
+
+  .link-error {
+    background-color: var(--color-error-bg);
+    border-left-color: var(--color-error);
+  }
+
+  .link-warning {
+    background-color: var(--color-warning-bg);
+    border-left-color: var(--color-warning);
+  }
+
+  .link-header {
+    margin-bottom: 1rem;
+  }
+
+  .link-url {
+    display: block;
+    font-weight: 600;
+    word-break: break-all;
+    color: var(--color-primary);
+    text-decoration: none;
+    padding-bottom: 0.5rem;
+  }
+
+  .link-text {
+    font-style: italic;
+    color: var(--color-muted);
+    margin-top: 0.375rem;
+    font-size: 0.9375rem;
+  }
+
+  .issues-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+  }
+
+  .error, .warning {
+    padding: 0.875rem 0;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: start;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .error:last-child, .warning:last-child {
+    border-bottom: none;
+  }
+
+  .error-icon, .warning-icon {
+    font-size: 1.125rem;
+    line-height: 1.5;
+  }
+
+  .error-icon {
+    color: var(--color-error);
+  }
+
+  .warning-icon {
+    color: var(--color-warning);
+  }
+
+  .error-type, .warning-type {
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+  }
+
+  .fix-suggestion {
+    grid-column: 2 / span 2;
+    margin-top: 0.75rem;
+    padding: 0.75rem 1rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 0.375rem;
+    font-size: 0.9375rem;
+    line-height: 1.5;
+  }
+
+  .fix-label {
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+
+  .valid-message {
+    color: var(--color-success);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+  }
+
+  .valid-message::before {
+    content: "\u2705";
+    margin-right: 0.5rem;
+  }
+
+  .no-issues {
+    color: var(--color-success);
+    text-align: center;
+    padding: 2rem;
+    font-weight: 600;
+    font-size: 1.125rem;
+  }
+
+  .back-to-top {
+    margin-top: 1.5rem;
+    text-align: right;
+    font-size: 0.875rem;
+  }
+
+  .back-to-top a {
+    color: var(--color-muted);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    transition: color 0.2s ease;
+  }
+
+  .back-to-top a::before {
+    content: "\u2191";
+    margin-right: 0.375rem;
+  }
+
+  .back-to-top a:hover {
+    color: var(--color-primary);
+  }
+
+  @media (min-width: 768px) {
+    .toc-list {
+      column-count: 2;
+      column-gap: 2rem;
+    }
+  }
+
+  @media (min-width: 1200px) {
+    .toc-list {
+      column-count: 3;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .error, .warning {
+      grid-template-columns: auto 1fr;
+    }
+
+    .error-type, .warning-type {
+      grid-column: 2;
+      margin-top: -0.5rem;
+    }
+
+    .summary-stats {
+      grid-template-columns: 1fr;
+    }
+  }
+  .issues-summary {
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--box-shadow);
+    background-color: var(--color-bg-secondary);
+  }
+
+  .common-issues-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .common-issue {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .common-issue:last-child {
+    border-bottom: none;
+  }
+
+  .common-issue.error {
+    color: var(--color-error);
+  }
+
+  .common-issue.warning {
+    color: var(--color-warning);
+  }
+
+  .issue-count {
+    font-weight: bold;
+    margin-right: 0.75rem;
+    min-width: 2em;
+    text-align: right;
+  }
+
+  .error-icon, .warning-icon {
+    margin-right: 0.5rem;
+  }
+
+  .issue-text {
+    flex: 1;
+  }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1><!-- SiteName --></h1>
+  <!-- REPORT -->
+</div>
+<script>
+// Add basic interactivity if desired
+document.addEventListener('DOMContentLoaded', () => {
+  // Count and display summary information
+  const errors = document.querySelectorAll('.error').length;
+  const warnings = document.querySelectorAll('.warning').length;
+  const routes = document.querySelectorAll('.route-section').length;
+
+  if (routes > 0) {
+    const summary = document.createElement('div');
+    summary.className = 'summary';
+    summary.innerHTML = \\\`<strong>Summary:</strong> Found \\\${errors} error\\\${errors !== 1 ? 's' : ''} and \\\${warnings} warning\\\${warnings !== 1 ? 's' : ''} across \\\${routes} page\\\${routes !== 1 ? 's' : ''}.\\\`;
+    document.querySelector('h1').insertAdjacentElement('afterend', summary);
+  }
+<\/script>
+</body>
+</html>
+`])));
+
+function truncateString(str, maxLength) {
+  if (str.length <= maxLength) {
+    return str;
+  }
+  return `${str.substring(0, maxLength - 3)}...`;
+}
+async function runParallel(inputs, cb, opts) {
+  const queue = [...inputs];
+  if (!queue.length) {
+    return;
+  }
+  const workerCount = Math.min(Math.max(opts.concurrency, 1), queue.length);
+  let cursor = 0;
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (cursor < queue.length) {
+      const index = cursor++;
+      try {
+        await cb(queue[index], index);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+  }));
+}
+
+async function generateReports(reports, ctx) {
+  const report = ctx.config.report || {};
+  const reportPaths = [];
+  if (report.html) {
+    reportPaths.push(await generateHtmlReport(reports, ctx));
+  }
+  if (report.markdown) {
+    reportPaths.push(await generateMarkdownReport(reports, ctx));
+  }
+  if (report.json) {
+    reportPaths.push(await generateJsonReport(reports, ctx));
+  }
+  if (reportPaths.length) {
+    const nitro = ctx.nitro;
+    ctx.nitro.logger.info(
+      `${colors.dim("Nuxt Link Checker")} Reports written to:`
+    );
+    reportPaths.forEach((path) => {
+      nitro.logger.log(`  \u2022 \`${relative(process.cwd(), path)}\``);
+    });
+  }
+}
+async function generateHtmlReport(reports, {
+  storage,
+  storageFilepath,
+  totalRoutes,
+  version
+}) {
+  const timestamp = (/* @__PURE__ */ new Date()).toLocaleString();
+  const totalErrors = reports.reduce((sum, { reports: reports2 }) => sum + reports2.filter((r) => r.error?.length).length, 0);
+  const totalWarnings = reports.reduce((sum, { reports: reports2 }) => sum + reports2.filter((r) => r.warning?.length).length, 0);
+  const issueFrequency = {};
+  reports.forEach(({ reports: routeReports }) => {
+    routeReports.forEach((report) => {
+      report.error?.forEach((err) => {
+        const key = `${err.name}: ${err.message}`;
+        if (!issueFrequency[key]) {
+          issueFrequency[key] = { count: 0, type: "error" };
+        }
+        issueFrequency[key].count++;
+      });
+      report.warning?.forEach((warning) => {
+        const key = `${warning.name}: ${warning.message}`;
+        if (!issueFrequency[key]) {
+          issueFrequency[key] = { count: 0, type: "warning" };
+        }
+        issueFrequency[key].count++;
+      });
+    });
+  });
+  const issuesList = Object.entries(issueFrequency).sort((a, b) => b[1].count - a[1].count).map(([issue, { count, type }]) => {
+    const iconClass = type === "error" ? "error-icon" : "warning-icon";
+    const icon = type === "error" ? "\u2716" : "\u26A0";
+    return `
+      <li class="common-issue ${type}">
+        <span class="${iconClass}" aria-hidden="true">${icon}</span>
+        <span class="issue-count">${count}</span>
+        <span class="issue-text">${issue}</span>
+      </li>
+    `;
+  }).join("");
+  const issueSummary = issuesList ? `
+  <div class="issues-summary">
+    <ul class="common-issues-list">
+      ${issuesList}
+    </ul>
+  </div>
+` : "";
+  const reportMeta = `
+    <div class="report-meta">
+      <div class="version">Nuxt Link Checker v${version}</div>
+      <div class="timestamp">Generated: ${timestamp}</div>
+    </div>
+  `;
+  const summary = `
+   <div class="summary">
+      <h2>Summary</h2>
+      <ul class="summary-stats">
+        <li>
+          <span class="stat-icon">\u{1F4C4}</span>
+          <span class="stat-label">Failing Pages</span>
+          <span class="stat-value">${reports.length} / ${totalRoutes}</span>
+        </li>
+        <li>
+          <span class="stat-icon">\u274C</span>
+          <span class="stat-label">Total errors</span>
+          <span class="stat-value error-count">${totalErrors}</span>
+        </li>
+        <li>
+          <span class="stat-icon">\u26A0\uFE0F</span>
+          <span class="stat-label">Total warnings</span>
+          <span class="stat-value warning-count">${totalWarnings}</span>
+        </li>
+      </ul>
+    </div>
+  `;
+  const tocHtml = reports.map(({ route, reports: reports2 }) => {
+    const errors = reports2.filter((r) => r.error?.length).length;
+    const warnings = reports2.filter((r) => r.warning?.length).length;
+    const statusClass = errors > 0 ? "toc-error" : warnings > 0 ? "toc-warning" : "toc-valid";
+    const statusEmoji = errors > 0 ? "\u274C" : warnings > 0 ? "\u26A0\uFE0F" : "\u2705";
+    const statusString = [
+      errors > 0 ? `${errors} error${errors > 1 ? "s" : ""}` : "",
+      warnings > 0 ? `${warnings} warning${warnings > 1 ? "s" : ""}` : ""
+    ].filter(Boolean).join(", ");
+    return `<li class="${statusClass}">
+        <a style="display: block;" href="#route-${createAnchor(route)}">${statusEmoji} ${route}
+        ${statusString ? `<span class="toc-status">(${statusString})</span>` : ""}
+        </a>
+      </li>`;
+  }).join("");
+  const reportHtml = reports.map(({ route, reports: reports2 }) => {
+    const errors = reports2.filter((r) => r.error?.length).length;
+    const warnings = reports2.filter((r) => r.warning?.length).length;
+    const statusClass = errors > 0 ? "status-error" : warnings > 0 ? "status-warning" : "status-valid";
+    const statusString = [
+      errors > 0 ? `${errors} error${errors > 1 ? "s" : ""}` : false,
+      warnings > 0 ? `${warnings} warning${warnings > 1 ? "s" : ""}` : false
+    ].filter(Boolean).join(", ");
+    const reportsHtml = reports2.filter((r) => r.error?.length || r.warning?.length).map((r) => {
+      const hasErrors = (r.error?.length ?? 0) > 0;
+      const hasWarnings = (r.warning?.length ?? 0) > 0;
+      const linkClass = hasErrors ? "link-error" : hasWarnings ? "link-warning" : "link-valid";
+      const errors2 = r.error?.map(
+        (error) => `<li class="error">
+              <span class="error-icon" aria-hidden="true">\u2716</span>
+              <span class="error-message">${error.message}</span>
+              <span class="error-type">${error.name}</span>
+              ${error.fix ? `<div class="fix-suggestion"><span class="fix-label">Suggestion:</span> ${error.fixDescription}</div>` : ""}
+            </li>`
+      ) || [];
+      const warnings2 = r.warning?.map(
+        (warning) => `<li class="warning">
+              <span class="warning-icon" aria-hidden="true">\u26A0</span>
+              <span class="warning-message">${warning.message}</span>
+              <span class="warning-type">${warning.name}</span>
+              ${warning.fix ? `<div class="fix-suggestion"><span class="fix-label">Suggestion:</span> ${warning.fixDescription}</div>` : ""}
+            </li>`
+      ) || [];
+      return `
+          <div class="link-item ${linkClass}">
+            <div class="link-header">
+              <a href="${r.link}" class="link-url">${r.link}</a>
+              <div class="link-text">${r.textContent ? `"${r.textContent}"` : ""}</div>
+            </div>
+            ${errors2.length + warnings2.length > 0 ? `<ul class="issues-list">${[...errors2, ...warnings2].join("")}</ul>` : '<div class="valid-message">Valid</div>'}
+          </div>`;
+    }).join("");
+    return `
+      <section id="route-${createAnchor(route)}" class="route-section ${statusClass}">
+        <h2 class="route-header">
+          <a href="${route}" class="route-link">${route}</a>
+          <span class="route-status">${statusString}</span>
+        </h2>
+        <div class="route-issues">
+          ${reportsHtml || '<div class="no-issues">No issues found</div>'}
+        </div>
+        <div class="back-to-top"><a href="#toc">\u2191 Back to Table of Contents</a></div>
+      </section>`;
+  }).join("");
+  const tableOfContents = `
+      <h2>Table of Contents</h2>
+    <div id="toc" class="table-of-contents">
+      <ul class="toc-list">
+        ${tocHtml || "<li>No issues found</li>"}
+      </ul>
+    </div>
+    `;
+  const html = htmlTemplate.replace("<!-- REPORT -->", `${reportMeta}
+${summary}
+${issueSummary}
+${tableOfContents}
+${reportHtml || '<div class="no-issues">All links are valid! \u{1F389}</div>'}`).replaceAll("<!-- SiteName -->", `Link Report - ${useSiteConfig()?.name || ""}`);
+  await storage.setItem("link-checker-report.html", html);
+  return resolve(storageFilepath, "link-checker-report.html");
+}
+async function generateMarkdownReport(reports, { storage, storageFilepath }) {
+  const sortedReports = [...reports].sort((a, b) => {
+    const segmentsA = a.route.split("/").filter(Boolean);
+    const segmentsB = b.route.split("/").filter(Boolean);
+    const minLength = Math.min(segmentsA.length, segmentsB.length);
+    for (let i = 0; i < minLength; i++) {
+      const cmp = segmentsA[i].localeCompare(segmentsB[i]);
+      if (cmp !== 0)
+        return cmp;
+    }
+    return segmentsA.length - segmentsB.length;
+  });
+  const timestamp = (/* @__PURE__ */ new Date()).toLocaleString();
+  const totalErrors = sortedReports.reduce((sum, { reports: reports2 }) => sum + reports2.filter((r) => r.error?.length).length, 0);
+  const totalWarnings = sortedReports.reduce((sum, { reports: reports2 }) => sum + reports2.filter((r) => r.warning?.length).length, 0);
+  const header = [
+    "# Nuxt Link Checker Report",
+    "",
+    `**Generated:** ${timestamp}`,
+    "",
+    "## Summary",
+    "",
+    `- **Pages checked:** ${sortedReports.length}`,
+    `- **Total errors:** ${totalErrors}`,
+    `- **Total warnings:** ${totalWarnings}`,
+    "",
+    "---",
+    ""
+  ].join("\n");
+  const toc = sortedReports.map(({ route }) => `- [${route}](#${createAnchor(route)})`).join("\n");
+  const reportMarkdown = sortedReports.map(({ route, reports: reports2 }) => {
+    const errors = reports2.filter((r) => r.error?.length).length;
+    const warnings = reports2.filter((r) => r.warning?.length).length;
+    const statusEmoji = errors > 0 ? "\u274C" : warnings > 0 ? "\u26A0\uFE0F" : "\u2705";
+    const statusString = [
+      errors > 0 ? `${errors} error${errors > 1 ? "s" : ""}` : "",
+      warnings > 0 ? `${warnings} warning${warnings > 1 ? "s" : ""}` : ""
+    ].filter(Boolean).join(", ");
+    const linkIssues = /* @__PURE__ */ new Map();
+    reports2.forEach((r) => {
+      if ((r.error?.length || 0) + (r.warning?.length || 0) === 0)
+        return;
+      const link = r.link;
+      if (!linkIssues.has(link)) {
+        linkIssues.set(link, {
+          errors: [],
+          warnings: [],
+          textContent: r.textContent || ""
+        });
+      }
+      const issues = linkIssues.get(link);
+      if (r.error?.length)
+        issues.errors.push(...r.error);
+      if (r.warning?.length)
+        issues.warnings.push(...r.warning);
+    });
+    const linksMarkdown = Array.from(linkIssues.entries()).map(([link, issues]) => {
+      const linkMd = [
+        `### Link: [${truncateString(link, 60)}](${link})`,
+        issues.textContent ? `> Link text: "${issues.textContent}"` : "",
+        ""
+      ];
+      if (issues.errors.length) {
+        linkMd.push("#### Errors");
+        issues.errors.forEach((err) => {
+          linkMd.push(`- **${err.name}:** ${err.message}`);
+          if (err.fix)
+            linkMd.push(`  - *Suggestion:* ${err.fixDescription}`);
+        });
+        linkMd.push("");
+      }
+      if (issues.warnings.length) {
+        linkMd.push("#### Warnings");
+        issues.warnings.forEach((warn) => {
+          linkMd.push(`- **${warn.name}:** ${warn.message}`);
+          if (warn.fix)
+            linkMd.push(`  - *Suggestion:* ${warn.fixDescription}`);
+        });
+        linkMd.push("");
+      }
+      return linkMd.filter((line) => line !== "").join("\n");
+    }).join("\n");
+    return [
+      `## ${statusEmoji} [${route}](${route}) ${statusString ? `(${statusString})` : ""}`,
+      "",
+      linkIssues.size > 0 ? linksMarkdown : "*No issues found on this page*",
+      "",
+      '<div align="right"><a href="#nuxt-link-checker-report">\u2191 Back to top</a></div>',
+      "",
+      "---",
+      ""
+    ].join("\n");
+  }).join("\n");
+  const markdown = [
+    header,
+    "## Table of Contents",
+    "",
+    toc,
+    "",
+    "---",
+    "",
+    reportMarkdown
+  ].join("\n");
+  await storage.setItem("link-checker-report.md", markdown);
+  return resolve(storageFilepath, "link-checker-report.md");
+}
+const nonWordRe = /[^\w\s-]/g;
+const whitespaceRe = /\s+/g;
+const multiDashRe = /-+/g;
+function createAnchor(text) {
+  return text.toLowerCase().replace(nonWordRe, "").replace(whitespaceRe, "-").replace(multiDashRe, "-");
+}
+async function generateJsonReport(reports, { storage, storageFilepath }) {
+  const filteredReports = reports.map((report) => ({
+    ...report,
+    reports: report.reports.filter((r) => r.error?.length || r.warning?.length)
+  })).filter((report) => report.reports.length > 0);
+  const json = JSON.stringify(filteredReports, null, 2);
+  await storage.setItem("link-checker-report.json", json);
+  return resolve(storageFilepath, "link-checker-report.json");
+}
+
+const { gray, yellow, dim, red, white } = colors;
+const linkMap = {};
+async function extractPayload(html, rootNodeId = "#__nuxt") {
+  if (String(rootNodeId).length) {
+    rootNodeId = rootNodeId[0] === "#" ? rootNodeId : `#${rootNodeId}`;
+  }
+  const ast = parse(
+    html.replaceAll("<!--]-->", "").replaceAll("<!--[-->", "").replaceAll("<!---->", "").replaceAll("&amp;>", "&amp;&gt;")
+  );
+  const title = [];
+  const ids = [];
+  const links = [];
+  let enteredRoot = !rootNodeId;
+  walkSync(ast, (node) => {
+    if (node.attributes?.id === rootNodeId.substring(1)) {
+      enteredRoot = true;
+    }
+    if (!enteredRoot) {
+      return;
+    }
+    if (node.type === ELEMENT_NODE && node.name === "title") {
+      if (node.children && node.children.length > 0) {
+        title.push(node.children[0]?.value || "");
+      }
+    }
+    if (node.type === ELEMENT_NODE && node.attributes?.id) {
+      ids.push(node.attributes.id);
+    }
+    if (node.type === ELEMENT_NODE && node.name === "a") {
+      links.push({
+        role: node.attributes?.role || "",
+        link: node.attributes?.href || "",
+        textContent: getTextContent(node)
+      });
+    }
+  });
+  return { title: title[0] || "", ids, links };
+}
+function getTextContent(node) {
+  const text = [];
+  if (typeof node.value === "string" && node.value) {
+    return node.value;
+  }
+  if (node.attributes?.["aria-label"])
+    return node.attributes["aria-label"];
+  if (node.attributes?.title)
+    return node.attributes.title;
+  if (node.children) {
+    for (const child of node.children) {
+      text.push(getTextContent(child));
+    }
+  }
+  return text.filter(Boolean).map((s) => s.trim()).join(" ");
+}
+function prerender(config, version, routeFileMap = {}, nuxt = useNuxt()) {
+  if (config.report?.publish) {
+    extendRouteRules("/__link-checker__/*", {
+      headers: {
+        "X-Robots-Tag": "noindex"
+      }
+    });
+    nuxt.hooks.hook("robots:config", (config2) => {
+      const catchAll = config2.groups?.find((g) => g.userAgent?.includes("*"));
+      if (catchAll) {
+        catchAll.disallow.push("/__link-checker__");
+      }
+    });
+  }
+  const excludedLinks = [...config.excludeLinks];
+  const rtConfig = useRuntimeConfig();
+  if (rtConfig.app.baseURL && rtConfig.app.baseURL.length > 2) {
+    excludedLinks.push(rtConfig.app.baseURL);
+  }
+  const urlFilter = createFilter({
+    exclude: excludedLinks
+  });
+  const pageFilter = createFilter({
+    exclude: config.excludePages
+  });
+  nuxt.hooks.hook("nitro:init", async (nitro) => {
+    const siteConfig = useSiteConfig();
+    nitro.hooks.hook("prerender:generate", async (ctx) => {
+      const route = decodeURI(ctx.route);
+      if (ctx.contents && !ctx.error && ctx.fileName?.endsWith(".html") && !route.endsWith(".html") && pageFilter(route))
+        linkMap[route] = await extractPayload(ctx.contents, nuxt.options.app.rootAttrs?.id || "");
+      setLinkResponse(route, Promise.resolve({
+        status: Number(ctx.error?.statusCode) || 200,
+        statusText: ctx.error?.statusMessage || "",
+        headers: {
+          "Content-Type": ctx.contentType
+        }
+      }));
+    });
+    nitro.hooks.hook("prerender:done", async () => {
+      const payloads = Object.entries(linkMap).sort(([a], [b]) => a.localeCompare(b));
+      if (!payloads.length)
+        return;
+      const { storage, storageFilepath } = createReportStorage(config, nuxt, nitro);
+      const pageSearcher = createPageSearcher(payloads);
+      nitro.logger.info("Running link inspections...");
+      const inspectionCtx = {
+        urlFilter,
+        pageFilter,
+        config,
+        nuxt,
+        pageSearcher,
+        siteConfig,
+        nitro,
+        version,
+        storage,
+        storageFilepath,
+        isPrerenderingAllRoutes: isNuxtGenerate(nuxt) || Boolean(nuxt.options.nitro.prerender?.crawlLinks),
+        totalRoutes: payloads.length,
+        routeFileMap
+      };
+      const { allReports, errorCount } = await runInspections(payloads, inspectionCtx);
+      const reportsWithContent = allReports.filter(
+        ({ reports }) => reports.some((r) => r.error?.length || r.warning?.length)
+      );
+      await generateReports(reportsWithContent, inspectionCtx);
+      if (config.debug) {
+        await storage.setItem("debug-link-responses.json", JSON.stringify(await getResolvedLinkResponses()));
+      }
+      if (errorCount > 0 && config.failOnError) {
+        nitro.logger.error(`Nuxt Link Checker found ${errorCount} errors, failing build.`);
+        nitro.logger.log(gray('You can disable this by setting "linkChecker: { failOnError: false }" in your nuxt.config.'));
+        process.exit(1);
+      }
+    });
+  });
+}
+function createReportStorage(config, nuxt, nitro) {
+  const storageFilepath = typeof config.report?.storage === "string" ? resolve(nuxt.options.rootDir, config.report?.storage) : config.report?.publish ? `${nitro.options.output.publicDir}/__link-checker__/` : nitro.options.output.dir;
+  const storage = createStorage(
+    config.report?.storage && typeof config.report.storage !== "string" ? config.report?.storage : {
+      driver: fsDriver({
+        base: storageFilepath
+      })
+    }
+  );
+  return { storage, storageFilepath };
+}
+function createPageSearcher(payloads) {
+  const links = payloads?.map(([route, payload]) => ({
+    link: route,
+    title: payload.title
+  })).flat();
+  return new Fuse(links, {
+    keys: ["link", "title"],
+    threshold: 0.5
+  });
+}
+async function runInspections(payloads, context) {
+  const { config, nitro } = context;
+  let errorCount = 0;
+  let warningCount = 0;
+  let routeWithIssuesCount = 0;
+  const totalRoutes = payloads.length;
+  const reportSlots = Array.from({ length: totalRoutes });
+  await runParallel(
+    payloads,
+    async ([route, payload], index) => {
+      reportSlots[index] = {
+        route,
+        reports: await processRouteLinks(route, payload, context)
+      };
+    },
+    { concurrency: 5 }
+    // Process 5 routes in parallel
+  );
+  const allReports = reportSlots.filter(Boolean);
+  for (const { route, reports } of allReports) {
+    const routeErrors = reports.filter((r) => r.error?.length).length;
+    const routeWarnings = reports.filter((r) => r.warning?.length).length;
+    if (!routeErrors && !routeWarnings) {
+      continue;
+    }
+    errorCount += routeErrors;
+    warningCount += routeWarnings;
+    routeWithIssuesCount++;
+    if (!hasReportsEnabled(config)) {
+      logRouteIssues(route, reports, routeErrors, routeWarnings, nitro, context.routeFileMap);
+    }
+  }
+  logSummary(
+    totalRoutes,
+    routeWithIssuesCount,
+    errorCount,
+    warningCount,
+    nitro
+  );
+  return { allReports, errorCount };
+}
+async function processRouteLinks(route, payload, context) {
+  const { urlFilter, config, nuxt, siteConfig, pageSearcher } = context;
+  const links = payload.links || [];
+  const reportSlots = Array.from({ length: links.length });
+  await runParallel(
+    links,
+    async ({ link, textContent }, index) => {
+      if (!urlFilter(link) || !link) {
+        reportSlots[index] = { error: [], warning: [], link };
+        return;
+      }
+      const response = await getLinkResponse({
+        link,
+        baseURL: siteConfig.url,
+        timeout: config.fetchTimeout,
+        fetchRemoteUrls: config.fetchRemoteUrls,
+        isInStorage() {
+          return existsSync(resolve(nuxt.options.rootDir, nuxt.options.dir.public, withoutLeadingSlash(link)));
+        }
+      });
+      const report = inspect({
+        ids: linkMap[route].ids,
+        fromPath: route,
+        pageSearch: pageSearcher,
+        siteConfig,
+        link,
+        textContent,
+        response,
+        skipInspections: config.skipInspections
+      });
+      reportSlots[index] = report;
+    },
+    { concurrency: 5 }
+    // Process 5 links in parallel
+  );
+  return reportSlots.filter(Boolean);
+}
+function logSummary(totalRoutes, routesWithIssues, errorCount, warningCount, nitro) {
+  nitro.logger.info(`Nuxt Link Checker Summary`);
+  nitro.logger.log(`  ${white("Failing Pages:")} ${routesWithIssues} of ${totalRoutes}`);
+  if (errorCount > 0) {
+    nitro.logger.log(`  ${red("\u274C Total errors:")} ${errorCount}`);
+  } else {
+    nitro.logger.log(`  ${white("Total errors:")} 0`);
+  }
+  if (warningCount > 0) {
+    nitro.logger.log(`  ${yellow("\u26A0\uFE0F Total warnings:")} ${warningCount}`);
+  } else {
+    nitro.logger.log(`  ${white("Total warnings:")} 0`);
+  }
+}
+function hasReportsEnabled(config) {
+  return Boolean(
+    config.report?.html || config.report?.markdown || config.report?.json
+  );
+}
+function logRouteIssues(route, reports, errors, warnings, nitro, routeFileMap = {}) {
+  const statusString = [
+    errors > 0 ? red(`${errors} error${errors > 1 ? "s" : ""}`) : false,
+    warnings > 0 ? yellow(`${warnings} warning${warnings > 1 ? "s" : ""}`) : false
+  ].filter(Boolean).join(gray(", "));
+  const filePath = routeFileMap[route];
+  nitro.logger.log(gray(""));
+  nitro.logger.log(`${white(route)} ${gray("[")}${statusString}${gray("]")}${filePath ? ` ${dim(filePath)}` : ""}`);
+  const reportsByLink = groupReportsByLink(reports);
+  Object.entries(reportsByLink).forEach(([link, issues], index, array) => {
+    const isLast = index === array.length - 1;
+    const prefix = isLast ? "\u2514\u2500" : "\u251C\u2500";
+    nitro.logger.log(gray(`  ${prefix} ${white(truncateString(link, 60))}`));
+    if (issues.textContent) {
+      nitro.logger.log(gray(`  ${isLast ? "   " : "\u2502  "} "${issues.textContent}"`));
+    }
+    issues.errors.forEach((error, idx, arr) => {
+      const errorPrefix = idx === arr.length - 1 && issues.warnings.length === 0 ? "\u2514\u2500" : "\u251C\u2500";
+      nitro.logger.log(`  ${isLast ? "   " : "\u2502  "} ${errorPrefix} ${red(error.message)} ${dim(`(${error.name})`)}`);
+      if (error.fix) {
+        nitro.logger.log(gray(`  ${isLast ? "   " : "\u2502  "} ${idx === arr.length - 1 && issues.warnings.length === 0 ? "   " : "\u2502  "} Fix: ${error.fixDescription}`));
+      }
+    });
+    issues.warnings.forEach((warning, idx, arr) => {
+      const warnPrefix = idx === arr.length - 1 ? "\u2514\u2500" : "\u251C\u2500";
+      nitro.logger.log(`  ${isLast ? "   " : "\u2502  "} ${warnPrefix} ${yellow(warning.message)} ${dim(`(${warning.name})`)}`);
+      if (warning.fix) {
+        nitro.logger.log(gray(`  ${isLast ? "   " : "\u2502  "} ${idx === arr.length - 1 ? "   " : "\u2502  "} Fix: ${warning.fixDescription}`));
+      }
+    });
+  });
+}
+function groupReportsByLink(reports) {
+  const result = {};
+  reports.forEach((report) => {
+    if ((report.error?.length || 0) + (report.warning?.length || 0) === 0) {
+      return;
+    }
+    if (!result[report.link]) {
+      result[report.link] = {
+        textContent: report.textContent || "",
+        errors: [],
+        warnings: []
+      };
+    }
+    if (report.error?.length) {
+      result[report.link].errors.push(...report.error);
+    }
+    if (report.warning?.length) {
+      result[report.link].warnings.push(...report.warning);
+    }
+  });
+  return result;
+}
+
+const excludeUnderscorePathsRe = /^\/_/;
+const excludeLlmsTxtRe = /^\/llms(-[\w-]+)?\.txt$/;
+const module$1 = defineNuxtModule({
+  meta: {
+    name: "nuxt-link-checker",
+    compatibility: {
+      nuxt: ">=3.9.0"
+    },
+    configKey: "linkChecker"
+  },
+  moduleDependencies: {
+    "nuxt-site-config": {
+      version: ">=3.2"
+    },
+    "@harlan-zw/comark-content": {
+      version: ">=0.1.2",
+      optional: true
+    },
+    "@nuxt/content": {
+      version: ">=2",
+      optional: true
+    },
+    "@nuxtjs/sitemap": {
+      version: ">=7",
+      optional: true
+    }
+  },
+  defaults() {
+    return {
+      strictNuxtContentPaths: false,
+      fetchRemoteUrls: false,
+      runOnBuild: true,
+      debug: false,
+      showLiveInspections: false,
+      enabled: true,
+      fetchTimeout: 1e4,
+      failOnError: false,
+      excludeLinks: [
+        excludeUnderscorePathsRe,
+        excludeLlmsTxtRe
+      ],
+      excludePages: [],
+      skipInspections: []
+    };
+  },
+  async setup(config, nuxt) {
+    const { resolve } = createResolver(import.meta.url);
+    const logger = useModuleLogger("nuxt-link-checker", config, nuxt);
+    const { name, version } = await readPackageJSON(resolve("../package.json"));
+    if (config.enabled === false) {
+      logger.debug(`The ${name} module is disabled, skipping setup.`);
+      return;
+    }
+    await installNuxtSiteConfig();
+    setupNitroRuntimeCompatibility(nuxt);
+    let i18nLocales = [];
+    const i18nModule = resolveI18nModule();
+    if (i18nModule) {
+      const i18nConfig = await getNuxtModuleOptions(i18nModule.module);
+      i18nLocales = normalizeLocales(i18nConfig).map((l) => l.code);
+    }
+    if (!nuxt.options._prepare && config.fetchRemoteUrls) {
+      const { status } = await crawlFetch("https://nuxtseo.com/robots.txt", { timeout: 400 }).catch(() => ({ status: 404 }));
+      config.fetchRemoteUrls = status < 400;
+      if (!config.fetchRemoteUrls)
+        logger.warn("Remote URL fetching is disabled because you appear to be offline. Set `fetchRemoteUrls: false` to avoid this warning.");
+    }
+    const hasSitemapModule = (hasNuxtModule("@nuxtjs/sitemap") || hasNuxtModule("nuxt-simple-sitemap") && await hasNuxtModuleCompatibility("nuxt-simple-sitemap", ">=4")) && nuxt.options.sitemap?.enabled !== false;
+    const isDevToolsEnabled = typeof nuxt.options.devtools === "boolean" ? nuxt.options.devtools : nuxt.options.devtools.enabled;
+    if (nuxt.options.dev && isDevToolsEnabled !== false) {
+      addPlugin({
+        src: resolve("./runtime/app/plugins/ui.client"),
+        mode: "client"
+      });
+      addServerHandler({
+        route: "/__link-checker__/inspect",
+        handler: resolve("./runtime/server/routes/__link-checker__/inspect")
+      });
+      addServerHandler({
+        route: "/__link-checker__/links",
+        handler: resolve("./runtime/server/routes/__link-checker__/links")
+      });
+      addServerHandler({
+        route: "/__link-checker__/debug.json",
+        handler: resolve("./runtime/server/routes/__link-checker__/debug")
+      });
+      const pages = [];
+      nuxt.hooks.hook("pages:resolved", (resolved) => {
+        pages.unshift(...resolved);
+      });
+      addServerTemplate({
+        filename: "#nuxt-link-checker-sitemap/pages.mjs",
+        getContents: async () => `export default ${JSON.stringify(convertNuxtPagesToPaths(pages, { locales: i18nLocales }), null, 2)}`
+      });
+      nuxt.options.nitro.alias = nuxt.options.nitro.alias || {};
+      const contentProvider = await resolveContentProvider(nuxt);
+      setupContentRuntime(contentProvider, nuxt);
+      if (contentProvider._tag === "NuxtContent" && contentProvider.version === 3) {
+        if (await hasNuxtModuleCompatibility("@nuxt/content", "<3.6.0")) {
+          nuxt.options.alias["@nuxt/content/nitro"] = resolve("./runtime/server/content-compat");
+          nuxt.options.alias["#link-checker/content-v3-nitro-path"] = resolve(dirname(resolveModule("@nuxt/content")), "runtime/nitro");
+        }
+      }
+      const contentProviderPath = contentProvider._tag === "NuxtContent" && contentProvider.version === 2 ? "./runtime/server/providers/content-v2" : contentProvider._tag === "None" ? "./runtime/server/providers/noop" : "./runtime/server/providers/content";
+      nuxt.options.nitro.alias["#link-checker/content-provider"] = resolve(contentProviderPath);
+      nuxt.options.alias["#link-checker"] = resolve("./runtime");
+      nuxt.options.runtimeConfig.public["nuxt-link-checker"] = {
+        version,
+        hasSitemapModule,
+        rootDir: nuxt.options.rootDir,
+        excludeLinks: serializeFilters(config.excludeLinks, "nuxt-link-checker"),
+        excludePages: serializeFilters(config.excludePages, "nuxt-link-checker"),
+        skipInspections: config.skipInspections,
+        fetchTimeout: config.fetchTimeout,
+        showLiveInspections: config.showLiveInspections,
+        fetchRemoteUrls: config.fetchRemoteUrls
+      };
+      setupDevToolsUI(config, resolve, i18nLocales);
+    }
+    const routeFileMap = {};
+    nuxt.hooks.hook("pages:resolved", (resolved) => {
+      for (const entry of convertNuxtPagesToPaths(resolved, { locales: i18nLocales })) {
+        if (entry.file)
+          routeFileMap[entry.link] = entry.file;
+      }
+    });
+    const routesDir = join(nuxt.options.buildDir, "link-checker");
+    const routesPath = join(routesDir, "routes.json");
+    let staticRoutes = [];
+    let dynamicRoutes = [];
+    const writeRoutesFile = async () => {
+      await mkdir(routesDir, { recursive: true });
+      await writeFile(routesPath, JSON.stringify({ staticRoutes, dynamicRoutes }));
+    };
+    nuxt.hooks.hook("pages:resolved", async (resolved) => {
+      const allPaths = convertNuxtPagesToPaths(resolved, { keepDynamic: true, locales: i18nLocales });
+      staticRoutes = allPaths.filter((p) => !p.link.includes(":")).map((p) => p.link);
+      dynamicRoutes = allPaths.filter((p) => p.link.includes(":")).map((p) => p.link);
+      await writeRoutesFile();
+    });
+    if (hasSitemapModule && nuxt.options.dev) {
+      let debounceTimer;
+      nuxt.hooks.hook("listen", (_server, listener) => {
+        const baseURL = `http://localhost:${listener.port}`;
+        const enrichRoutes = async () => {
+          const debug = await $fetch(`${baseURL}/__sitemap__/debug.json`).catch(() => {
+            return null;
+          });
+          if (!debug)
+            return;
+          const baseOrigin = new URL(baseURL).origin;
+          const sitemapPaths = debug.globalSources.flatMap((s) => s.urls).map((u) => {
+            const parsed = new URL(u.loc, baseURL);
+            if (parsed.origin !== baseOrigin)
+              return null;
+            return parsed.pathname || "/";
+          }).filter((p) => !!p && p.startsWith("/"));
+          staticRoutes = [.../* @__PURE__ */ new Set([...staticRoutes, ...sitemapPaths])];
+          await writeRoutesFile();
+        };
+        enrichRoutes();
+        nuxt.hooks.hook("builder:watch", () => {
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(enrichRoutes, 500);
+        });
+      });
+    }
+    nuxt.hook("eslint:config:addons", (addons) => {
+      addons.push({
+        name: "nuxt-link-checker",
+        getConfigs: () => ({
+          imports: [{ from: "nuxt-link-checker/eslint", name: "default", as: "linkCheckerPlugin" }],
+          configs: [
+            `{
+              name: 'nuxt-link-checker/valid-route',
+              files: ['**/*.vue', '**/*.ts'],
+              plugins: { 'link-checker': linkCheckerPlugin },
+              rules: {
+                'link-checker/valid-route': 'error',
+                'link-checker/valid-sitemap-link': 'warn',
+              },
+            }`,
+            `{
+              name: 'nuxt-link-checker/valid-route-markdown',
+              files: ['**/*.md'],
+              plugins: { 'link-checker': linkCheckerPlugin },
+              processor: 'link-checker/markdown',
+              rules: {
+                'link-checker/valid-route': 'error',
+                'link-checker/valid-sitemap-link': 'warn',
+              },
+            }`
+          ]
+        })
+      });
+    });
+    if (config.runOnBuild) {
+      prerender(config, version, routeFileMap);
+    }
+  }
+});
+
+export { module$1 as default };

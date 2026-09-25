@@ -1,0 +1,2841 @@
+import { hasOwn, processTemplateParams } from 'unhead/utils';
+import { defineHeadPlugin, TemplateParamsPlugin } from 'unhead/plugins';
+
+// @__NO_SIDE_EFFECTS__
+function defineSchemaOrgResolver(schema) {
+  return schema;
+}
+
+const PROTOCOL_RE = /^[\s\w\0+.-]{2,}:(?:[/\\]{2})?/;
+const JOIN_LEADING_SLASH_RE = /^\.?\//;
+function hasProtocol(input) {
+  return PROTOCOL_RE.test(input);
+}
+function withoutTrailingSlash(input = "") {
+  return (input.endsWith("/") ? input.slice(0, -1) : input) || "/";
+}
+function withTrailingSlash(input = "") {
+  return input.endsWith("/") ? input : `${input}/`;
+}
+function joinURL(base, input) {
+  if (!input || input === "/")
+    return base || "";
+  return base ? withTrailingSlash(base) + input.replace(JOIN_LEADING_SLASH_RE, "") : input;
+}
+function withBase(input, base) {
+  if (!base || base === "/" || hasProtocol(input))
+    return input;
+  const normalizedBase = withoutTrailingSlash(base);
+  if (input.startsWith(normalizedBase)) {
+    const nextChar = input[normalizedBase.length];
+    if (!nextChar || nextChar === "/" || nextChar === "?")
+      return input;
+  }
+  return joinURL(normalizedBase, input);
+}
+function idReference(node) {
+  return {
+    "@id": typeof node !== "string" ? node["@id"] : node
+  };
+}
+function resolvableDateToDate(val) {
+  try {
+    const date = val instanceof Date ? val : new Date(Date.parse(val));
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
+  } catch {
+  }
+  return typeof val === "string" ? val : val.toString();
+}
+const IS_VALID_W3C_DATE = [
+  /(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d\.\d+([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))|(\d{4}-[01]\d-[0-3]\dT[0-2]\d:[0-5]\d([+-][0-2]\d:[0-5]\d|Z))/,
+  /^\d{4}-[01]\d-[0-3]\d$/,
+  /^\d{4}-[01]\d$/,
+  /^\d{4}$/
+];
+function isValidW3CDate(d) {
+  return IS_VALID_W3C_DATE.some((r) => r.test(d));
+}
+function resolvableDateToIso(val) {
+  if (!val)
+    return val;
+  try {
+    if (val instanceof Date)
+      return val.toISOString();
+    else if (isValidW3CDate(val))
+      return val;
+    else
+      return new Date(Date.parse(val)).toISOString();
+  } catch {
+  }
+  return typeof val === "string" ? val : val.toString();
+}
+const IdentityId = "#identity";
+function isHomePage(meta) {
+  return meta.url === meta.host;
+}
+function setIfEmpty(node, field, value) {
+  if (node?.[field] === void 0 && value != null)
+    node[field] = value;
+}
+function asArray(input) {
+  return Array.isArray(input) ? input : [input];
+}
+function dedupeMerge(node, field, value) {
+  const data = new Set(asArray(node[field]));
+  data.add(value);
+  node[field] = [...data].filter(Boolean);
+}
+function prefixId(url, id) {
+  if (hasProtocol(id))
+    return id;
+  if (!id.includes("#"))
+    id = `#${id}`;
+  return `${url || ""}${id}`;
+}
+function trimLength(val, length) {
+  if (!val)
+    return val;
+  if (val.length > length) {
+    const trimmedString = val.substring(0, length);
+    return trimmedString.substring(0, Math.min(trimmedString.length, trimmedString.lastIndexOf(" ")));
+  }
+  return val;
+}
+function resolveDefaultType(node, defaultType) {
+  const val = node["@type"];
+  if (val === defaultType)
+    return;
+  if (typeof val === "string" && typeof defaultType === "string") {
+    if (val !== defaultType)
+      node["@type"] = [defaultType, val];
+    return;
+  }
+  const types = new Set(asArray(defaultType));
+  for (const t of asArray(val)) {
+    if (t != null)
+      types.add(t);
+  }
+  const resolved = [...types];
+  node["@type"] = resolved.length === 1 ? resolved[0] : resolved;
+}
+function resolveWithBase(base, urlOrPath) {
+  if (!base || !urlOrPath || hasProtocol(urlOrPath) || urlOrPath[0] !== "/" && urlOrPath[0] !== "#")
+    return urlOrPath;
+  return withBase(urlOrPath, base);
+}
+function resolveAsGraphKey(key) {
+  if (!key)
+    return key;
+  return key.substring(key.lastIndexOf("#"));
+}
+function stripEmptyProperties(obj) {
+  for (const k in obj) {
+    if (!hasOwn(obj, k))
+      continue;
+    const v = obj[k];
+    if (v === "" || v === void 0) {
+      delete obj[k];
+    } else if (typeof v === "object" && v !== null) {
+      if (v.__v_isReadonly || v.__v_isRef)
+        continue;
+      stripEmptyProperties(v);
+    }
+  }
+  return obj;
+}
+function stripNullProperties(obj) {
+  if (Array.isArray(obj)) {
+    let next = 0;
+    for (let i = 0; i < obj.length; i++) {
+      const v = obj[i];
+      if (v === null)
+        continue;
+      if (typeof v === "object" && v !== null)
+        stripNullProperties(v);
+      obj[next++] = v;
+    }
+    obj.length = next;
+    return obj;
+  }
+  for (const k in obj) {
+    if (!hasOwn(obj, k))
+      continue;
+    const v = obj[k];
+    if (v === null) {
+      delete obj[k];
+    } else if (typeof v === "object") {
+      if (v.__v_isReadonly || v.__v_isRef)
+        continue;
+      stripNullProperties(v);
+    }
+  }
+  return obj;
+}
+
+const interactionCounterResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "InteractionCounter"
+  }
+});
+const propertyValueResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PropertyValue"
+  }
+});
+
+const definedRegionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "DefinedRegion"
+  }
+});
+
+const quantitativeValueResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "number") {
+      return {
+        value: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "QuantitativeValue"
+  },
+  resolve(node, ctx) {
+    node.valueReference = resolveRelation(node.valueReference, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+const monetaryAmountResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MonetaryAmount"
+  },
+  resolve(node, ctx) {
+    if (typeof node.value === "object")
+      node.value = resolveRelation(node.value, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+
+const merchantReturnPolicyResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MerchantReturnPolicy"
+  },
+  resolve(node, ctx) {
+    if (node.returnPolicyCategory)
+      node.returnPolicyCategory = withBase(node.returnPolicyCategory, "https://schema.org/");
+    if (node.returnFees)
+      node.returnFees = withBase(node.returnFees, "https://schema.org/");
+    if (node.returnMethod)
+      node.returnMethod = withBase(node.returnMethod, "https://schema.org/");
+    node.returnShippingFeesAmount = resolveRelation(node.returnShippingFeesAmount, ctx, monetaryAmountResolver);
+    return node;
+  }
+});
+
+const shippingDeliveryTimeResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ShippingDeliveryTime"
+  },
+  resolve(node, ctx) {
+    node.handlingTime = resolveRelation(node.handlingTime, ctx, quantitativeValueResolver);
+    node.transitTime = resolveRelation(node.transitTime, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+
+const offerShippingDetailsResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "OfferShippingDetails"
+  },
+  resolve(node, ctx) {
+    node.deliveryTime = resolveRelation(node.deliveryTime, ctx, shippingDeliveryTimeResolver);
+    node.shippingDestination = resolveRelation(node.shippingDestination, ctx, definedRegionResolver);
+    node.shippingRate = resolveRelation(node.shippingRate, ctx, monetaryAmountResolver);
+    return node;
+  }
+});
+
+const unitPriceSpecificationResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "UnitPriceSpecification"
+  },
+  resolve(node, ctx) {
+    if (node.price !== void 0)
+      setIfEmpty(node, "priceCurrency", ctx.meta.currency);
+    if (node.priceType)
+      node.priceType = withBase(node.priceType, "https://schema.org/");
+    node.referenceQuantity = resolveRelation(node.referenceQuantity, ctx, quantitativeValueResolver);
+    node.validForMemberTier = resolveRelation(node.validForMemberTier, ctx, memberProgramTierResolver);
+    node.validFrom = resolvableDateToIso(node.validFrom);
+    node.validThrough = resolvableDateToIso(node.validThrough);
+    return node;
+  }
+});
+const offerResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "number" || typeof node === "string") {
+      return {
+        price: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "Offer",
+    "availability": "InStock"
+  },
+  resolve(node, ctx) {
+    setIfEmpty(node, "priceCurrency", ctx.meta.currency);
+    setIfEmpty(node, "priceValidUntil", new Date(Date.UTC((/* @__PURE__ */ new Date()).getFullYear() + 1, 12, -1, 0, 0, 0)));
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    if (node.availability)
+      node.availability = withBase(node.availability, "https://schema.org/");
+    if (node.itemCondition)
+      node.itemCondition = withBase(node.itemCondition, "https://schema.org/");
+    if (node.priceValidUntil)
+      node.priceValidUntil = resolvableDateToIso(node.priceValidUntil);
+    node.validFrom = resolvableDateToIso(node.validFrom);
+    node.hasMerchantReturnPolicy = resolveRelation(node.hasMerchantReturnPolicy, ctx, merchantReturnPolicyResolver);
+    node.priceSpecification = resolveRelation(node.priceSpecification, ctx, unitPriceSpecificationResolver);
+    node.shippingDetails = resolveRelation(node.shippingDetails, ctx, offerShippingDetailsResolver);
+    return node;
+  }
+});
+
+const addressResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PostalAddress"
+  }
+});
+
+const listItemResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      node = {
+        name: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "ListItem"
+  },
+  resolve(node, ctx) {
+    if (typeof node.item === "string")
+      node.item = resolveWithBase(ctx.meta.host, node.item);
+    else if (typeof node.item === "object")
+      node.item = resolveRelation(node.item, ctx);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+
+const PrimaryBreadcrumbId = "#breadcrumb";
+const breadcrumbResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "BreadcrumbList"
+  },
+  idPrefix: ["url", PrimaryBreadcrumbId],
+  resolve(breadcrumb, ctx) {
+    if (breadcrumb.itemListElement) {
+      let index = 1;
+      breadcrumb.itemListElement = resolveRelation(breadcrumb.itemListElement, ctx, listItemResolver, {
+        array: true,
+        afterResolve(node) {
+          setIfEmpty(node, "position", index++);
+        }
+      });
+    }
+    return breadcrumb;
+  },
+  resolveRootNode(node, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    if (webPage)
+      setIfEmpty(webPage, "breadcrumb", idReference(node));
+  }
+});
+
+const clipResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Clip"
+  },
+  resolve(node, ctx) {
+    node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+const broadcastEventResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "BroadcastEvent"
+  },
+  resolve(node) {
+    node.startDate = resolvableDateToIso(node.startDate);
+    node.endDate = resolvableDateToIso(node.endDate);
+    return node;
+  }
+});
+const seekToActionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "SeekToAction"
+  },
+  resolve(node, ctx) {
+    node.target = resolveWithBase(ctx.meta.host, node.target);
+    return node;
+  }
+});
+const videoResolver = defineSchemaOrgResolver({
+  cast(input) {
+    if (typeof input === "string") {
+      input = {
+        url: input
+      };
+    }
+    return input;
+  },
+  alias: "video",
+  defaults: {
+    "@type": "VideoObject"
+  },
+  inheritMeta: [
+    { meta: "title", key: "name" },
+    "description",
+    "image",
+    "inLanguage",
+    { meta: "datePublished", key: "uploadDate" }
+  ],
+  idPrefix: "host",
+  resolve(video, ctx) {
+    if (video.uploadDate)
+      video.uploadDate = resolvableDateToIso(video.uploadDate);
+    video.expires = resolvableDateToIso(video.expires);
+    if (video.url)
+      video.url = resolveWithBase(ctx.meta.host, video.url);
+    if (video.contentUrl)
+      video.contentUrl = resolveWithBase(ctx.meta.host, video.contentUrl);
+    if (video.embedUrl)
+      video.embedUrl = resolveWithBase(ctx.meta.host, video.embedUrl);
+    if (video.caption && !video.description)
+      video.description = video.caption;
+    if (!video.description)
+      video.description = "No description";
+    if (video.thumbnailUrl && (typeof video.thumbnailUrl === "string" || Array.isArray(video.thumbnailUrl))) {
+      const images = asArray(video.thumbnailUrl).map((image) => resolveWithBase(ctx.meta.host, image));
+      video.thumbnailUrl = images.length > 1 ? images : images[0];
+    }
+    if (video.thumbnail)
+      video.thumbnail = resolveRelation(video.thumbnail, ctx, imageResolver);
+    video.hasPart = resolveRelation(video.hasPart, ctx, clipResolver);
+    video.interactionStatistic = resolveRelation(video.interactionStatistic, ctx, interactionCounterResolver);
+    video.potentialAction = resolveRelation(video.potentialAction, ctx, seekToActionResolver);
+    video.publication = resolveRelation(video.publication, ctx, broadcastEventResolver);
+    return video;
+  },
+  resolveRootNode(video, { find, meta }) {
+    if (video.image && !video.thumbnailUrl) {
+      const firstImage = asArray(video.image)[0];
+      if (typeof firstImage === "string")
+        setIfEmpty(video, "thumbnailUrl", resolveWithBase(meta.host, firstImage));
+      else if (firstImage?.["@id"])
+        setIfEmpty(video, "thumbnailUrl", find(firstImage["@id"], isImageObject)?.url);
+    }
+  }
+});
+
+const PrimaryArticleId = "#article";
+const articleResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Article"
+  },
+  inheritMeta: [
+    "inLanguage",
+    "description",
+    "image",
+    "dateModified",
+    "datePublished",
+    { meta: "title", key: "headline" }
+  ],
+  idPrefix: ["url", PrimaryArticleId],
+  resolve(node, ctx) {
+    node.author = resolveIdentityRelation(node.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.publisher = resolveIdentityRelation(node.publisher, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.copyrightHolder = resolveIdentityRelation(node.copyrightHolder, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.hasPart = resolveRelation(node.hasPart, ctx, webPageElementResolver);
+    node.speakable = resolveRelation(node.speakable, ctx, speakableSpecificationResolver);
+    node.video = resolveRelation(node.video, ctx, videoResolver);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    resolveDefaultType(node, "Article");
+    node.headline = trimLength(node.headline, 110);
+    return node;
+  },
+  resolveRootNode(node, { find, meta }) {
+    const webPage = find(PrimaryWebPageId);
+    const identity = find(IdentityId);
+    if (node.image && !node.thumbnailUrl) {
+      const firstImage = asArray(node.image)[0];
+      if (typeof firstImage === "string")
+        setIfEmpty(node, "thumbnailUrl", resolveWithBase(meta.host, firstImage));
+      else if (firstImage?.["@id"])
+        setIfEmpty(node, "thumbnailUrl", find(firstImage["@id"], isImageObject)?.url);
+    }
+    if (identity) {
+      setIfEmpty(node, "publisher", idReference(identity));
+      setIfEmpty(node, "author", idReference(identity));
+    }
+    if (webPage) {
+      setIfEmpty(node, "isPartOf", idReference(webPage));
+      setIfEmpty(node, "mainEntityOfPage", idReference(webPage));
+      setIfEmpty(webPage, "potentialAction", [
+        {
+          "@type": "ReadAction",
+          "target": [meta.url]
+        }
+      ]);
+      setIfEmpty(webPage, "dateModified", node.dateModified);
+      setIfEmpty(webPage, "datePublished", node.datePublished);
+    }
+    return node;
+  }
+});
+
+const searchActionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint"
+    },
+    "query-input": {
+      "@type": "PropertyValueSpecification",
+      "valueRequired": true,
+      "valueName": "search_term_string"
+    }
+  },
+  resolve(node, ctx) {
+    if (typeof node.target === "string") {
+      node.target = {
+        "@type": "EntryPoint",
+        "urlTemplate": resolveWithBase(ctx.meta.host, node.target)
+      };
+    }
+    return node;
+  }
+});
+
+const PrimaryWebSiteId = "#website";
+const webSiteResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "WebSite"
+  },
+  inheritMeta: [
+    "inLanguage",
+    { meta: "host", key: "url" }
+  ],
+  idPrefix: ["host", PrimaryWebSiteId],
+  resolve(node, ctx) {
+    node.potentialAction = resolveRelation(node.potentialAction, ctx, searchActionResolver, {
+      array: true
+    });
+    node.publisher = resolveRelation(node.publisher, ctx);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    if (resolveAsGraphKey(node["@id"]) === PrimaryWebSiteId) {
+      const identity = find(IdentityId);
+      if (identity)
+        setIfEmpty(node, "publisher", idReference(identity));
+      const webPage = find(PrimaryWebPageId);
+      if (webPage)
+        setIfEmpty(webPage, "isPartOf", idReference(node));
+    }
+    return node;
+  }
+});
+
+const personResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      return {
+        name: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "Person"
+  },
+  idPrefix: ["host", IdentityId],
+  resolve(node, ctx) {
+    if (node.identifier) {
+      const resolveIdentifier = (identifier) => typeof identifier === "string" ? identifier : resolveRelation(identifier, ctx, propertyValueResolver);
+      node.identifier = Array.isArray(node.identifier) ? node.identifier.map(resolveIdentifier) : resolveIdentifier(node.identifier);
+    }
+    node.agentInteractionStatistic = resolveRelation(node.agentInteractionStatistic, ctx, interactionCounterResolver);
+    node.interactionStatistic = resolveRelation(node.interactionStatistic, ctx, interactionCounterResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  },
+  resolveRootNode(node, { find, meta }) {
+    if (resolveAsGraphKey(node["@id"]) === IdentityId) {
+      setIfEmpty(node, "url", meta.host);
+      const webPage = find(PrimaryWebPageId);
+      if (webPage && isHomePage(meta))
+        setIfEmpty(webPage, "about", idReference(node));
+      const webSite = find(PrimaryWebSiteId);
+      if (webSite)
+        setIfEmpty(webSite, "publisher", idReference(node));
+    }
+    const article = find(PrimaryArticleId);
+    if (article)
+      setIfEmpty(article, "author", idReference(node));
+  }
+});
+
+const readActionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ReadAction"
+  },
+  resolve(node, ctx) {
+    node.target ||= [];
+    if (!node.target.includes(ctx.meta.url))
+      node.target.unshift(ctx.meta.url);
+    return node;
+  }
+});
+
+const speakableSpecificationResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "SpeakableSpecification"
+  }
+});
+const webPageElementResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "WebPageElement"
+  }
+});
+const PrimaryWebPageId = "#webpage";
+const webPageResolver = defineSchemaOrgResolver({
+  defaults({ meta }) {
+    const endPath = withoutTrailingSlash(meta.url.substring(meta.url.lastIndexOf("/") + 1));
+    let type = "WebPage";
+    switch (endPath) {
+      case "about":
+      case "about-us":
+        type = "AboutPage";
+        break;
+      case "search":
+        type = "SearchResultsPage";
+        break;
+      case "checkout":
+        type = "CheckoutPage";
+        break;
+      case "contact":
+      case "get-in-touch":
+      case "contact-us":
+        type = "ContactPage";
+        break;
+      case "faq":
+        type = "FAQPage";
+        break;
+    }
+    const defaults = {
+      "@type": type
+    };
+    return defaults;
+  },
+  idPrefix: ["url", PrimaryWebPageId],
+  inheritMeta: [
+    { meta: "title", key: "name" },
+    "description",
+    "datePublished",
+    "dateModified",
+    "url"
+  ],
+  resolve(node, ctx) {
+    node.dateCreated = resolvableDateToIso(node.dateCreated);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    resolveDefaultType(node, "WebPage");
+    node.about = resolveRelation(node.about, ctx, organizationResolver);
+    node.breadcrumb = resolveRelation(node.breadcrumb, ctx, breadcrumbResolver);
+    node.author = resolveRelation(node.author, ctx, personResolver);
+    if (node.hasPart) {
+      const resolvePart = (part) => {
+        const isPaywalledSection = typeof part === "object" && part !== null && (part["@type"] === "WebPageElement" || "cssSelector" in part);
+        return isPaywalledSection ? resolveRelation(part, ctx, webPageElementResolver) : resolveRelation(part, ctx);
+      };
+      node.hasPart = Array.isArray(node.hasPart) ? node.hasPart.map(resolvePart) : resolvePart(node.hasPart);
+    }
+    node.primaryImageOfPage = resolveRelation(node.primaryImageOfPage, ctx, imageResolver);
+    node.speakable = resolveRelation(node.speakable, ctx, speakableSpecificationResolver);
+    node.video = resolveRelation(node.video, ctx, videoResolver);
+    if (Array.isArray(node["@type"]) && node["@type"].includes("ProfilePage")) {
+      node.mainEntity = resolveIdentityRelation(node.mainEntity, ctx, {
+        organization: organizationResolver,
+        person: personResolver
+      }, {
+        root: true
+      });
+    }
+    if (node.potentialAction) {
+      const resolveAction = (action) => {
+        if (!action || typeof action !== "object")
+          return action;
+        const type = action["@type"];
+        const isReadAction = type === "ReadAction" || Array.isArray(type) && type.includes("ReadAction") || "target" in action;
+        return isReadAction ? resolveRelation(action, ctx, readActionResolver) : resolveRelation(action, ctx);
+      };
+      node.potentialAction = Array.isArray(node.potentialAction) ? node.potentialAction.map(resolveAction) : resolveAction(node.potentialAction);
+    }
+    if (node["@type"] === "WebPage" && ctx.meta.url) {
+      setIfEmpty(node, "potentialAction", [
+        {
+          "@type": "ReadAction",
+          "target": [ctx.meta.url]
+        }
+      ]);
+    }
+    return node;
+  },
+  resolveRootNode(webPage, { find, meta }) {
+    const identity = find(IdentityId);
+    const webSite = find(PrimaryWebSiteId);
+    const logo = find("#logo");
+    if (identity && isHomePage(meta))
+      setIfEmpty(webPage, "about", idReference(identity));
+    if (logo)
+      setIfEmpty(webPage, "primaryImageOfPage", idReference(logo));
+    if (webSite)
+      setIfEmpty(webPage, "isPartOf", idReference(webSite));
+    const breadcrumb = find(PrimaryBreadcrumbId);
+    if (breadcrumb)
+      setIfEmpty(webPage, "breadcrumb", idReference(breadcrumb));
+    return webPage;
+  }
+});
+
+const contactPointResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ContactPoint"
+  }
+});
+const creditCardResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "CreditCard"
+  }
+});
+const memberProgramTierResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MemberProgramTier"
+  },
+  resolve(node, ctx) {
+    node.hasTierBenefit = Array.isArray(node.hasTierBenefit) ? node.hasTierBenefit.map((benefit) => withBase(benefit, "https://schema.org/")) : withBase(node.hasTierBenefit, "https://schema.org/");
+    if (node.hasTierRequirement) {
+      const requirement = node.hasTierRequirement;
+      if (typeof requirement === "object") {
+        const types = asArray(requirement["@type"]);
+        if (types.includes("CreditCard")) {
+          node.hasTierRequirement = resolveRelation(requirement, ctx, creditCardResolver);
+        } else if (types.includes("MonetaryAmount") || "currency" in requirement) {
+          node.hasTierRequirement = resolveRelation(requirement, ctx, monetaryAmountResolver);
+        } else {
+          node.hasTierRequirement = resolveRelation(requirement, ctx, unitPriceSpecificationResolver);
+        }
+      }
+    }
+    node.isTierOf = resolveRelation(node.isTierOf, ctx, memberProgramResolver);
+    node.membershipPointsEarned = resolveRelation(node.membershipPointsEarned, ctx, quantitativeValueResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+const memberProgramResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MemberProgram"
+  },
+  resolve(node, ctx) {
+    node.hasTiers = resolveRelation(node.hasTiers, ctx, memberProgramTierResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+const servicePeriodResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ServicePeriod"
+  },
+  resolve(node, ctx) {
+    node.duration = resolveRelation(node.duration, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+const shippingRateSettingsResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ShippingRateSettings"
+  }
+});
+const shippingSeasonalOverrideResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "OpeningHoursSpecification"
+  },
+  resolve(node) {
+    node.validFrom = resolvableDateToIso(node.validFrom);
+    node.validThrough = resolvableDateToIso(node.validThrough);
+    return node;
+  }
+});
+const shippingConditionsResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ShippingConditions"
+  },
+  resolve(node, ctx) {
+    node.numItems = resolveRelation(node.numItems, ctx, quantitativeValueResolver);
+    node.orderValue = resolveRelation(node.orderValue, ctx, monetaryAmountResolver);
+    node.seasonalOverride = resolveRelation(node.seasonalOverride, ctx, shippingSeasonalOverrideResolver);
+    node.shippingDestination = resolveRelation(node.shippingDestination, ctx, definedRegionResolver);
+    node.shippingOrigin = resolveRelation(node.shippingOrigin, ctx, definedRegionResolver);
+    if (node.shippingRate) {
+      const isSettings = typeof node.shippingRate === "object" && ("orderPercentage" in node.shippingRate || "weightPercentage" in node.shippingRate);
+      node.shippingRate = isSettings ? resolveRelation(node.shippingRate, ctx, shippingRateSettingsResolver) : resolveRelation(node.shippingRate, ctx, monetaryAmountResolver);
+    }
+    node.transitTime = resolveRelation(node.transitTime, ctx, servicePeriodResolver);
+    node.weight = resolveRelation(node.weight, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+const shippingServiceResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ShippingService"
+  },
+  resolve(node, ctx) {
+    if (node.fulfillmentType)
+      node.fulfillmentType = withBase(node.fulfillmentType, "https://schema.org/");
+    node.handlingTime = resolveRelation(node.handlingTime, ctx, servicePeriodResolver);
+    node.shippingConditions = resolveRelation(node.shippingConditions, ctx, shippingConditionsResolver);
+    node.validForMemberTier = resolveRelation(node.validForMemberTier, ctx, memberProgramTierResolver);
+    return node;
+  }
+});
+const organizationResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      return {
+        name: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "Organization"
+  },
+  idPrefix: ["host", IdentityId],
+  inheritMeta: [
+    { meta: "host", key: "url" }
+  ],
+  resolve(node, ctx) {
+    resolveDefaultType(node, "Organization");
+    node.address = resolveRelation(node.address, ctx, addressResolver);
+    node.agentInteractionStatistic = resolveRelation(node.agentInteractionStatistic, ctx, interactionCounterResolver);
+    node.contactPoint = resolveRelation(node.contactPoint, ctx, contactPointResolver);
+    node.hasMemberProgram = resolveRelation(node.hasMemberProgram, ctx, memberProgramResolver);
+    node.hasMerchantReturnPolicy = resolveRelation(node.hasMerchantReturnPolicy, ctx, merchantReturnPolicyResolver);
+    node.hasShippingService = resolveRelation(node.hasShippingService, ctx, shippingServiceResolver);
+    if (node.identifier) {
+      const resolveIdentifier = (identifier) => typeof identifier === "string" ? identifier : resolveRelation(identifier, ctx, propertyValueResolver);
+      node.identifier = Array.isArray(node.identifier) ? node.identifier.map(resolveIdentifier) : resolveIdentifier(node.identifier);
+    }
+    node.interactionStatistic = resolveRelation(node.interactionStatistic, ctx, interactionCounterResolver);
+    node.numberOfEmployees = resolveRelation(node.numberOfEmployees, ctx, quantitativeValueResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  },
+  resolveRootNode(node, ctx) {
+    const isIdentity = resolveAsGraphKey(node["@id"]) === IdentityId;
+    const webPage = ctx.find(PrimaryWebPageId);
+    if (node.logo && isIdentity) {
+      const logoInput = Array.isArray(node.logo) ? node.logo[0] : node.logo;
+      const logoNode = resolveRelation(logoInput, ctx, imageResolver, {
+        root: true,
+        afterResolve(logo) {
+          logo["@id"] = prefixId(ctx.meta.host, "#logo");
+          setIfEmpty(logo, "caption", node.name);
+        }
+      });
+      if (webPage && logoNode)
+        setIfEmpty(webPage, "primaryImageOfPage", idReference(logoNode));
+      if (node["@type"] === "Organization") {
+        node.logo = logoNode;
+      } else if (!ctx.find("#organization")) {
+        const resolvedLogo = logoNode && typeof logoNode === "object" && logoNode["@id"] ? ctx.find(logoNode["@id"], isImageObject) : null;
+        ctx.nodes.push({
+          // we want to make a simple node that has the essentials, this will allow parent nodes to inject
+          // as well without inserting invalid data (i.e LocalBusiness operatingHours)
+          "@type": "Organization",
+          "name": node.name,
+          "url": node.url,
+          "sameAs": node.sameAs,
+          // 'image': idReference(logoNode),
+          "address": node.address,
+          // needs to be a URL
+          "logo": resolvedLogo?.url,
+          "_priority": -1,
+          // Distinct from #identity so the specialized identity node stays the linkable one;
+          // the id is stable so repeat resolves dedupe on the ctx.find('#organization') guard.
+          "@id": prefixId(ctx.meta.host, "#organization")
+        });
+      }
+      if (node["@type"] !== "Organization")
+        delete node.logo;
+    }
+    if (isIdentity && webPage && isHomePage(ctx.meta))
+      setIfEmpty(webPage, "about", idReference(node));
+    const webSite = ctx.find(PrimaryWebSiteId);
+    if (webSite)
+      setIfEmpty(webSite, "publisher", idReference(node));
+  }
+});
+
+function isImageObject(node) {
+  return typeof node.url === "string" || typeof node.contentUrl === "string";
+}
+const imageResolver = defineSchemaOrgResolver({
+  alias: "image",
+  cast(input) {
+    if (typeof input === "string") {
+      input = {
+        url: input
+      };
+    }
+    return input;
+  },
+  defaults: {
+    "@type": "ImageObject"
+  },
+  inheritMeta: [
+    // @todo possibly only do if there's a caption
+    "inLanguage"
+  ],
+  idPrefix: "host",
+  resolve(image, ctx) {
+    const { meta } = ctx;
+    if (image.url)
+      image.url = resolveWithBase(meta.host, image.url);
+    if (image.contentUrl)
+      image.contentUrl = resolveWithBase(meta.host, image.contentUrl);
+    setIfEmpty(image, "contentUrl", image.url);
+    setIfEmpty(image, "url", image.contentUrl);
+    image.creator = resolveIdentityRelation(image.creator, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    if (image.license)
+      image.license = resolveWithBase(meta.host, image.license);
+    if (image.acquireLicensePage)
+      image.acquireLicensePage = resolveWithBase(meta.host, image.acquireLicensePage);
+    if (image.height && !image.width)
+      delete image.height;
+    if (image.width && !image.height)
+      delete image.width;
+    return image;
+  }
+});
+
+const ALIAS_RE = /([a-z])([A-Z])/g;
+function nextNodeId(ctx, alias) {
+  ctx.nodeIdCounters[alias] = (ctx.nodeIdCounters[alias] || 0) + 1;
+  return ctx.nodeIdCounters[alias].toString();
+}
+function resolveMeta(meta) {
+  if (!meta.path)
+    meta.path = "/";
+  if (!meta.host && typeof document !== "undefined")
+    meta.host = document.location.host;
+  if (meta.path !== "/") {
+    if (meta.trailingSlash && !meta.path.endsWith("/"))
+      meta.path = withTrailingSlash(meta.path);
+    else if (!meta.trailingSlash && meta.path.endsWith("/"))
+      meta.path = withoutTrailingSlash(meta.path);
+  }
+  meta.url = joinURL(meta.host || "", meta.path);
+  return meta;
+}
+function resolveNode(node, ctx, resolver) {
+  if (resolver?.cast)
+    node = resolver.cast(node, ctx);
+  if (resolver?.defaults) {
+    let defaults = resolver.defaults;
+    if (typeof defaults === "function")
+      defaults = defaults(ctx);
+    node = { ...defaults, ...node };
+  }
+  const inheritMeta = resolver?.inheritMeta;
+  if (inheritMeta) {
+    for (let i = 0; i < inheritMeta.length; i++) {
+      const entry = inheritMeta[i];
+      if (typeof entry === "string")
+        setIfEmpty(node, entry, ctx.meta[entry]);
+      else
+        setIfEmpty(node, entry.key, ctx.meta[entry.meta]);
+    }
+  }
+  if (resolver?.resolve)
+    node = resolver.resolve(node, ctx);
+  for (const k in node) {
+    const v = node[k];
+    if (Array.isArray(v)) {
+      for (let i = 0; i < v.length; i++) {
+        const item = v[i];
+        if (typeof item === "object" && item?._resolver)
+          node[k][i] = resolveRelation(item, ctx, item._resolver);
+      }
+    } else if (typeof v === "object" && v?._resolver) {
+      node[k] = resolveRelation(v, ctx, v._resolver);
+    }
+  }
+  stripEmptyProperties(node);
+  return node;
+}
+function resolveNodeId(node, ctx, resolver, resolveAsRoot = false) {
+  if (node["@id"] && node["@id"].startsWith("http"))
+    return node;
+  const prefix = resolver ? (Array.isArray(resolver.idPrefix) ? resolver.idPrefix[0] : resolver.idPrefix) || "url" : "url";
+  const rootId = node["@id"] || (resolver ? Array.isArray(resolver.idPrefix) ? resolver.idPrefix?.[1] : void 0 : "");
+  if (!node["@id"] && resolveAsRoot && rootId) {
+    node["@id"] = prefixId(ctx.meta[prefix], rootId);
+    return node;
+  }
+  if (node["@id"]?.startsWith("#/schema/") || node["@id"]?.startsWith("/")) {
+    node["@id"] = prefixId(ctx.meta[prefix], node["@id"]);
+    return node;
+  }
+  let alias = resolver?.alias;
+  if (!alias) {
+    const type = asArray(node["@type"])?.[0] || "";
+    alias = type.replace(ALIAS_RE, "$1-$2").toLowerCase();
+  }
+  node["@id"] = prefixId(ctx.meta[prefix], `#/schema/${alias}/${node["@id"] || nextNodeId(ctx, alias)}`);
+  return node;
+}
+function resolveRelation(input, ctx, fallbackResolver, options = {}) {
+  if (!input)
+    return input;
+  const items = asArray(input);
+  const ids = [];
+  for (let i = 0; i < items.length; i++) {
+    const a = items[i];
+    if (!a) {
+      ids.push(a);
+      continue;
+    }
+    let keyCount = 0;
+    for (const _ in a) keyCount++;
+    if (keyCount === 1 && a["@id"] || keyCount === 2 && a["@id"] && a["@type"]) {
+      ids.push(resolveNodeId({
+        "@id": ctx.find(a["@id"])?.["@id"] || a["@id"]
+      }, ctx));
+      continue;
+    }
+    let resolver = fallbackResolver;
+    if (a._resolver && typeof a._resolver !== "string") {
+      resolver = a._resolver;
+      delete a._resolver;
+    }
+    if (!resolver) {
+      ids.push(a);
+      continue;
+    }
+    let node = resolveNode(a, ctx, resolver);
+    if (options.afterResolve)
+      options.afterResolve(node);
+    if (options.generateId || options.root)
+      node = resolveNodeId(node, ctx, resolver, false);
+    if (options.root) {
+      if (resolver.resolveRootNode)
+        resolver.resolveRootNode(node, ctx);
+      ctx.push(node);
+      ids.push(idReference(node["@id"]));
+      continue;
+    }
+    ids.push(node);
+  }
+  return !options.array && ids.length === 1 ? ids[0] : ids;
+}
+
+function merge(target, source) {
+  if (!source)
+    return target;
+  for (const key in source) {
+    if (!hasOwn(source, key) || key === "__proto__" || key === "constructor" || key === "prototype")
+      continue;
+    const value = source[key];
+    if (value === void 0)
+      continue;
+    if (Array.isArray(target[key])) {
+      if (Array.isArray(value)) {
+        const merged = [...target[key], ...value];
+        if (key === "@type") {
+          target[key] = [...new Set(merged)];
+        } else if (key === "itemListElement") {
+          merged.sort((a, b) => (a.position || 0) - (b.position || 0));
+          for (let i = 0; i < merged.length; i++)
+            merged[i].position = i + 1;
+          target[key] = merged;
+        } else if (key === "potentialAction") {
+          const byType = /* @__PURE__ */ Object.create(null);
+          for (const action of merged) {
+            const type = action["@type"];
+            if (byType[type]) {
+              if (action.target && byType[type].target) {
+                const a = Array.isArray(byType[type].target) ? byType[type].target : [byType[type].target];
+                const b = Array.isArray(action.target) ? action.target : [action.target];
+                byType[type].target = [.../* @__PURE__ */ new Set([...a, ...b])];
+              }
+            } else {
+              byType[type] = { ...action };
+            }
+          }
+          target[key] = Object.values(byType);
+        } else {
+          const hasTypedObjects = merged.length > 0 && merged.every(
+            (item) => item && typeof item === "object" && item["@type"]
+          );
+          if (hasTypedObjects) {
+            const byType = /* @__PURE__ */ Object.create(null);
+            for (const item of merged)
+              byType[item["@type"]] = item;
+            target[key] = Object.values(byType);
+          } else {
+            target[key] = merged;
+          }
+        }
+      } else {
+        target[key] = merge(target[key], [value]);
+      }
+    } else if (target[key] && typeof target[key] === "object" && typeof value === "object" && !Array.isArray(value)) {
+      target[key] = merge({ ...target[key] }, value);
+    } else {
+      target[key] = value;
+    }
+  }
+  return target;
+}
+
+const DOMAIN_RE = /(?:https?:)?\/\//;
+function indexNode(index, node) {
+  if (!node["@id"])
+    return;
+  const nodeId = node["@id"];
+  const fragmentKey = resolveAsGraphKey(nodeId);
+  index.set(fragmentKey, node);
+  index.set(nodeId, node);
+  const domainKey = nodeId.replace(DOMAIN_RE, "").split("/")[0];
+  index.set(domainKey, node);
+}
+function createSchemaOrgGraph() {
+  let ctx;
+  function find(id, guard) {
+    const matchFragment = id[0] === "#";
+    const matchDomain = id[0] === "/" && id[1] === "/";
+    const key = matchFragment ? resolveAsGraphKey(id) : matchDomain ? id.replace(DOMAIN_RE, "").split("/")[0] : id;
+    let node = ctx.nodeIndex.size > 0 ? ctx.nodeIndex.get(key) : void 0;
+    if (!node) {
+      for (let i = 0; i < ctx.nodes.length; i++) {
+        const candidate = ctx.nodes[i];
+        const nodeId = candidate["@id"];
+        if (!nodeId)
+          continue;
+        const nodeKey = matchFragment ? resolveAsGraphKey(nodeId) : matchDomain ? nodeId.replace(DOMAIN_RE, "").split("/")[0] : nodeId;
+        if (nodeKey === key) {
+          node = candidate;
+          break;
+        }
+      }
+    }
+    if (!node || guard && !guard(node))
+      return null;
+    return node;
+  }
+  ctx = {
+    find,
+    push(input) {
+      if (Array.isArray(input)) {
+        for (let i = 0; i < input.length; i++) {
+          const registeredNode = input[i];
+          ctx.nodes.push(registeredNode);
+          if (ctx.nodeIndex.size > 0)
+            indexNode(ctx.nodeIndex, registeredNode);
+        }
+      } else {
+        const registeredNode = input;
+        ctx.nodes.push(registeredNode);
+        if (ctx.nodeIndex.size > 0)
+          indexNode(ctx.nodeIndex, registeredNode);
+      }
+    },
+    resolveGraph(meta) {
+      for (const k in ctx.nodeIdCounters) delete ctx.nodeIdCounters[k];
+      ctx.meta = resolveMeta({ ...meta });
+      const len = ctx.nodes.length;
+      for (let i = 0; i < len; i++) {
+        let node = ctx.nodes[i];
+        const resolver = node._resolver;
+        node = resolveNode(node, ctx, resolver);
+        node = resolveNodeId(node, ctx, resolver, true);
+        ctx.nodes[i] = node;
+      }
+      const dedupedNodes = /* @__PURE__ */ Object.create(null);
+      let hasDuplicates = false;
+      ctx.nodeIndex.clear();
+      for (let i = 0; i < ctx.nodes.length; i++) {
+        const n = ctx.nodes[i];
+        const nodeKey = resolveAsGraphKey(n["@id"]);
+        if (dedupedNodes[nodeKey]) {
+          hasDuplicates = true;
+          if (n._dedupeStrategy !== "replace")
+            dedupedNodes[nodeKey] = merge(dedupedNodes[nodeKey], n);
+          else
+            dedupedNodes[nodeKey] = n;
+        } else {
+          dedupedNodes[nodeKey] = n;
+        }
+      }
+      if (hasDuplicates)
+        ctx.nodes = Object.values(dedupedNodes);
+      for (let i = 0; i < ctx.nodes.length; i++)
+        indexNode(ctx.nodeIndex, ctx.nodes[i]);
+      const countBeforeRelations = ctx.nodes.length;
+      for (let i = 0; i < ctx.nodes.length; i++) {
+        const node = ctx.nodes[i];
+        if (node.image && typeof node.image === "string") {
+          node.image = resolveRelation(node.image, ctx, imageResolver, {
+            root: true
+          });
+        }
+        node.translationOfWork = resolveRelation(node.translationOfWork, ctx);
+        node.workTranslation = resolveRelation(node.workTranslation, ctx);
+        const resolver = node._resolver;
+        if (resolver?.resolveRootNode)
+          resolver.resolveRootNode(node, ctx);
+      }
+      for (let i = 0; i < ctx.nodes.length; i++)
+        delete ctx.nodes[i]._resolver;
+      for (let i = 0; i < ctx.nodes.length; i++)
+        stripNullProperties(ctx.nodes[i]);
+      const needsDedupe = ctx.nodes.length > countBeforeRelations;
+      const normalizedNodes = needsDedupe ? /* @__PURE__ */ Object.create(null) : null;
+      const result = needsDedupe ? null : [];
+      for (let i = 0; i < ctx.nodes.length; i++) {
+        const n = ctx.nodes[i];
+        const nodeKey = resolveAsGraphKey(n["@id"]);
+        const keys = Object.keys(n);
+        keys.sort();
+        const newNode = {};
+        let relationCount = 0;
+        for (let j = 0; j < keys.length; j++) {
+          const k = keys[j];
+          if (k[0] === "_")
+            continue;
+          const v = n[k];
+          if (v !== null && (Array.isArray(v) || typeof v === "object"))
+            keys[relationCount++] = k;
+          else
+            newNode[k] = v;
+        }
+        for (let j = 0; j < relationCount; j++) {
+          const k = keys[j];
+          newNode[k] = n[k];
+        }
+        if (needsDedupe) {
+          normalizedNodes[nodeKey] = normalizedNodes[nodeKey] ? merge(normalizedNodes[nodeKey], newNode) : newNode;
+        } else {
+          result.push(newNode);
+        }
+      }
+      return needsDedupe ? Object.values(normalizedNodes) : result;
+    },
+    nodes: [],
+    nodeIndex: /* @__PURE__ */ new Map(),
+    nodeIdCounters: /* @__PURE__ */ Object.create(null),
+    meta: resolveMeta({})
+  };
+  return ctx;
+}
+
+function resolveIdentityRelation(input, ctx, resolvers, options = {}) {
+  if (!input)
+    return input;
+  const resolveIdentity = (identity) => {
+    const types = typeof identity === "object" && identity ? asArray(identity["@type"]).filter((type) => typeof type === "string") : [];
+    const resolver = types.length > 0 && !types.includes("Person") ? resolvers.organization : resolvers.person;
+    return resolveRelation(identity, ctx, resolver, options);
+  };
+  if (!Array.isArray(input))
+    return resolveIdentity(input);
+  const resolved = input.map(resolveIdentity);
+  return resolved.length === 1 ? resolved[0] : resolved;
+}
+
+const aggregateOfferResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "AggregateOffer"
+  },
+  inheritMeta: [
+    { meta: "currency", key: "priceCurrency" }
+  ],
+  resolve(node, ctx) {
+    node.offers = resolveRelation(node.offers, ctx, offerResolver);
+    if (node.offers)
+      setIfEmpty(node, "offerCount", asArray(node.offers).length);
+    return node;
+  }
+});
+
+const aggregateRatingResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "AggregateRating"
+  },
+  resolve(node, ctx) {
+    node.itemReviewed = resolveRelation(node.itemReviewed, ctx);
+    return node;
+  }
+});
+
+const bookEditionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Book"
+  },
+  inheritMeta: [
+    "inLanguage"
+  ],
+  resolve(node, ctx) {
+    if (node.bookFormat)
+      node.bookFormat = withBase(node.bookFormat, "https://schema.org/");
+    if (node.datePublished)
+      node.datePublished = resolvableDateToDate(node.datePublished);
+    node.author = resolveRelation(node.author, ctx);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(node, "provider", idReference(identity));
+    return node;
+  }
+});
+const PrimaryBookId = "#book";
+const bookResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Book"
+  },
+  inheritMeta: [
+    "description",
+    "url",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", PrimaryBookId],
+  resolve(node, ctx) {
+    node.workExample = resolveRelation(node.workExample, ctx, bookEditionResolver);
+    node.author = resolveRelation(node.author, ctx);
+    if (node.url && ctx.meta.host)
+      node.url = withBase(node.url, ctx.meta.host);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(node, "author", idReference(identity));
+    return node;
+  }
+});
+
+const commentResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Comment"
+  },
+  idPrefix: "url",
+  resolve(node, ctx) {
+    node.author = resolveIdentityRelation(node.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.comment = resolveRelation(node.comment, ctx, commentResolver);
+    node.dateCreated = resolvableDateToIso(node.dateCreated);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    node.video = resolveRelation(node.video, ctx, videoResolver);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const article = find(PrimaryArticleId);
+    if (article)
+      setIfEmpty(node, "about", idReference(article));
+  }
+});
+
+const courseResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Course"
+  },
+  resolve(node, ctx) {
+    node.provider = resolveRelation(node.provider, ctx, organizationResolver, {
+      root: true
+    });
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(node, "provider", idReference(identity));
+    return node;
+  }
+});
+
+const PrimaryDatasetId = "#dataset";
+const dataDownloadResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "DataDownload"
+  },
+  resolve(node, ctx) {
+    node.contentUrl = resolveWithBase(ctx.meta.host, node.contentUrl);
+    return node;
+  }
+});
+const dataCatalogResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "DataCatalog"
+  },
+  resolve(node, ctx) {
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+const datasetResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Dataset"
+  },
+  inheritMeta: [
+    "description",
+    "url",
+    "dateModified",
+    "datePublished",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", PrimaryDatasetId],
+  resolve(node, ctx) {
+    resolveDefaultType(node, "Dataset");
+    node.creator = resolveIdentityRelation(node.creator, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.funder = resolveIdentityRelation(node.funder, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.distribution = resolveRelation(node.distribution, ctx, dataDownloadResolver);
+    node.includedInDataCatalog = resolveRelation(node.includedInDataCatalog, ctx, dataCatalogResolver);
+    const resolveDatasetRelations = (input) => {
+      if (!input)
+        return input;
+      const values = Array.isArray(input) ? input : [input];
+      const resolved = values.map((value) => typeof value === "string" ? resolveWithBase(ctx.meta.host, value) : resolveRelation(value, ctx, datasetResolver));
+      return Array.isArray(input) ? resolved : resolved[0];
+    };
+    node.hasPart = resolveDatasetRelations(node.hasPart);
+    node.isPartOf = resolveDatasetRelations(node.isPartOf);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    if (node.sameAs) {
+      node.sameAs = Array.isArray(node.sameAs) ? node.sameAs.map((url) => resolveWithBase(ctx.meta.host, url)) : resolveWithBase(ctx.meta.host, node.sameAs);
+    }
+    if (node.license) {
+      const licenses = Array.isArray(node.license) ? node.license : [node.license];
+      const resolved = licenses.map((license) => typeof license === "string" ? resolveWithBase(ctx.meta.host, license) : license);
+      node.license = Array.isArray(node.license) ? resolved : resolved[0];
+    }
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    return node;
+  }
+});
+
+const discussionCommentResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Comment"
+  },
+  resolve(node, ctx) {
+    node.author = resolveIdentityRelation(node.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    });
+    node.comment = resolveRelation(node.comment, ctx, discussionCommentResolver);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.image)
+      node.image = resolveRelation(node.image, ctx, imageResolver);
+    if (node.video)
+      node.video = resolveRelation(node.video, ctx, videoResolver);
+    return node;
+  }
+});
+const discussionForumPostingResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "DiscussionForumPosting"
+  },
+  inheritMeta: [
+    "dateModified",
+    "datePublished",
+    "url"
+  ],
+  idPrefix: ["url", "#discussion-forum-posting"],
+  resolve(node, ctx) {
+    node.author = resolveIdentityRelation(node.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    });
+    node.comment = resolveRelation(node.comment, ctx, discussionCommentResolver);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.image)
+      node.image = resolveRelation(node.image, ctx, imageResolver);
+    if (node.video)
+      node.video = resolveRelation(node.video, ctx, videoResolver);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    if (webPage)
+      setIfEmpty(node, "mainEntityOfPage", idReference(webPage));
+  }
+});
+
+const employerAggregateRatingResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "EmployerAggregateRating"
+  },
+  idPrefix: ["url", "#employer-aggregate-rating"],
+  resolve(node, ctx) {
+    const hasExplicitOrganizationUrl = typeof node.itemReviewed === "object" && node.itemReviewed !== null && "url" in node.itemReviewed && node.itemReviewed.url != null;
+    node.itemReviewed = resolveRelation(node.itemReviewed, ctx, organizationResolver, {
+      root: true,
+      afterResolve(organization) {
+        if (!hasExplicitOrganizationUrl)
+          delete organization.url;
+      }
+    });
+    return node;
+  }
+});
+
+const placeResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Place"
+  },
+  resolve(node, ctx) {
+    if (typeof node.address !== "string")
+      node.address = resolveRelation(node.address, ctx, addressResolver);
+    return node;
+  }
+});
+
+const virtualLocationResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      return {
+        url: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "VirtualLocation"
+  }
+});
+
+const PrimaryEventId = "#event";
+const performingGroupResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PerformingGroup"
+  },
+  resolve(node, ctx) {
+    if (node.url)
+      node.url = withBase(node.url, ctx.meta.host || "");
+    return node;
+  }
+});
+const eventResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Event"
+  },
+  inheritMeta: [
+    "inLanguage",
+    "description",
+    "image",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", PrimaryEventId],
+  resolve(node, ctx) {
+    if (node.location) {
+      const resolveLocation = (location) => {
+        const type = typeof location === "object" && location !== null ? location["@type"] : void 0;
+        const isVirtual = typeof location === "string" || typeof location === "object" && location !== null && (type === "VirtualLocation" || Array.isArray(type) && type.includes("VirtualLocation") || typeof location.url !== "undefined");
+        return isVirtual ? resolveRelation(location, ctx, virtualLocationResolver) : resolveRelation(location, ctx, placeResolver);
+      };
+      if (Array.isArray(node.location)) {
+        const locations = node.location.map(resolveLocation);
+        node.location = locations.length === 1 ? locations[0] : locations;
+      } else {
+        node.location = resolveLocation(node.location);
+      }
+    }
+    if (node.performer) {
+      const resolvePerformer = (performer) => {
+        const isGroup = typeof performer === "object" && performer?.["@type"] === "PerformingGroup";
+        return isGroup ? resolveRelation(performer, ctx, performingGroupResolver, { root: true }) : resolveRelation(performer, ctx, personResolver, { root: true });
+      };
+      node.performer = Array.isArray(node.performer) ? node.performer.map(resolvePerformer) : resolvePerformer(node.performer);
+    }
+    if (node.organizer) {
+      const organizerTypes = typeof node.organizer === "object" && node.organizer ? node.organizer["@type"] : void 0;
+      const isPerson = organizerTypes === "Person" || Array.isArray(organizerTypes) && organizerTypes.includes("Person");
+      node.organizer = resolveRelation(node.organizer, ctx, isPerson ? personResolver : organizationResolver, {
+        root: true
+      });
+    }
+    node.offers = resolveRelation(node.offers, ctx, offerResolver);
+    if (node.eventAttendanceMode)
+      node.eventAttendanceMode = withBase(node.eventAttendanceMode, "https://schema.org/");
+    if (node.eventStatus)
+      node.eventStatus = withBase(node.eventStatus, "https://schema.org/");
+    const isOnline = node.eventStatus === "https://schema.org/EventMovedOnline" || node.eventAttendanceMode === "https://schema.org/OnlineEventAttendanceMode";
+    const resolveDate = (date) => {
+      if (!isOnline && date instanceof Date && date.getHours() === 0 && date.getMinutes() === 0)
+        return resolvableDateToDate(date);
+      return isOnline ? resolvableDateToIso(date) : date;
+    };
+    const dates = ["startDate", "endDate"];
+    dates.forEach((date) => {
+      if (!isOnline) {
+        if (node[date])
+          node[date] = resolveDate(node[date]);
+      } else {
+        node[date] = resolvableDateToIso(node[date]);
+      }
+    });
+    if (node.previousStartDate) {
+      node.previousStartDate = Array.isArray(node.previousStartDate) ? node.previousStartDate.map(resolveDate) : resolveDate(node.previousStartDate);
+    }
+    setIfEmpty(node, "endDate", node.startDate);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(node, "organizer", idReference(identity));
+  }
+});
+
+const openingHoursResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "OpeningHoursSpecification",
+    "opens": "00:00",
+    "closes": "23:59"
+  },
+  resolve(node) {
+    node.validFrom = resolvableDateToIso(node.validFrom);
+    node.validThrough = resolvableDateToIso(node.validThrough);
+    return node;
+  }
+});
+
+const itemListResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ItemList"
+  },
+  resolve(node, ctx) {
+    if (node.itemListElement) {
+      let index = 1;
+      node.itemListElement = resolveRelation(node.itemListElement, ctx, listItemResolver, {
+        array: true,
+        afterResolve(node2) {
+          setIfEmpty(node2, "position", index++);
+        }
+      });
+    }
+    return node;
+  }
+});
+
+const ratingResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "number") {
+      return {
+        ratingValue: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "Rating",
+    "bestRating": 5,
+    "worstRating": 1
+  }
+});
+
+const reviewResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Review"
+  },
+  inheritMeta: [
+    "inLanguage"
+  ],
+  resolve(review, ctx) {
+    review.reviewRating = resolveRelation(review.reviewRating, ctx, ratingResolver);
+    review.author = resolveIdentityRelation(review.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    });
+    review.itemReviewed = resolveRelation(review.itemReviewed, ctx);
+    review.negativeNotes = resolveRelation(review.negativeNotes, ctx, itemListResolver);
+    review.positiveNotes = resolveRelation(review.positiveNotes, ctx, itemListResolver);
+    review.contentReferenceTime = resolvableDateToIso(review.contentReferenceTime);
+    review.datePublished = resolvableDateToIso(review.datePublished);
+    return review;
+  }
+});
+
+const ProductId = "#product";
+const brandResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Brand"
+  }
+});
+const peopleAudienceResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PeopleAudience"
+  },
+  resolve(node, ctx) {
+    node.suggestedAge = resolveRelation(node.suggestedAge, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+const certificationRatingResolver = defineSchemaOrgResolver({
+  // Certification scales are domain-specific, so do not apply Rating's 1 to 5 defaults.
+  defaults: {
+    "@type": "Rating"
+  }
+});
+const certificationResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Certification"
+  },
+  resolve(node, ctx) {
+    node.certificationRating = resolveRelation(node.certificationRating, ctx, certificationRatingResolver);
+    node.issuedBy = resolveRelation(node.issuedBy, ctx, organizationResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+const categoryCodeResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "CategoryCode"
+  },
+  resolve(node, ctx) {
+    node.inCodeSet = resolveWithBase(ctx.meta.host, node.inCodeSet);
+    return node;
+  }
+});
+const sizeSpecificationResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "SizeSpecification"
+  }
+});
+const productVariantReferenceResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Product"
+  },
+  resolve(node, ctx) {
+    node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+const productGroupResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "ProductGroup"
+  },
+  resolve(node, ctx) {
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.audience = resolveRelation(node.audience, ctx, peopleAudienceResolver);
+    node.brand = resolveRelation(node.brand, ctx, brandResolver);
+    if (node.hasVariant) {
+      const resolveVariant = (variant) => {
+        const isReference = typeof variant === "object" && variant !== null && "url" in variant && !("name" in variant) && !("image" in variant);
+        return isReference ? resolveRelation(variant, ctx, productVariantReferenceResolver) : resolveRelation(variant, ctx, productResolver);
+      };
+      node.hasVariant = Array.isArray(node.hasVariant) ? node.hasVariant.map(resolveVariant) : resolveVariant(node.hasVariant);
+    }
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    if (node.variesBy) {
+      node.variesBy = Array.isArray(node.variesBy) ? node.variesBy.map((property) => withBase(property, "https://schema.org/")) : withBase(node.variesBy, "https://schema.org/");
+    }
+    return node;
+  }
+});
+const mediaObjectResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MediaObject"
+  },
+  resolve(node, ctx) {
+    node.contentUrl = resolveWithBase(ctx.meta.host, node.contentUrl);
+    return node;
+  }
+});
+const threeDModelResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "3DModel"
+  },
+  resolve(node, ctx) {
+    node.encoding = resolveRelation(node.encoding, ctx, mediaObjectResolver);
+    return node;
+  }
+});
+const productResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Product"
+  },
+  inheritMeta: [
+    "description",
+    "image",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", ProductId],
+  resolve(node, ctx) {
+    node.aggregateOffer = resolveRelation(node.aggregateOffer, ctx, aggregateOfferResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.audience = resolveRelation(node.audience, ctx, peopleAudienceResolver);
+    if (node.category) {
+      const values = Array.isArray(node.category) ? node.category : [node.category];
+      const resolved = values.map((category) => typeof category === "string" ? category : resolveRelation(category, ctx, categoryCodeResolver));
+      node.category = Array.isArray(node.category) ? resolved : resolved[0];
+    }
+    if (node.brand) {
+      const isOrganization = typeof node.brand === "object" && node.brand !== null && asArray(node.brand["@type"]).includes("Organization");
+      node.brand = isOrganization ? resolveRelation(node.brand, ctx, organizationResolver) : resolveRelation(node.brand, ctx, brandResolver);
+    }
+    node.hasCertification = resolveRelation(node.hasCertification, ctx, certificationResolver);
+    node.isVariantOf = resolveRelation(node.isVariantOf, ctx, productGroupResolver);
+    node.manufacturer = resolveRelation(node.manufacturer, ctx, organizationResolver);
+    node.offers = resolveRelation(node.offers, ctx, offerResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    node.seller = resolveRelation(node.seller, ctx, organizationResolver);
+    node.size = typeof node.size === "string" ? node.size : resolveRelation(node.size, ctx, sizeSpecificationResolver);
+    node.subjectOf = resolveRelation(node.subjectOf, ctx, threeDModelResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  },
+  resolveRootNode(product, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(product, "brand", idReference(identity));
+    if (webPage)
+      setIfEmpty(product, "mainEntityOfPage", idReference(webPage));
+    return product;
+  }
+});
+
+const geoCoordinatesResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "GeoCoordinates"
+  }
+});
+const locationFeatureSpecificationResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "LocationFeatureSpecification"
+  }
+});
+const bedDetailsResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "BedDetails"
+  }
+});
+const accommodationResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Accommodation"
+  },
+  resolve(node, ctx) {
+    node.amenityFeature = resolveRelation(node.amenityFeature, ctx, locationFeatureSpecificationResolver);
+    node.bed = resolveRelation(node.bed, ctx, bedDetailsResolver);
+    node.floorSize = resolveRelation(node.floorSize, ctx, quantitativeValueResolver);
+    node.occupancy = resolveRelation(node.occupancy, ctx, quantitativeValueResolver);
+    return node;
+  }
+});
+const vacationRentalResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "VacationRental"
+  },
+  inheritMeta: [
+    "description",
+    "image",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", "#vacation-rental"],
+  resolve(node, ctx) {
+    node.address = resolveRelation(node.address, ctx, addressResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.brand = resolveRelation(node.brand, ctx, brandResolver);
+    node.containsPlace = resolveRelation(node.containsPlace, ctx, accommodationResolver);
+    node.geo = resolveRelation(node.geo, ctx, geoCoordinatesResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    node.image = (Array.isArray(node.image) ? node.image : [node.image]).map((image) => resolveWithBase(ctx.meta.host, image));
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    if (webPage)
+      setIfEmpty(node, "mainEntityOfPage", idReference(webPage));
+  }
+});
+
+const localBusinessResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": ["Organization", "LocalBusiness"]
+  },
+  inheritMeta: [
+    { key: "url", meta: "host" },
+    { key: "currenciesAccepted", meta: "currency" }
+  ],
+  idPrefix: ["host", IdentityId],
+  resolve(node, ctx) {
+    resolveDefaultType(node, ["Organization", "LocalBusiness"]);
+    node.address = resolveRelation(node.address, ctx, addressResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.department = resolveRelation(node.department, ctx, localBusinessResolver);
+    node.geo = resolveRelation(node.geo, ctx, geoCoordinatesResolver);
+    node.openingHoursSpecification = resolveRelation(node.openingHoursSpecification, ctx, openingHoursResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    if (node.menu)
+      node.menu = resolveWithBase(ctx.meta.host, node.menu);
+    node = resolveNode({ ...node }, ctx, organizationResolver);
+    return node;
+  },
+  resolveRootNode(node, ctx) {
+    organizationResolver.resolveRootNode(node, ctx);
+    return node;
+  }
+});
+
+const foodEstablishmentResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": ["Organization", "LocalBusiness", "FoodEstablishment"]
+  },
+  inheritMeta: [
+    { key: "url", meta: "host" },
+    { key: "currenciesAccepted", meta: "currency" }
+  ],
+  idPrefix: ["host", IdentityId],
+  resolve(node, ctx) {
+    resolveDefaultType(node, ["Organization", "LocalBusiness", "FoodEstablishment"]);
+    node.starRating = resolveRelation(node.starRating, ctx, ratingResolver);
+    node = resolveNode(node, ctx, localBusinessResolver);
+    return node;
+  },
+  resolveRootNode(node, ctx) {
+    localBusinessResolver.resolveRootNode(node, ctx);
+    return node;
+  }
+});
+
+const howToStepDirectionResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      return {
+        text: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "HowToDirection"
+  }
+});
+
+const howToStepResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      return {
+        text: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "HowToStep"
+  },
+  resolve(step, ctx) {
+    if (step.url)
+      step.url = resolveWithBase(ctx.meta.url, step.url);
+    if (step.image) {
+      step.image = resolveRelation(step.image, ctx, imageResolver, {
+        root: true
+      });
+    }
+    if (step.itemListElement)
+      step.itemListElement = resolveRelation(step.itemListElement, ctx, howToStepDirectionResolver);
+    if (step.video)
+      step.video = resolveRelation(step.video, ctx, videoResolver);
+    return step;
+  }
+});
+
+const howToSectionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "HowToSection"
+  },
+  resolve(node, ctx) {
+    node.itemListElement = resolveRelation(node.itemListElement, ctx, howToStepResolver);
+    return node;
+  }
+});
+const HowToId = "#howto";
+const howToResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "HowTo"
+  },
+  inheritMeta: [
+    "description",
+    "image",
+    "inLanguage",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", HowToId],
+  resolve(node, ctx) {
+    node.step = resolveRelation(node.step, ctx, howToStepResolver);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    if (webPage)
+      setIfEmpty(node, "mainEntityOfPage", idReference(webPage));
+  }
+});
+
+const credentialResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "EducationalOccupationalCredential"
+  }
+});
+const experienceRequirementsResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "OccupationalExperienceRequirements"
+  }
+});
+const jobLocationRequirementResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "AdministrativeArea"
+  }
+});
+const jobPostingResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "JobPosting"
+  },
+  idPrefix: ["url", "#job-posting"],
+  resolve(node, ctx) {
+    const resolveObjects = (input, resolver) => {
+      if (!input)
+        return input;
+      const values = Array.isArray(input) ? input : [input];
+      const resolved = values.map((value) => typeof value === "object" ? resolveRelation(value, ctx, resolver) : value);
+      return Array.isArray(input) ? resolved : resolved[0];
+    };
+    node.datePosted = resolvableDateToIso(node.datePosted);
+    node.applicantLocationRequirements = resolveRelation(node.applicantLocationRequirements, ctx, jobLocationRequirementResolver);
+    node.educationRequirements = resolveObjects(node.educationRequirements, credentialResolver);
+    node.experienceRequirements = resolveObjects(node.experienceRequirements, experienceRequirementsResolver);
+    node.hiringOrganization = resolveRelation(node.hiringOrganization, ctx, organizationResolver);
+    node.jobLocation = resolveRelation(node.jobLocation, ctx, placeResolver);
+    if (typeof node.identifier === "object")
+      node.identifier = resolveRelation(node.identifier, ctx, propertyValueResolver);
+    node.baseSalary = resolveRelation(node.baseSalary, ctx, monetaryAmountResolver);
+    node.validThrough = resolvableDateToIso(node.validThrough);
+    return node;
+  },
+  resolveRootNode(jobPosting, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(jobPosting, "hiringOrganization", idReference(identity));
+    if (webPage)
+      setIfEmpty(jobPosting, "mainEntityOfPage", idReference(webPage));
+    return jobPosting;
+  }
+});
+
+const mathSolverResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MathSolver"
+  },
+  inheritMeta: [
+    "inLanguage",
+    "url"
+  ],
+  idPrefix: ["url", "#math-solver"],
+  resolve(node, { meta }) {
+    resolveDefaultType(node, "MathSolver");
+    node.url = resolveWithBase(meta.host, node.url);
+    node.usageInfo = resolveWithBase(meta.host, node.usageInfo);
+    const actions = Array.isArray(node.potentialAction) ? node.potentialAction : [node.potentialAction];
+    node.potentialAction = actions.map((action) => ({
+      "@type": "SolveMathAction",
+      ...action,
+      "target": resolveWithBase(meta.host, action.target)
+    }));
+    return node;
+  }
+});
+
+const movieResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Movie"
+  },
+  resolve(node, ctx) {
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    node.director = resolveRelation(node.director, ctx, personResolver);
+    node.actor = resolveRelation(node.actor, ctx, personResolver);
+    node.trailer = resolveRelation(node.trailer, ctx, videoResolver);
+    node.productionCompany = resolveRelation(node.productionCompany, ctx, organizationResolver);
+    if (node.dateCreated)
+      node.dateCreated = resolvableDateToDate(node.dateCreated);
+    return node;
+  }
+});
+
+const musicAlbumResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MusicAlbum"
+  },
+  idPrefix: "host",
+  resolve(node, ctx) {
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    node.byArtist = resolveRelation(node.byArtist, ctx, personResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    return node;
+  }
+});
+
+const musicGroupResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MusicGroup"
+  },
+  idPrefix: "host",
+  inheritMeta: [
+    { meta: "host", key: "url" }
+  ],
+  resolve(node, ctx) {
+    if (node.foundingDate)
+      node.foundingDate = resolvableDateToDate(node.foundingDate);
+    if (node.dissolutionDate)
+      node.dissolutionDate = resolvableDateToDate(node.dissolutionDate);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    node.member = resolveRelation(node.member, ctx, personResolver);
+    return node;
+  }
+});
+
+const musicPlaylistResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MusicPlaylist"
+  },
+  idPrefix: "host",
+  resolve(node, ctx) {
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.dateModified)
+      node.dateModified = resolvableDateToIso(node.dateModified);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    node.creator = resolveRelation(node.creator, ctx, personResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    return node;
+  }
+});
+
+const musicRecordingResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "MusicRecording"
+  },
+  idPrefix: "host",
+  resolve(node, ctx) {
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    if (node.audio)
+      node.audio = resolveWithBase(ctx.meta.host, node.audio);
+    node.byArtist = resolveRelation(node.byArtist, ctx, personResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    return node;
+  }
+});
+
+const podcastEpisodeResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PodcastEpisode"
+  },
+  inheritMeta: [
+    "inLanguage"
+  ],
+  resolve(node, ctx) {
+    node.author = resolveRelation(node.author, ctx, personResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.uploadDate)
+      node.uploadDate = resolvableDateToIso(node.uploadDate);
+    return node;
+  }
+});
+
+const podcastSeasonResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PodcastSeason"
+  },
+  resolve(node, ctx) {
+    node.actor = resolveRelation(node.actor, ctx, personResolver);
+    node.director = resolveRelation(node.director, ctx, personResolver);
+    node.productionCompany = resolveRelation(node.productionCompany, ctx, organizationResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.startDate)
+      node.startDate = resolvableDateToIso(node.startDate);
+    if (node.endDate)
+      node.endDate = resolvableDateToIso(node.endDate);
+    return node;
+  }
+});
+
+const podcastSeriesResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "PodcastSeries"
+  },
+  resolve(node, ctx) {
+    node.author = resolveRelation(node.author, ctx, personResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.startDate)
+      node.startDate = resolvableDateToIso(node.startDate);
+    if (node.endDate)
+      node.endDate = resolvableDateToIso(node.endDate);
+    return node;
+  }
+});
+
+const answerResolver = defineSchemaOrgResolver({
+  cast(node) {
+    if (typeof node === "string") {
+      return {
+        text: node
+      };
+    }
+    return node;
+  },
+  defaults: {
+    "@type": "Answer"
+  },
+  resolve(node, ctx) {
+    node.author = resolveIdentityRelation(node.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.comment = resolveRelation(node.comment, ctx, commentResolver);
+    node.dateModified = resolvableDateToIso(node.dateModified);
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    node.video = resolveRelation(node.video, ctx, videoResolver);
+    if (node.url)
+      node.url = resolveWithBase(ctx.meta.host, node.url);
+    return node;
+  }
+});
+
+const questionResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Question"
+  },
+  inheritMeta: [
+    "inLanguage"
+  ],
+  idPrefix: "url",
+  resolve(question, ctx) {
+    if (question.question) {
+      question.name = question.question;
+      delete question.question;
+    }
+    if (question.answer) {
+      question.acceptedAnswer = question.answer;
+      delete question.answer;
+    }
+    question.acceptedAnswer = resolveRelation(question.acceptedAnswer, ctx, answerResolver);
+    question.suggestedAnswer = resolveRelation(question.suggestedAnswer, ctx, answerResolver);
+    question.author = resolveIdentityRelation(question.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    question.comment = resolveRelation(question.comment, ctx, commentResolver);
+    question.dateCreated = resolvableDateToIso(question.dateCreated);
+    question.dateModified = resolvableDateToIso(question.dateModified);
+    question.datePublished = resolvableDateToIso(question.datePublished);
+    question.video = resolveRelation(question.video, ctx, videoResolver);
+    return question;
+  },
+  resolveRootNode(question, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    if (webPage && (asArray(webPage["@type"]).includes("FAQPage") || asArray(webPage["@type"]).includes("QAPage")))
+      dedupeMerge(webPage, "mainEntity", idReference(question));
+  }
+});
+
+const alignmentObjectResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "AlignmentObject"
+  }
+});
+const quizResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Quiz"
+  },
+  idPrefix: ["url", "#quiz"],
+  resolve(node, ctx) {
+    node.hasPart = resolveRelation(node.hasPart, ctx, questionResolver);
+    node.educationalAlignment = resolveRelation(node.educationalAlignment, ctx, alignmentObjectResolver);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    if (webPage)
+      setIfEmpty(node, "mainEntityOfPage", idReference(webPage));
+  }
+});
+
+const RecipeId = "#recipe";
+const recipeResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Recipe"
+  },
+  inheritMeta: [
+    { meta: "title", key: "name" },
+    "description",
+    "image",
+    "datePublished"
+  ],
+  idPrefix: ["url", RecipeId],
+  resolve(node, ctx) {
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.author = resolveIdentityRelation(node.author, ctx, {
+      organization: organizationResolver,
+      person: personResolver
+    }, {
+      root: true
+    });
+    node.datePublished = resolvableDateToIso(node.datePublished);
+    node.image = resolveRelation(node.image, ctx, imageResolver, {
+      root: true
+    });
+    if (node.recipeInstructions) {
+      const resolveInstruction = (instruction) => {
+        const instructionTypes = typeof instruction === "object" && instruction !== null ? asArray(instruction["@type"]) : [];
+        const isExplicitStep = instructionTypes.includes("HowToStep");
+        const isSection = !isExplicitStep && typeof instruction === "object" && instruction !== null && (instructionTypes.includes("HowToSection") || "itemListElement" in instruction && !("text" in instruction));
+        return isSection ? resolveRelation(instruction, ctx, howToSectionResolver) : resolveRelation(instruction, ctx, howToStepResolver);
+      };
+      node.recipeInstructions = Array.isArray(node.recipeInstructions) ? node.recipeInstructions.map(resolveInstruction) : resolveInstruction(node.recipeInstructions);
+    }
+    node.video = resolveRelation(node.video, ctx, videoResolver);
+    return node;
+  },
+  resolveRootNode(node, { find }) {
+    const article = find(PrimaryArticleId);
+    const webPage = find(PrimaryWebPageId);
+    if (article)
+      setIfEmpty(node, "mainEntityOfPage", idReference(article));
+    else if (webPage)
+      setIfEmpty(node, "mainEntityOfPage", idReference(webPage));
+    if (article?.author)
+      setIfEmpty(node, "author", article.author);
+    return node;
+  }
+});
+
+const ServiceId = "#service";
+const serviceResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "Service"
+  },
+  inheritMeta: [
+    "description",
+    "image",
+    { meta: "title", key: "name" }
+  ],
+  idPrefix: ["url", ServiceId],
+  resolve(node, ctx) {
+    resolveDefaultType(node, "Service");
+    node.offers = resolveRelation(node.offers, ctx, offerResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    return node;
+  },
+  resolveRootNode(service, { find }) {
+    const webPage = find(PrimaryWebPageId);
+    const identity = find(IdentityId);
+    if (identity)
+      setIfEmpty(service, "provider", idReference(identity));
+    if (identity)
+      setIfEmpty(service, "brand", idReference(identity));
+    if (webPage)
+      setIfEmpty(service, "mainEntityOfPage", idReference(webPage));
+    return service;
+  }
+});
+
+const softwareAppResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "SoftwareApplication"
+  },
+  resolve(node, ctx) {
+    resolveDefaultType(node, "SoftwareApplication");
+    node.offers = resolveRelation(node.offers, ctx, offerResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    return node;
+  }
+});
+
+const tvEpisodeResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "TVEpisode"
+  },
+  resolve(node, ctx) {
+    node.actor = resolveRelation(node.actor, ctx, personResolver);
+    node.director = resolveRelation(node.director, ctx, personResolver);
+    node.musicBy = resolveRelation(node.musicBy, ctx, personResolver);
+    node.video = resolveRelation(node.video, ctx, videoResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.review = resolveRelation(node.review, ctx, reviewResolver);
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.uploadDate)
+      node.uploadDate = resolvableDateToIso(node.uploadDate);
+    return node;
+  }
+});
+
+const tvSeasonResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "TVSeason"
+  },
+  resolve(node, ctx) {
+    node.actor = resolveRelation(node.actor, ctx, personResolver);
+    node.director = resolveRelation(node.director, ctx, personResolver);
+    node.productionCompany = resolveRelation(node.productionCompany, ctx, organizationResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.trailer = resolveRelation(node.trailer, ctx, videoResolver);
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.startDate)
+      node.startDate = resolvableDateToIso(node.startDate);
+    if (node.endDate)
+      node.endDate = resolvableDateToIso(node.endDate);
+    return node;
+  }
+});
+
+const tvSeriesResolver = defineSchemaOrgResolver({
+  defaults: {
+    "@type": "TVSeries"
+  },
+  resolve(node, ctx) {
+    node.actor = resolveRelation(node.actor, ctx, personResolver);
+    node.director = resolveRelation(node.director, ctx, personResolver);
+    node.creator = resolveRelation(node.creator, ctx, personResolver);
+    node.productionCompany = resolveRelation(node.productionCompany, ctx, organizationResolver);
+    node.aggregateRating = resolveRelation(node.aggregateRating, ctx, aggregateRatingResolver);
+    node.trailer = resolveRelation(node.trailer, ctx, videoResolver);
+    if (node.datePublished)
+      node.datePublished = resolvableDateToIso(node.datePublished);
+    if (node.startDate)
+      node.startDate = resolvableDateToIso(node.startDate);
+    if (node.endDate)
+      node.endDate = resolvableDateToIso(node.endDate);
+    return node;
+  }
+});
+
+function mergeObjects(target, source) {
+  const result = { ...target };
+  for (const key in source) {
+    if (!hasOwn(source, key) || source[key] === void 0 || key === "__proto__" || key === "constructor" || key === "prototype")
+      continue;
+    const isNestedObject = result[key] && typeof result[key] === "object" && typeof source[key] === "object" && !Array.isArray(result[key]) && !Array.isArray(source[key]);
+    if (isNestedObject)
+      result[key] = mergeObjects(result[key], source[key]);
+    else if (!result[key])
+      result[key] = source[key];
+  }
+  return result;
+}
+function isSchemaOrgTag(tag) {
+  return tag.tag === "script" && tag.props.type === "application/ld+json" && tag.props.nodes || tag.key === "schema-org-graph";
+}
+function UnheadSchemaOrg(config = {}, meta = () => ({}), options) {
+  config = resolveMeta({ ...config });
+  let graph;
+  let resolvedMeta = {};
+  return defineHeadPlugin((head) => {
+    head.use(TemplateParamsPlugin);
+    function collectTag(tag) {
+      if (tag.tag === "script" && tag.props.type === "application/ld+json" && tag.props.nodes) {
+        const nodes = tag.props.nodes;
+        for (const node of Array.isArray(nodes) ? nodes : [nodes]) {
+          if (typeof node !== "object" || node === null) {
+            continue;
+          }
+          const newNode = {
+            ...node,
+            _dedupeStrategy: tag.tagDuplicateStrategy
+          };
+          graph.push(newNode);
+        }
+        tag.tagPosition = tag.tagPosition || (config.tagPosition === "head" ? "head" : "bodyClose");
+      }
+      if (tag.tag === "htmlAttrs" && typeof tag.props.lang === "string") {
+        resolvedMeta.inLanguage = tag.props.lang;
+      } else if (tag.tag === "title" && tag.textContent != null && typeof tag.textContent !== "function") {
+        resolvedMeta.title = String(tag.textContent);
+      } else if (tag.tag === "meta" && tag.props.name === "description" && typeof tag.props.content === "string") {
+        resolvedMeta.description = tag.props.content;
+      } else if (tag.tag === "link" && tag.props.rel === "canonical" && typeof tag.props.href === "string") {
+        resolvedMeta.url = tag.props.href;
+        if (resolvedMeta.url && !resolvedMeta.host) {
+          try {
+            resolvedMeta.host = new URL(resolvedMeta.url).origin;
+          } catch {
+          }
+        }
+      } else if (tag.tag === "meta" && tag.props.property === "og:image" && typeof tag.props.content === "string") {
+        resolvedMeta.image = tag.props.content;
+      } else if (tag.tag === "templateParams" && tag.props.schemaOrg) {
+        resolvedMeta = {
+          ...resolvedMeta,
+          ...tag.props.schemaOrg
+        };
+      }
+    }
+    return {
+      key: "schema-org",
+      hooks: {
+        "entries:resolve": (ctx) => {
+          graph = graph || createSchemaOrgGraph();
+          graph.nodes = [];
+          graph.nodeIndex.clear();
+          resolvedMeta = {};
+          for (const entry of ctx.entries) {
+            if (entry._tags) {
+              if (entry._tags.some(isSchemaOrgTag)) {
+                delete entry._tags;
+                continue;
+              }
+              for (const tag of entry._tags)
+                collectTag(tag);
+            }
+          }
+        },
+        "entries:normalize": ({ tags }) => {
+          for (const tag of tags)
+            collectTag(tag);
+        },
+        "tags:resolve": (ctx) => {
+          for (const k in ctx.tags) {
+            const tag = ctx.tags[k];
+            if (tag.tag === "script" && tag.props.type === "application/ld+json" && tag.props.nodes) {
+              delete tag.props.nodes;
+              const resolvedGraph = graph.resolveGraph({ ...meta?.() || {}, ...config, ...resolvedMeta });
+              if (!resolvedGraph.length) {
+                tag.props = {};
+                return;
+              }
+              const minify = options?.minify || process.env.NODE_ENV === "production";
+              tag.innerHTML = JSON.stringify({
+                "@context": "https://schema.org",
+                "@graph": resolvedGraph
+              }, (_, value) => {
+                if (typeof value === "string")
+                  return processTemplateParams(value, head._templateParams, head._separator);
+                return value;
+              }, minify ? 0 : 2);
+              return;
+            }
+          }
+        },
+        "tags:afterResolve": (ctx) => {
+          let firstNodeIdx;
+          let toRemove;
+          for (let i = 0; i < ctx.tags.length; i++) {
+            const tag = ctx.tags[i];
+            if (!tag?.props)
+              continue;
+            if (isSchemaOrgTag(tag)) {
+              delete tag.props.nodes;
+              if (typeof firstNodeIdx === "undefined") {
+                firstNodeIdx = i;
+                continue;
+              }
+              ctx.tags[firstNodeIdx].props = mergeObjects(ctx.tags[firstNodeIdx].props, tag.props);
+              delete ctx.tags[firstNodeIdx].props.nodes;
+              (toRemove ||= /* @__PURE__ */ new Set()).add(i);
+            }
+          }
+          if (toRemove)
+            ctx.tags = ctx.tags.filter((_, i) => !toRemove.has(i));
+        }
+      }
+    };
+  }, "schema-org");
+}
+
+function provideResolver(input, resolver) {
+  return { ...input || {}, _resolver: resolver };
+}
+function defineAddress(input) {
+  return provideResolver(input, addressResolver);
+}
+function defineAggregateOffer(input) {
+  return provideResolver(input, aggregateOfferResolver);
+}
+function defineAggregateRating(input) {
+  return provideResolver(input, aggregateRatingResolver);
+}
+function defineArticle(input) {
+  return provideResolver(input, articleResolver);
+}
+function defineBreadcrumb(input) {
+  return provideResolver(input, breadcrumbResolver);
+}
+function defineComment(input) {
+  return provideResolver(input, commentResolver);
+}
+function defineDiscussionForumPosting(input) {
+  return provideResolver(input, discussionForumPostingResolver);
+}
+function defineEmployerAggregateRating(input) {
+  return provideResolver(input, employerAggregateRatingResolver);
+}
+function defineEvent(input) {
+  return provideResolver(input, eventResolver);
+}
+function defineFoodEstablishment(input) {
+  return provideResolver(input, foodEstablishmentResolver);
+}
+function defineVirtualLocation(input) {
+  return provideResolver(input, virtualLocationResolver);
+}
+function definePlace(input) {
+  return provideResolver(input, placeResolver);
+}
+function defineHowTo(input) {
+  return provideResolver(input, howToResolver);
+}
+function defineHowToStep(input) {
+  return provideResolver(input, howToStepResolver);
+}
+function defineImage(input) {
+  return provideResolver(input, imageResolver);
+}
+function defineJobPosting(input) {
+  return provideResolver(input, jobPostingResolver);
+}
+function defineLocalBusiness(input) {
+  return provideResolver(input, localBusinessResolver);
+}
+function defineMathSolver(input) {
+  return provideResolver(input, mathSolverResolver);
+}
+function defineOffer(input) {
+  return provideResolver(input, offerResolver);
+}
+function defineOpeningHours(input) {
+  return provideResolver(input, openingHoursResolver);
+}
+function defineOrganization(input) {
+  return provideResolver(input, organizationResolver);
+}
+function definePerson(input) {
+  return provideResolver(input, personResolver);
+}
+function defineProduct(input) {
+  return provideResolver(input, productResolver);
+}
+function defineQuestion(input) {
+  return provideResolver(input, questionResolver);
+}
+function defineQuiz(input) {
+  return provideResolver(input, quizResolver);
+}
+function defineRecipe(input) {
+  return provideResolver(input, recipeResolver);
+}
+function defineReview(input) {
+  return provideResolver(input, reviewResolver);
+}
+function defineVideo(input) {
+  return provideResolver(input, videoResolver);
+}
+function defineVacationRental(input) {
+  return provideResolver(input, vacationRentalResolver);
+}
+function defineWebPage(input) {
+  return provideResolver(input, webPageResolver);
+}
+function defineWebSite(input) {
+  return provideResolver(input, webSiteResolver);
+}
+function defineBook(input) {
+  return provideResolver(input, bookResolver);
+}
+function defineCourse(input) {
+  return provideResolver(input, courseResolver);
+}
+function defineItemList(input) {
+  return provideResolver(input, itemListResolver);
+}
+function defineListItem(input) {
+  return provideResolver(input, listItemResolver);
+}
+function defineMovie(input) {
+  return provideResolver(input, movieResolver);
+}
+function defineSearchAction(input) {
+  return provideResolver(input, searchActionResolver);
+}
+function defineReadAction(input) {
+  return provideResolver(input, readActionResolver);
+}
+function defineDataset(input) {
+  return provideResolver(input, datasetResolver);
+}
+function defineMusicRecording(input) {
+  return provideResolver(input, musicRecordingResolver);
+}
+function defineMusicAlbum(input) {
+  return provideResolver(input, musicAlbumResolver);
+}
+function defineMusicGroup(input) {
+  return provideResolver(input, musicGroupResolver);
+}
+function defineMusicPlaylist(input) {
+  return provideResolver(input, musicPlaylistResolver);
+}
+function definePodcastSeries(input) {
+  return provideResolver(input, podcastSeriesResolver);
+}
+function definePodcastEpisode(input) {
+  return provideResolver(input, podcastEpisodeResolver);
+}
+function definePodcastSeason(input) {
+  return provideResolver(input, podcastSeasonResolver);
+}
+function defineTVSeries(input) {
+  return provideResolver(input, tvSeriesResolver);
+}
+function defineTVSeason(input) {
+  return provideResolver(input, tvSeasonResolver);
+}
+function defineTVEpisode(input) {
+  return provideResolver(input, tvEpisodeResolver);
+}
+function defineService(input) {
+  return provideResolver(input, serviceResolver);
+}
+function defineSoftwareApp(input) {
+  return provideResolver(input, softwareAppResolver);
+}
+function defineBookEdition(input) {
+  return provideResolver(input, bookEditionResolver);
+}
+function normalizeSchemaOrgInput(input) {
+  const script = input?.script;
+  const graph = script?.[0];
+  if (Array.isArray(script) && script.length === 1 && graph && typeof graph === "object" && graph.type === "application/ld+json" && graph.key === "schema-org-graph" && "nodes" in graph) {
+    return input;
+  }
+  return {
+    script: [
+      {
+        type: "application/ld+json",
+        key: "schema-org-graph",
+        nodes: input
+      }
+    ]
+  };
+}
+function useSchemaOrg(unhead, input = [], options = {}) {
+  unhead.use(UnheadSchemaOrg());
+  const entry = unhead.push(
+    normalizeSchemaOrgInput(input),
+    options
+  );
+  const corePatch = entry.patch;
+  const publicEntry = entry;
+  publicEntry.patch = (input2) => corePatch(normalizeSchemaOrgInput(input2));
+  return publicEntry;
+}
+
+export { defineOrganization as $, defineComment as A, defineCourse as B, defineDataset as C, defineDiscussionForumPosting as D, defineEmployerAggregateRating as E, defineEvent as F, defineFoodEstablishment as G, HowToId as H, defineHowTo as I, defineHowToStep as J, defineImage as K, defineItemList as L, defineJobPosting as M, defineListItem as N, defineLocalBusiness as O, PrimaryArticleId as P, defineMathSolver as Q, RecipeId as R, ServiceId as S, defineMovie as T, UnheadSchemaOrg as U, defineMusicAlbum as V, defineMusicGroup as W, defineMusicPlaylist as X, defineMusicRecording as Y, defineOffer as Z, defineOpeningHours as _, PrimaryBookId as a, resolveNode as a$, definePerson as a0, definePlace as a1, definePodcastEpisode as a2, definePodcastSeason as a3, definePodcastSeries as a4, defineProduct as a5, defineQuestion as a6, defineQuiz as a7, defineReadAction as a8, defineRecipe as a9, jobPostingResolver as aA, listItemResolver as aB, localBusinessResolver as aC, mathSolverResolver as aD, memberProgramTierResolver as aE, merge as aF, movieResolver as aG, musicAlbumResolver as aH, musicGroupResolver as aI, musicPlaylistResolver as aJ, musicRecordingResolver as aK, normalizeSchemaOrgInput as aL, offerResolver as aM, openingHoursResolver as aN, organizationResolver as aO, personResolver as aP, placeResolver as aQ, podcastEpisodeResolver as aR, podcastSeasonResolver as aS, podcastSeriesResolver as aT, productResolver as aU, questionResolver as aV, quizResolver as aW, ratingResolver as aX, readActionResolver as aY, recipeResolver as aZ, resolveMeta as a_, defineReview as aa, defineSchemaOrgResolver as ab, defineSearchAction as ac, defineService as ad, defineSoftwareApp as ae, defineTVEpisode as af, defineTVSeason as ag, defineTVSeries as ah, defineVacationRental as ai, defineVideo as aj, defineVirtualLocation as ak, defineWebPage as al, defineWebSite as am, discussionCommentResolver as an, discussionForumPostingResolver as ao, employerAggregateRatingResolver as ap, eventResolver as aq, foodEstablishmentResolver as ar, geoCoordinatesResolver as as, howToResolver as at, howToSectionResolver as au, howToStepDirectionResolver as av, howToStepResolver as aw, imageResolver as ax, isImageObject as ay, itemListResolver as az, PrimaryBreadcrumbId as b, resolveNodeId as b0, resolveRelation as b1, reviewResolver as b2, searchActionResolver as b3, serviceResolver as b4, softwareAppResolver as b5, speakableSpecificationResolver as b6, tvEpisodeResolver as b7, tvSeasonResolver as b8, tvSeriesResolver as b9, unitPriceSpecificationResolver as ba, useSchemaOrg as bb, vacationRentalResolver as bc, videoResolver as bd, virtualLocationResolver as be, webPageElementResolver as bf, webPageResolver as bg, webSiteResolver as bh, PrimaryDatasetId as c, PrimaryEventId as d, PrimaryWebPageId as e, PrimaryWebSiteId as f, ProductId as g, addressResolver as h, aggregateOfferResolver as i, aggregateRatingResolver as j, articleResolver as k, bookEditionResolver as l, bookResolver as m, brandResolver as n, breadcrumbResolver as o, commentResolver as p, courseResolver as q, createSchemaOrgGraph as r, datasetResolver as s, defineAddress as t, defineAggregateOffer as u, defineAggregateRating as v, defineArticle as w, defineBook as x, defineBookEdition as y, defineBreadcrumb as z };

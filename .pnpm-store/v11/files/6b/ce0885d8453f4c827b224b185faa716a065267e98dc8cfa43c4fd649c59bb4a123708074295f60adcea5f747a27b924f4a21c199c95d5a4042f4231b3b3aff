@@ -1,0 +1,161 @@
+export const JSON_TYPES = /* @__PURE__ */ new Set(["application/json", "application/ld+json"]);
+export const SKIP_JS_TYPES = /* @__PURE__ */ new Set(["application/json", "application/ld+json", "speculationrules", "importmap"]);
+const JS_MINIFY_CANDIDATE_RE = /[\s/]/;
+const CSS_MINIFY_CANDIDATE_RE = /[\s/]|;\}|0\.\d/;
+export function minifyJS(code) {
+  if (!JS_MINIFY_CANDIDATE_RE.test(code))
+    return code;
+  let result = "";
+  let last = "";
+  let i = 0;
+  const len = code.length;
+  const append = (value) => {
+    result += value;
+    last = value;
+  };
+  while (i < len) {
+    const ch = code[i];
+    if (ch === "'" || ch === '"' || ch === "`") {
+      const quote = ch;
+      append(ch);
+      i++;
+      while (i < len && code[i] !== quote) {
+        if (code[i] === "\\") {
+          append(code[i++]);
+        }
+        append(code[i++]);
+      }
+      if (i < len)
+        append(code[i++]);
+    } else if (ch === "/" && code[i + 1] === "/") {
+      i += 2;
+      while (i < len && code[i] !== "\n")
+        i++;
+    } else if (ch === "/" && code[i + 1] === "*") {
+      i += 2;
+      while (i < len && !(code[i] === "*" && code[i + 1] === "/"))
+        i++;
+      i += 2;
+    } else if (ch === " " || ch === "	" || ch === "\n" || ch === "\r") {
+      let hasNewline = false;
+      while (i < len && (code[i] === " " || code[i] === "	" || code[i] === "\n" || code[i] === "\r")) {
+        if (code[i] === "\n")
+          hasNewline = true;
+        i++;
+      }
+      const next = code[i];
+      if (hasNewline && last && next && last !== "{" && last !== "}" && last !== ";" && next !== "}" && next !== ";")
+        append("\n");
+      else if (last && next && isIdentChar(last) && isIdentChar(next))
+        append(" ");
+      else if (last && next && (last === "+" && next === "+" || last === "-" && next === "-"))
+        append(" ");
+    } else {
+      append(ch);
+      i++;
+    }
+  }
+  return result.trim();
+}
+export function minifyCSS(code) {
+  if (!CSS_MINIFY_CANDIDATE_RE.test(code))
+    return code;
+  let result = "";
+  let last = "";
+  let i = 0;
+  const parenStack = [];
+  const len = code.length;
+  const append = (value) => {
+    result += value;
+    last = value;
+  };
+  while (i < len) {
+    const ch = code[i];
+    if (ch === "'" || ch === '"') {
+      const quote = ch;
+      append(ch);
+      i++;
+      while (i < len && code[i] !== quote) {
+        if (code[i] === "\\")
+          append(code[i++]);
+        append(code[i++]);
+      }
+      if (i < len)
+        append(code[i++]);
+    } else if (ch === "/" && code[i + 1] === "*") {
+      i += 2;
+      while (i < len && !(code[i] === "*" && code[i + 1] === "/"))
+        i++;
+      i += 2;
+    } else if (ch === "(") {
+      parenStack.push(isSelectorFunctionParen(code, i));
+      append(ch);
+      i++;
+    } else if (ch === ")") {
+      parenStack.pop();
+      append(ch);
+      i++;
+    } else if (ch === " " || ch === "	" || ch === "\n" || ch === "\r") {
+      while (i < len && (code[i] === " " || code[i] === "	" || code[i] === "\n" || code[i] === "\r"))
+        i++;
+      const next = code[i];
+      if (next === "!")
+        continue;
+      if (parenStack.length > 0) {
+        const isPunct = parenStack[parenStack.length - 1] ? isCSSPunctuation : isCSSCalcPunctuation;
+        if (last && next && !isPunct(last) && !isPunct(next))
+          append(" ");
+      } else if (last && next && !isCSSPunctuation(last) && !isCSSPunctuation(next)) {
+        append(" ");
+      }
+    } else if (ch === ";") {
+      let j = i + 1;
+      while (j < len && (code[j] === " " || code[j] === "	" || code[j] === "\n" || code[j] === "\r"))
+        j++;
+      if (code[j] === "}") {
+        i++;
+      } else {
+        append(ch);
+        i++;
+      }
+    } else if (ch === "0" && code[i + 1] === "." && (code[i + 2] ?? "") >= "0" && (code[i + 2] ?? "") <= "9") {
+      if (last && last >= "0" && last <= "9") {
+        append(ch);
+        i++;
+      } else {
+        i++;
+      }
+    } else {
+      append(ch);
+      i++;
+    }
+  }
+  return result.trim();
+}
+function isIdentChar(ch) {
+  return ch >= "a" && ch <= "z" || ch >= "A" && ch <= "Z" || ch >= "0" && ch <= "9" || ch === "_" || ch === "$";
+}
+function isCSSBasePunctuation(ch) {
+  return ch === "{" || ch === "}" || ch === ";" || ch === ":" || ch === ",";
+}
+function isCSSPunctuation(ch) {
+  return isCSSBasePunctuation(ch) || ch === ">" || ch === "+" || ch === "~";
+}
+function isCSSCalcPunctuation(ch) {
+  return isCSSBasePunctuation(ch) || ch === "*" || ch === "/";
+}
+function isCSSNameChar(ch) {
+  return ch >= "a" && ch <= "z" || ch >= "A" && ch <= "Z" || ch === "-";
+}
+function isSelectorFunctionParen(code, parenIndex) {
+  let j = parenIndex - 1;
+  while (j >= 0 && isCSSNameChar(code[j]))
+    j--;
+  if (code[j] !== ":")
+    return false;
+  const name = code.slice(j + 1, parenIndex).toLowerCase();
+  return name === "is" || name === "where" || name === "not" || name === "has" || name === "matches" || name === "host" || name === "host-context" || name === "slotted";
+}
+export function minifyJSON(code) {
+  return JSON.stringify(JSON.parse(code));
+}

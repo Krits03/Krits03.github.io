@@ -1,0 +1,14 @@
+/**
+ * Split a CSS style string into individual declarations, respecting
+ * parentheses (e.g. `url(...)`) and quoted strings so that semicolons
+ * inside data URIs like `url("data:image/svg+xml;utf8,...")` are not
+ * treated as declaration separators.
+ */
+export declare function splitCssDeclarations(style: string): string[];
+export declare const GRADIENT_COLOR_SPACE_RE: RegExp;
+/**
+ * Strip gradient color interpolation methods (e.g. `in oklab`, `in oklch`)
+ * from CSS gradient values. Image renderers (Satori, Takumi) don't support them.
+ */
+export declare function stripGradientColorSpace(value: string): string;
+export declare function resolveColorMix(value: string): string;

@@ -1,0 +1,19 @@
+import { getRequestURL } from "#nuxtseo/h3";
+import { getCloudflareEnv } from "./cloudflare.js";
+export function getCloudflareAssets(event) {
+  const assets = getCloudflareEnv(event)?.ASSETS || event.context.ASSETS;
+  return typeof assets === "object" && assets !== null && "fetch" in assets && typeof assets.fetch === "function" ? assets : void 0;
+}
+export async function tryCloudflareAssetsFetch(event, path, signal) {
+  const assets = getCloudflareAssets(event);
+  if (!assets)
+    return;
+  const origin = getRequestURL(event).origin;
+  const url = new URL(path, origin).href;
+  const res = await assets.fetch(url, signal ? { signal } : void 0).catch(() => {
+    return null;
+  });
+  if (!res || !res.ok)
+    return;
+  return res.arrayBuffer();
+}

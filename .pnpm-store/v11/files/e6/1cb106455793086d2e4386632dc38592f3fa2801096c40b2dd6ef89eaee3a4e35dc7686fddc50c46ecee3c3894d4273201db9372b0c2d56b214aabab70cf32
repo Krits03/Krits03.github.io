@@ -1,0 +1,29 @@
+import { withBase } from "ufo";
+import { fetchWithEvent, useRuntimeConfig } from "#nuxtseo/nitro";
+import { getNitroOrigin, getSiteConfig } from "#site-config/server/composables";
+import { getFetchTimeout } from "../../../util/fetchTimeout.js";
+import { fetchWithRedirectValidation } from "../../../util/ssrf.js";
+import { useOgImageRuntimeConfig } from "../../../utils.js";
+import { fetchSpecialFontUrl, isDataFontUrl, isExternalFontUrl } from "./external-url.js";
+export async function resolve(event, font) {
+  const path = font.src || font.localPath;
+  const runtimeConfig = useOgImageRuntimeConfig();
+  const timeout = getFetchTimeout(runtimeConfig);
+  const { app } = useRuntimeConfig();
+  const origin = getNitroOrigin(event);
+  const fullPath = withBase(path, app.baseURL);
+  if (path && (isDataFontUrl(path) || isExternalFontUrl(path)))
+    return fetchSpecialFontUrl(path, getSiteConfig(event).url, timeout);
+  const target = new URL(fullPath, origin);
+  const ab = await fetchWithRedirectValidation(target.href, { timeout, trustedHost: target.host }).catch(() => {
+    return null;
+  });
+  if (ab) {
+    return Buffer.from(ab);
+  }
+  const arrayBuffer = await fetchWithEvent(event, fullPath, {
+    responseType: "arrayBuffer",
+    timeout
+  });
+  return Buffer.from(arrayBuffer);
+}

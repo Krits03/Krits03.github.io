@@ -1,0 +1,214 @@
+import { defu } from "defu";
+import { parseURL, withoutLeadingSlash, withoutTrailingSlash, withQuery } from "ufo";
+import { normalizeKey } from "unstorage";
+import { createError } from "#nuxtseo/h3";
+import { useNitroApp } from "#nuxtseo/nitro";
+import { prerenderOptionsCache } from "#og-image-cache";
+import { getSiteConfig } from "#site-config/server/composables/getSiteConfig";
+import { createSitePathResolver } from "#site-config/server/composables/utils";
+import { logger } from "../../logger.js";
+import { decodeOgImageParams, extractEncodedSegment, sanitizeProps, separateProps, verifyOgImageSignature } from "../../shared.js";
+import { hashKey } from "../../shared/hash.js";
+import { autoEjectCommunityTemplate } from "../util/auto-eject.js";
+import { createNitroRouteRuleMatcher } from "../util/kit.js";
+import { normaliseOptions } from "../util/options.js";
+import { getEventQuery } from "../util/query.js";
+import { createTimings, TIMING_CTX_KEY } from "../util/timings.js";
+import { withTimeout } from "../util/withTimeout.js";
+import { useOgImageRuntimeConfig } from "../utils.js";
+import { getBrowserRenderer, getSatoriRenderer, getTakumiRenderer } from "./instances.js";
+const RE_HASH_MODE = /^o_([a-z0-9]+)$/i;
+const RE_SIGNATURE_SUFFIX = /,s_([^,]+)$/;
+export function resolvePathCacheKey(e, path, resolvedOptions) {
+  const siteConfig = getSiteConfig(e, {
+    resolveRefs: true
+  });
+  const basePath = withoutTrailingSlash(withoutLeadingSlash(normalizeKey(path)));
+  const hashParts = [
+    basePath,
+    import.meta.prerender ? "" : siteConfig.url
+  ];
+  if (resolvedOptions)
+    hashParts.push(hashKey(resolvedOptions));
+  return [
+    !basePath || basePath === "/" ? "index" : basePath,
+    hashKey(hashParts)
+  ].join(":");
+}
+export async function resolveContext(e) {
+  const runtimeConfig = useOgImageRuntimeConfig(e);
+  const resolvePathWithBase = createSitePathResolver(e, {
+    absolute: false,
+    withBase: true
+  });
+  const path = resolvePathWithBase(parseURL(e.path).pathname);
+  let extension = path.split(".").pop();
+  if (!extension || !path.includes(".") || extension.includes("/") || !["png", "jpeg", "jpg", "webp", "svg", "html", "json"].includes(extension)) {
+    extension = "png";
+  }
+  const encodedSegment = extractEncodedSegment(path, extension);
+  const secret = runtimeConfig.security?.secret;
+  let paramsSegment = encodedSegment;
+  if (secret && !import.meta.dev && !import.meta.prerender) {
+    const sigMatch = encodedSegment.match(RE_SIGNATURE_SUFFIX);
+    if (!sigMatch) {
+      return createError({
+        statusCode: 403,
+        statusMessage: "[Nuxt OG Image] Missing URL signature. Configure security.secret to sign URLs."
+      });
+    }
+    const signature = sigMatch[1];
+    paramsSegment = encodedSegment.slice(0, sigMatch.index);
+    if (!verifyOgImageSignature(paramsSegment, signature, secret)) {
+      return createError({
+        statusCode: 403,
+        statusMessage: "[Nuxt OG Image] Invalid URL signature."
+      });
+    }
+  } else if (secret && RE_SIGNATURE_SUFFIX.test(encodedSegment)) {
+    paramsSegment = encodedSegment.replace(RE_SIGNATURE_SUFFIX, "");
+  }
+  const hashMatch = paramsSegment.match(RE_HASH_MODE);
+  let urlOptions = {};
+  if (hashMatch) {
+    const optionsHash = hashMatch[1];
+    if (import.meta.prerender && prerenderOptionsCache) {
+      const cached = await prerenderOptionsCache.getItem(`hash:${optionsHash}`);
+      if (cached && typeof cached === "object") {
+        urlOptions = cached;
+      } else {
+        return createError({
+          statusCode: 404,
+          statusMessage: `[Nuxt OG Image] Options not found for hash: ${optionsHash}. This can happen if the page hasn't been prerendered yet.`
+        });
+      }
+    } else {
+      return createError({
+        statusCode: 400,
+        statusMessage: `[Nuxt OG Image] Hash-based URLs (o_${optionsHash}) are only supported during prerendering. Use encoded params or query params for runtime.`
+      });
+    }
+  } else {
+    urlOptions = decodeOgImageParams(paramsSegment);
+  }
+  const maxQueryParamSize = runtimeConfig.security?.maxQueryParamSize;
+  if (maxQueryParamSize && !import.meta.prerender) {
+    const queryString = parseURL(e.path).search || "";
+    if (queryString.length > maxQueryParamSize) {
+      return createError({
+        statusCode: 400,
+        statusMessage: `[Nuxt OG Image] Query string exceeds maximum allowed length of ${maxQueryParamSize} characters.`
+      });
+    }
+  }
+  let queryParams = {};
+  if (import.meta.dev || import.meta.prerender) {
+    const query = getEventQuery(e);
+    for (const k in query) {
+      const v = String(query[k]);
+      if (!v)
+        continue;
+      if (v.startsWith("{")) {
+        try {
+          queryParams[k] = JSON.parse(v);
+        } catch {
+        }
+      } else {
+        queryParams[k] = v;
+      }
+    }
+    delete queryParams.html;
+    queryParams = separateProps(queryParams);
+  }
+  const basePath = withoutTrailingSlash(urlOptions._path || "/");
+  const componentHash = urlOptions._componentHash || "";
+  delete urlOptions._path;
+  delete urlOptions._hash;
+  delete urlOptions._componentHash;
+  if (runtimeConfig.security?.strict) {
+    delete urlOptions.html;
+  }
+  const basePathWithQuery = queryParams._query && typeof queryParams._query === "object" ? withQuery(basePath, queryParams._query) : basePath;
+  const isDebugJsonPayload = extension === "json" && (import.meta.dev || runtimeConfig.debug);
+  const routeRuleMatcher = createNitroRouteRuleMatcher();
+  const routeRules = routeRuleMatcher(basePath);
+  const ogImageRouteRules = separateProps(routeRules.ogImage);
+  const options = defu(queryParams, urlOptions, ogImageRouteRules, runtimeConfig.defaults);
+  const maxDim = runtimeConfig.security?.maxDimension || 2048;
+  if (options.width != null) {
+    const w = Number(options.width);
+    options.width = Number.isFinite(w) ? Math.min(Math.max(1, w), maxDim) : void 0;
+  }
+  if (options.height != null) {
+    const h = Number(options.height);
+    options.height = Number.isFinite(h) ? Math.min(Math.max(1, h), maxDim) : void 0;
+  }
+  if (options.props && typeof options.props === "object")
+    options.props = sanitizeProps(options.props);
+  if (!options) {
+    return createError({
+      statusCode: 404,
+      statusMessage: "[Nuxt OG Image] OG Image not found."
+    });
+  }
+  const normalised = normaliseOptions(options);
+  if (normalised.component && normalised.options.props && typeof normalised.options.props === "object") {
+    const builtinProps = /* @__PURE__ */ new Set(["colorMode", "timestamp"]);
+    const allowedProps = normalised.component.propNames || [];
+    const allowedSet = new Set(allowedProps);
+    const raw = normalised.options.props;
+    const filtered = {};
+    for (const key2 of Object.keys(raw)) {
+      if (allowedSet.has(key2) || builtinProps.has(key2))
+        filtered[key2] = raw[key2];
+      else if (import.meta.dev)
+        logger.warn(`[Nuxt OG Image] Prop "${key2}" is not declared by component "${normalised.component.pascalName}". Declared props: ${allowedProps.join(", ")}`);
+    }
+    normalised.options.props = filtered;
+  }
+  if (normalised.component?.category === "community")
+    autoEjectCommunityTemplate(normalised.component, runtimeConfig, { requestPath: e.path });
+  const rendererType = normalised.renderer;
+  const baseCacheKey = normalised.options.cacheKey || (hashMatch ? `hash:${hashMatch[1]}` : resolvePathCacheKey(e, basePathWithQuery, normalised.options));
+  const key = componentHash ? `${baseCacheKey}:${componentHash}` : baseCacheKey;
+  let renderer;
+  switch (rendererType) {
+    case "satori":
+      renderer = await getSatoriRenderer();
+      break;
+    case "browser":
+      renderer = await getBrowserRenderer();
+      break;
+    case "takumi":
+      renderer = await getTakumiRenderer();
+      break;
+  }
+  if (!renderer || renderer.__mock__) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `[Nuxt OG Image] Renderer "${rendererType}" is not available. Component "${normalised.component?.pascalName}" requires the ${rendererType} renderer but it's not bundled for this preset.`
+    });
+  }
+  const timings = e.context[TIMING_CTX_KEY] || createTimings();
+  e.context[TIMING_CTX_KEY] = timings;
+  const ctx = {
+    e,
+    key,
+    renderer,
+    isDevToolsContextRequest: isDebugJsonPayload,
+    runtimeConfig,
+    publicStoragePath: runtimeConfig.publicStoragePath,
+    extension,
+    basePath,
+    options: normalised.options,
+    timings,
+    _nitro: useNitroApp()
+  };
+  const hookTimeout = runtimeConfig.security?.renderTimeout ?? 15e3;
+  await withTimeout(
+    ctx._nitro.hooks.callHook("nuxt-og-image:context", ctx),
+    hookTimeout,
+    "nuxt-og-image:context hook"
+  );
+  return ctx;
+}

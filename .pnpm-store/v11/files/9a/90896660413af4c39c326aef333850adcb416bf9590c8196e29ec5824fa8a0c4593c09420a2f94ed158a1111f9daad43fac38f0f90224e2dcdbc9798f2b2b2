@@ -1,0 +1,12 @@
+import type { ComputedRef } from 'vue';
+export declare function useSchemaOrg(): void;
+export declare function defineWebSite(): void;
+export declare function defineWebPage(): void;
+export declare function defineBreadcrumb(): void;
+export declare function useI18n(): {
+    t: (_: string, fallback: string, _options: any) => string;
+    te: (_: string) => boolean;
+    strategy: string;
+    defaultLocale: ComputedRef<string>;
+    locale: ComputedRef<string>;
+};

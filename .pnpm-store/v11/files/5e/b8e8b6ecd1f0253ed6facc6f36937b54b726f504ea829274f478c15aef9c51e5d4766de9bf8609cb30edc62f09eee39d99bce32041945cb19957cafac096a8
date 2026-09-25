@@ -1,0 +1,23 @@
+interface LinkResponse {
+    status: number;
+    statusText: string;
+    headers: Record<string, any>;
+}
+export declare function getLinkResponse({ link, timeout, fetchRemoteUrls, baseURL, isInStorage }: {
+    link: string;
+    baseURL?: string;
+    timeout?: number;
+    fetchRemoteUrls?: boolean;
+    isInStorage: () => boolean;
+}): Promise<LinkResponse | null>;
+export declare function setLinkResponse(link: string, response: Promise<{
+    status: number;
+    statusText: string;
+    headers: Record<string, any>;
+}>): void;
+export declare function getResolvedLinkResponses(): Promise<Record<string, LinkResponse>>;
+export declare function crawlFetch(link: string, options?: {
+    timeout?: number;
+    baseURL?: string;
+}): Promise<LinkResponse>;
+export {};

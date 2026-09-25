@@ -1,0 +1,22 @@
+import { n as YamlOptions } from "./types-B7uJ6cLU.mjs";
+
+//#region src/webpack.d.ts
+/**
+ * This entry file is for webpack plugin.
+ *
+ * @module
+ */
+/**
+ * Webpack plugin
+ *
+ * @example
+ * ```ts
+ * // webpack.config.js
+ * module.exports = {
+ *  plugins: [require("unplugin-yaml/webpack")()],
+ * }
+ * ```
+ */
+declare const _default: (options?: YamlOptions | undefined) => import("webpack").WebpackPluginInstance;
+//#endregion
+export { _default as default };

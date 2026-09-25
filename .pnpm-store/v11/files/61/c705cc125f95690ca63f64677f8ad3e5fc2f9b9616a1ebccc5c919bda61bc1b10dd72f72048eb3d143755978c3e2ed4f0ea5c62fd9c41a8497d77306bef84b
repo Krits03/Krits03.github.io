@@ -1,0 +1,70 @@
+import { defineStore, onScopeDispose } from "#imports";
+import untyped from "~/shiki.config";
+export const useShikiStore = defineStore("shiki", () => {
+  let promise;
+  let shiki;
+  const config = untyped;
+  const options = {
+    lang: "plaintext",
+    themes: {}
+  };
+  onScopeDispose(() => {
+    promise?.then((shiki2) => shiki2.dispose());
+  });
+  async function load() {
+    promise ??= loadShiki();
+    shiki ??= await promise;
+    return shiki;
+  }
+  async function loadShiki() {
+    const [
+      { createHighlighterCore },
+      { createJavaScriptRegexEngine },
+      ...themes
+    ] = await Promise.all([
+      import("shiki/core"),
+      import("shiki/engine-javascript.mjs"),
+      ...Object.values(config.themes ?? {}).map((load2) => load2())
+    ]);
+    let engine;
+    try {
+      void new RegExp("(?i: )");
+      engine = createJavaScriptRegexEngine();
+    } catch {
+      const [{ createOnigurumaEngine }, wasm] = await Promise.all([
+        // @ts-expect-error TS2307
+        import("https://esm.sh/shiki/engine-oniguruma.mjs"),
+        // @ts-expect-error TS2307
+        import("https://esm.sh/shiki/wasm")
+      ]);
+      engine = await createOnigurumaEngine(wasm);
+    }
+    Object.assign(options, {
+      ...config,
+      lang: config.defaultLang,
+      themes: Object.fromEntries(
+        Object.keys(config.themes ?? {}).map((key, i) => {
+          const theme = themes[i];
+          const name = "default" in theme ? theme.default.name : theme?.name;
+          return [key, name];
+        })
+      )
+    });
+    return createHighlighterCore({
+      engine,
+      themes
+    });
+  }
+  async function loadLang(...langs) {
+    const { bundledLanguages } = await import("https://esm.sh/shiki/langs");
+    const loadedLanguages = shiki?.getLoadedLanguages() ?? [];
+    await Promise.all(
+      langs.filter((lang) => !loadedLanguages.includes(lang)).map((lang) => bundledLanguages[lang]?.().then(shiki?.loadLanguage))
+    );
+  }
+  return {
+    options,
+    load,
+    loadLang
+  };
+});

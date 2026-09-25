@@ -1,0 +1,14 @@
+import type { ResolvableMeta } from '@unhead/vue';
+import type { OgImageOptions, OgImagePrebuilt } from './types.js';
+export { extractSocialPreviewTags, toBase64Image } from './pure.js';
+export { buildOgImageUrl, decodeOgImageParams, encodeOgImageParams, extractEncodedSegment, hashOgImageOptions, parseOgImageUrl, signEncodedParams, verifyOgImageSignature } from './shared/urlEncoding.js';
+export declare function generateMeta(url: OgImagePrebuilt['url'] | string, resolvedOptions: OgImageOptions | OgImagePrebuilt): ResolvableMeta[];
+export declare function isInternalRoute(path: string): boolean;
+export declare function separateProps(options: OgImageOptions | undefined, ignoreKeys?: string[]): OgImageOptions;
+/**
+ * Strip HTML event handlers and dangerous attributes from props to prevent
+ * reflected XSS via Vue fallthrough attributes (GHSA-mg36-wvcr-m75h).
+ */
+export declare function sanitizeProps(props: Record<string, any>): Record<string, any>;
+export declare function withoutQuery(path: string): string | undefined;
+export declare function getExtension(path: string): string;

@@ -1,0 +1,4 @@
+export declare const logger: import("consola").ConsolaInstance;
+export declare const HYDRATION_ROUTE = "/__nuxt_hints/hydration";
+export declare function formatHTML(html: string | undefined): string;
+export declare function normalizeHTMLForComparison(html: string): string;

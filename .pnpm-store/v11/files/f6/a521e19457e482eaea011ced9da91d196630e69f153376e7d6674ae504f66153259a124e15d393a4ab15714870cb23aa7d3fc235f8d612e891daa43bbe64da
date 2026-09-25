@@ -1,0 +1,9 @@
+import{j as a}from"./CgSA-cNt.js";function u(n){const t=a().value;if(!t||!t.host.inspector)throw new Error("`openElementSourceComponent` must be used when the devtools client is connected");const{findTraceFromElement:s}=t.host.nuxt.__tracerRecord,l=s(n);if(!l&&n.parentElement)return u(n.parentElement);l&&t.devtools.rpc.openInEditor(l.filepath),console.info("[@nuxt/hints] Source component not found for element",n)}let e=null;function d(){try{return window.parent?.parent||window.parent||window}catch{return window}}function p(){if(e)return e;const t=d().document;return e=t.createElement("div"),e.style.cssText=`
+    position: absolute;
+    pointer-events: none;
+    z-index: 999999;
+    background: rgba(104, 182, 255, 0.3);
+    border: 2px solid rgb(104, 182, 255);
+    border-radius: 4px;
+    transition: all 0.1s ease;
+  `,t.body.appendChild(e),e}function h(){e&&(e.remove(),e=null)}function g(){const n=a();return{highlightElement:r=>{if(!r){h();return}const c=d(),o=r.getBoundingClientRect(),i=p();i.style.left=`${o.left+c.scrollX}px`,i.style.top=`${o.top+c.scrollY}px`,i.style.width=`${o.width}px`,i.style.height=`${o.height}px`,i.style.display="block"},clearHighlight:()=>{e&&(e.style.display="none")},inspectElementInEditor:async r=>{if(!(!r||!n.value))try{u(r)}catch(o){console.warn("Failed to inspect element:",o)}}}}export{g as u};

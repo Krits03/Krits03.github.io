@@ -1,0 +1,1284 @@
+import { Linter } from "eslint";
+//#region src/typegen.d.ts
+interface CssRuleOptions {
+  /**
+   * Enforce the order of properties within declaration blocks
+   * @see https://github.com/elecdeer/eslint-plugin-css-properties-order#properties-order
+   */
+  'css-order/properties-order'?: Linter.RuleEntry<CssOrderPropertiesOrder>;
+  /**
+   * Specify lowercase or uppercase for at-rule names
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/at-rule-name-case
+   */
+  'css-stylistic/at-rule-name-case'?: Linter.RuleEntry<CssStylisticAtRuleNameCase>;
+  /**
+   * Require a newline after at-rule names
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/at-rule-name-newline-after
+   */
+  'css-stylistic/at-rule-name-newline-after'?: Linter.RuleEntry<CssStylisticAtRuleNameNewlineAfter>;
+  /**
+   * Require a single space after at-rule names
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/at-rule-name-space-after
+   */
+  'css-stylistic/at-rule-name-space-after'?: Linter.RuleEntry<CssStylisticAtRuleNameSpaceAfter>;
+  /**
+   * Require a newline after at-rule semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/at-rule-semicolon-newline-after
+   */
+  'css-stylistic/at-rule-semicolon-newline-after'?: Linter.RuleEntry<CssStylisticAtRuleSemicolonNewlineAfter>;
+  /**
+   * Require or disallow whitespace before at-rule semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/at-rule-semicolon-space-before
+   */
+  'css-stylistic/at-rule-semicolon-space-before'?: Linter.RuleEntry<CssStylisticAtRuleSemicolonSpaceBefore>;
+  /**
+   * Require or disallow an empty line before closing braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-closing-brace-empty-line-before
+   */
+  'css-stylistic/block-closing-brace-empty-line-before'?: Linter.RuleEntry<CssStylisticBlockClosingBraceEmptyLineBefore>;
+  /**
+   * Require or disallow a newline after closing braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-closing-brace-newline-after
+   */
+  'css-stylistic/block-closing-brace-newline-after'?: Linter.RuleEntry<CssStylisticBlockClosingBraceNewlineAfter>;
+  /**
+   * Require or disallow a newline before closing braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-closing-brace-newline-before
+   */
+  'css-stylistic/block-closing-brace-newline-before'?: Linter.RuleEntry<CssStylisticBlockClosingBraceNewlineBefore>;
+  /**
+   * Require or disallow a space after closing braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-closing-brace-space-after
+   */
+  'css-stylistic/block-closing-brace-space-after'?: Linter.RuleEntry<CssStylisticBlockClosingBraceSpaceAfter>;
+  /**
+   * Require or disallow a space before closing braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-closing-brace-space-before
+   */
+  'css-stylistic/block-closing-brace-space-before'?: Linter.RuleEntry<CssStylisticBlockClosingBraceSpaceBefore>;
+  /**
+   * Require or disallow a newline after opening braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-opening-brace-newline-after
+   */
+  'css-stylistic/block-opening-brace-newline-after'?: Linter.RuleEntry<CssStylisticBlockOpeningBraceNewlineAfter>;
+  /**
+   * Require or disallow a newline before opening braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-opening-brace-newline-before
+   */
+  'css-stylistic/block-opening-brace-newline-before'?: Linter.RuleEntry<CssStylisticBlockOpeningBraceNewlineBefore>;
+  /**
+   * Require or disallow a space after opening braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-opening-brace-space-after
+   */
+  'css-stylistic/block-opening-brace-space-after'?: Linter.RuleEntry<CssStylisticBlockOpeningBraceSpaceAfter>;
+  /**
+   * Require or disallow a space before opening braces
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/block-opening-brace-space-before
+   */
+  'css-stylistic/block-opening-brace-space-before'?: Linter.RuleEntry<CssStylisticBlockOpeningBraceSpaceBefore>;
+  /**
+   * Specify lowercase or uppercase for hexadecimal colors
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/color-hex-case
+   */
+  'css-stylistic/color-hex-case'?: Linter.RuleEntry<CssStylisticColorHexCase>;
+  /**
+   * Require or disallow whitespace after declaration bangs
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-bang-space-after
+   */
+  'css-stylistic/declaration-bang-space-after'?: Linter.RuleEntry<CssStylisticDeclarationBangSpaceAfter>;
+  /**
+   * Require or disallow whitespace before declaration bangs
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-bang-space-before
+   */
+  'css-stylistic/declaration-bang-space-before'?: Linter.RuleEntry<CssStylisticDeclarationBangSpaceBefore>;
+  /**
+   * Require or disallow a newline after declaration semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-block-semicolon-newline-after
+   */
+  'css-stylistic/declaration-block-semicolon-newline-after'?: Linter.RuleEntry<CssStylisticDeclarationBlockSemicolonNewlineAfter>;
+  /**
+   * Require or disallow a newline before declaration semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-block-semicolon-newline-before
+   */
+  'css-stylistic/declaration-block-semicolon-newline-before'?: Linter.RuleEntry<CssStylisticDeclarationBlockSemicolonNewlineBefore>;
+  /**
+   * Require or disallow a space after declaration semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-block-semicolon-space-after
+   */
+  'css-stylistic/declaration-block-semicolon-space-after'?: Linter.RuleEntry<CssStylisticDeclarationBlockSemicolonSpaceAfter>;
+  /**
+   * Require or disallow a space before declaration semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-block-semicolon-space-before
+   */
+  'css-stylistic/declaration-block-semicolon-space-before'?: Linter.RuleEntry<CssStylisticDeclarationBlockSemicolonSpaceBefore>;
+  /**
+   * Require or disallow a trailing semicolon in declaration blocks
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-block-trailing-semicolon
+   */
+  'css-stylistic/declaration-block-trailing-semicolon'?: Linter.RuleEntry<CssStylisticDeclarationBlockTrailingSemicolon>;
+  /**
+   * Require a newline after declaration colons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-colon-newline-after
+   */
+  'css-stylistic/declaration-colon-newline-after'?: Linter.RuleEntry<CssStylisticDeclarationColonNewlineAfter>;
+  /**
+   * Require or disallow whitespace after declaration colons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-colon-space-after
+   */
+  'css-stylistic/declaration-colon-space-after'?: Linter.RuleEntry<CssStylisticDeclarationColonSpaceAfter>;
+  /**
+   * Require or disallow whitespace before declaration colons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/declaration-colon-space-before
+   */
+  'css-stylistic/declaration-colon-space-before'?: Linter.RuleEntry<CssStylisticDeclarationColonSpaceBefore>;
+  /**
+   * Require or disallow a newline after function commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-comma-newline-after
+   */
+  'css-stylistic/function-comma-newline-after'?: Linter.RuleEntry<CssStylisticFunctionCommaNewlineAfter>;
+  /**
+   * Require or disallow a newline before function commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-comma-newline-before
+   */
+  'css-stylistic/function-comma-newline-before'?: Linter.RuleEntry<CssStylisticFunctionCommaNewlineBefore>;
+  /**
+   * Require or disallow a space after function commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-comma-space-after
+   */
+  'css-stylistic/function-comma-space-after'?: Linter.RuleEntry<CssStylisticFunctionCommaSpaceAfter>;
+  /**
+   * Require or disallow a space before function commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-comma-space-before
+   */
+  'css-stylistic/function-comma-space-before'?: Linter.RuleEntry<CssStylisticFunctionCommaSpaceBefore>;
+  /**
+   * Limit the number of adjacent empty lines within functions
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-max-empty-lines
+   */
+  'css-stylistic/function-max-empty-lines'?: Linter.RuleEntry<CssStylisticFunctionMaxEmptyLines>;
+  /**
+   * Require or disallow newlines inside function parentheses
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-parentheses-newline-inside
+   */
+  'css-stylistic/function-parentheses-newline-inside'?: Linter.RuleEntry<CssStylisticFunctionParenthesesNewlineInside>;
+  /**
+   * Require or disallow spaces inside function parentheses
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-parentheses-space-inside
+   */
+  'css-stylistic/function-parentheses-space-inside'?: Linter.RuleEntry<CssStylisticFunctionParenthesesSpaceInside>;
+  /**
+   * Require or disallow whitespace after functions
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/function-whitespace-after
+   */
+  'css-stylistic/function-whitespace-after'?: Linter.RuleEntry<CssStylisticFunctionWhitespaceAfter>;
+  /**
+   * Specify indentation
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/indentation
+   */
+  'css-stylistic/indentation'?: Linter.RuleEntry<CssStylisticIndentation>;
+  /**
+   * Specify Unix or Windows linebreaks
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/linebreaks
+   */
+  'css-stylistic/linebreaks'?: Linter.RuleEntry<CssStylisticLinebreaks>;
+  /**
+   * Limit the number of adjacent empty lines
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/max-empty-lines
+   */
+  'css-stylistic/max-empty-lines'?: Linter.RuleEntry<CssStylisticMaxEmptyLines>;
+  /**
+   * Limit line length
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/max-line-length
+   */
+  'css-stylistic/max-line-length'?: Linter.RuleEntry<CssStylisticMaxLineLength>;
+  /**
+   * Require or disallow whitespace after media feature colons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-feature-colon-space-after
+   */
+  'css-stylistic/media-feature-colon-space-after'?: Linter.RuleEntry<CssStylisticMediaFeatureColonSpaceAfter>;
+  /**
+   * Require or disallow whitespace before media feature colons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-feature-colon-space-before
+   */
+  'css-stylistic/media-feature-colon-space-before'?: Linter.RuleEntry<CssStylisticMediaFeatureColonSpaceBefore>;
+  /**
+   * Specify lowercase or uppercase for media feature names
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-feature-name-case
+   */
+  'css-stylistic/media-feature-name-case'?: Linter.RuleEntry<CssStylisticMediaFeatureNameCase>;
+  /**
+   * Require or disallow spaces inside media feature parentheses
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-feature-parentheses-space-inside
+   */
+  'css-stylistic/media-feature-parentheses-space-inside'?: Linter.RuleEntry<CssStylisticMediaFeatureParenthesesSpaceInside>;
+  /**
+   * Require or disallow spaces after media feature range operators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-feature-range-operator-space-after
+   */
+  'css-stylistic/media-feature-range-operator-space-after'?: Linter.RuleEntry<CssStylisticMediaFeatureRangeOperatorSpaceAfter>;
+  /**
+   * Require or disallow spaces before media feature range operators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-feature-range-operator-space-before
+   */
+  'css-stylistic/media-feature-range-operator-space-before'?: Linter.RuleEntry<CssStylisticMediaFeatureRangeOperatorSpaceBefore>;
+  /**
+   * Require or disallow newlines after media query list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-query-list-comma-newline-after
+   */
+  'css-stylistic/media-query-list-comma-newline-after'?: Linter.RuleEntry<CssStylisticMediaQueryListCommaNewlineAfter>;
+  /**
+   * Require or disallow newlines before media query list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-query-list-comma-newline-before
+   */
+  'css-stylistic/media-query-list-comma-newline-before'?: Linter.RuleEntry<CssStylisticMediaQueryListCommaNewlineBefore>;
+  /**
+   * Require or disallow spaces after media query list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-query-list-comma-space-after
+   */
+  'css-stylistic/media-query-list-comma-space-after'?: Linter.RuleEntry<CssStylisticMediaQueryListCommaSpaceAfter>;
+  /**
+   * Require or disallow spaces before media query list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/media-query-list-comma-space-before
+   */
+  'css-stylistic/media-query-list-comma-space-before'?: Linter.RuleEntry<CssStylisticMediaQueryListCommaSpaceBefore>;
+  /**
+   * Align named grid area cell tokens
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/named-grid-areas-alignment
+   */
+  'css-stylistic/named-grid-areas-alignment'?: Linter.RuleEntry<CssStylisticNamedGridAreasAlignment>;
+  /**
+   * Disallow an empty first line
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/no-empty-first-line
+   */
+  'css-stylistic/no-empty-first-line'?: Linter.RuleEntry<CssStylisticNoEmptyFirstLine>;
+  /**
+   * Disallow end-of-line whitespace
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/no-eol-whitespace
+   */
+  'css-stylistic/no-eol-whitespace'?: Linter.RuleEntry<CssStylisticNoEolWhitespace>;
+  /**
+   * Disallow extra semicolons
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/no-extra-semicolons
+   */
+  'css-stylistic/no-extra-semicolons'?: Linter.RuleEntry<CssStylisticNoExtraSemicolons>;
+  /**
+   * Require a newline at the end of source
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/no-missing-end-of-source-newline
+   */
+  'css-stylistic/no-missing-end-of-source-newline'?: Linter.RuleEntry<CssStylisticNoMissingEndOfSourceNewline>;
+  /**
+   * Disallow multiple whitespace characters
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/no-multiple-whitespaces
+   */
+  'css-stylistic/no-multiple-whitespaces'?: Linter.RuleEntry<CssStylisticNoMultipleWhitespaces>;
+  /**
+   * Require or disallow a leading zero for fractional numbers
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/number-leading-zero
+   */
+  'css-stylistic/number-leading-zero'?: Linter.RuleEntry<CssStylisticNumberLeadingZero>;
+  /**
+   * Disallow trailing zeros in numbers
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/number-no-trailing-zeros
+   */
+  'css-stylistic/number-no-trailing-zeros'?: Linter.RuleEntry<CssStylisticNumberNoTrailingZeros>;
+  /**
+   * Specify lowercase or uppercase for properties
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/property-case
+   */
+  'css-stylistic/property-case'?: Linter.RuleEntry<CssStylisticPropertyCase>;
+  /**
+   * Require or disallow spaces inside attribute selector brackets
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-attribute-brackets-space-inside
+   */
+  'css-stylistic/selector-attribute-brackets-space-inside'?: Linter.RuleEntry<CssStylisticSelectorAttributeBracketsSpaceInside>;
+  /**
+   * Require or disallow spaces after attribute selector operators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-attribute-operator-space-after
+   */
+  'css-stylistic/selector-attribute-operator-space-after'?: Linter.RuleEntry<CssStylisticSelectorAttributeOperatorSpaceAfter>;
+  /**
+   * Require or disallow spaces before attribute selector operators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-attribute-operator-space-before
+   */
+  'css-stylistic/selector-attribute-operator-space-before'?: Linter.RuleEntry<CssStylisticSelectorAttributeOperatorSpaceBefore>;
+  /**
+   * Require or disallow spaces after selector combinators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-combinator-space-after
+   */
+  'css-stylistic/selector-combinator-space-after'?: Linter.RuleEntry<CssStylisticSelectorCombinatorSpaceAfter>;
+  /**
+   * Require or disallow spaces before selector combinators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-combinator-space-before
+   */
+  'css-stylistic/selector-combinator-space-before'?: Linter.RuleEntry<CssStylisticSelectorCombinatorSpaceBefore>;
+  /**
+   * Require a single space for descendant combinators
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-descendant-combinator-no-non-space
+   */
+  'css-stylistic/selector-descendant-combinator-no-non-space'?: Linter.RuleEntry<CssStylisticSelectorDescendantCombinatorNoNonSpace>;
+  /**
+   * Require or disallow newlines after selector list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-list-comma-newline-after
+   */
+  'css-stylistic/selector-list-comma-newline-after'?: Linter.RuleEntry<CssStylisticSelectorListCommaNewlineAfter>;
+  /**
+   * Require or disallow newlines before selector list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-list-comma-newline-before
+   */
+  'css-stylistic/selector-list-comma-newline-before'?: Linter.RuleEntry<CssStylisticSelectorListCommaNewlineBefore>;
+  /**
+   * Require or disallow spaces after selector list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-list-comma-space-after
+   */
+  'css-stylistic/selector-list-comma-space-after'?: Linter.RuleEntry<CssStylisticSelectorListCommaSpaceAfter>;
+  /**
+   * Require or disallow spaces before selector list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-list-comma-space-before
+   */
+  'css-stylistic/selector-list-comma-space-before'?: Linter.RuleEntry<CssStylisticSelectorListCommaSpaceBefore>;
+  /**
+   * Limit the number of adjacent empty lines in selectors
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-max-empty-lines
+   */
+  'css-stylistic/selector-max-empty-lines'?: Linter.RuleEntry<CssStylisticSelectorMaxEmptyLines>;
+  /**
+   * Specify lowercase or uppercase for pseudo-class selectors
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-pseudo-class-case
+   */
+  'css-stylistic/selector-pseudo-class-case'?: Linter.RuleEntry<CssStylisticSelectorPseudoClassCase>;
+  /**
+   * Require or disallow spaces inside pseudo-class parentheses
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-pseudo-class-parentheses-space-inside
+   */
+  'css-stylistic/selector-pseudo-class-parentheses-space-inside'?: Linter.RuleEntry<CssStylisticSelectorPseudoClassParenthesesSpaceInside>;
+  /**
+   * Specify lowercase or uppercase for pseudo-element selectors
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/selector-pseudo-element-case
+   */
+  'css-stylistic/selector-pseudo-element-case'?: Linter.RuleEntry<CssStylisticSelectorPseudoElementCase>;
+  /**
+   * Specify single or double quotes around strings
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/string-quotes
+   */
+  'css-stylistic/string-quotes'?: Linter.RuleEntry<CssStylisticStringQuotes>;
+  /**
+   * Specify lowercase or uppercase for units
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/unit-case
+   */
+  'css-stylistic/unit-case'?: Linter.RuleEntry<CssStylisticUnitCase>;
+  /**
+   * Require or disallow newlines after value list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/value-list-comma-newline-after
+   */
+  'css-stylistic/value-list-comma-newline-after'?: Linter.RuleEntry<CssStylisticValueListCommaNewlineAfter>;
+  /**
+   * Require or disallow newlines before value list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/value-list-comma-newline-before
+   */
+  'css-stylistic/value-list-comma-newline-before'?: Linter.RuleEntry<CssStylisticValueListCommaNewlineBefore>;
+  /**
+   * Require or disallow spaces after value list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/value-list-comma-space-after
+   */
+  'css-stylistic/value-list-comma-space-after'?: Linter.RuleEntry<CssStylisticValueListCommaSpaceAfter>;
+  /**
+   * Require or disallow spaces before value list commas
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/value-list-comma-space-before
+   */
+  'css-stylistic/value-list-comma-space-before'?: Linter.RuleEntry<CssStylisticValueListCommaSpaceBefore>;
+  /**
+   * Limit the number of adjacent empty lines in value lists
+   * @see https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/value-list-max-empty-lines
+   */
+  'css-stylistic/value-list-max-empty-lines'?: Linter.RuleEntry<CssStylisticValueListMaxEmptyLines>;
+  /**
+   * Enforce use of fallback fonts and a generic font last
+   * @see https://github.com/eslint/css/blob/main/docs/rules/font-family-fallbacks.md
+   */
+  'css/font-family-fallbacks'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow duplicate @import rules
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-duplicate-imports.md
+   */
+  'css/no-duplicate-imports'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow duplicate selectors within keyframe blocks
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-duplicate-keyframe-selectors.md
+   */
+  'css/no-duplicate-keyframe-selectors'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow empty blocks
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-empty-blocks.md
+   */
+  'css/no-empty-blocks'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow !important flags
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-important.md
+   */
+  'css/no-important'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow invalid placement of at-rules
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-invalid-at-rule-placement.md
+   */
+  'css/no-invalid-at-rule-placement'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow invalid at-rules
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-invalid-at-rules.md
+   */
+  'css/no-invalid-at-rules'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow invalid named grid areas
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-invalid-named-grid-areas.md
+   */
+  'css/no-invalid-named-grid-areas'?: Linter.RuleEntry<[]>;
+  /**
+   * Disallow invalid properties
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-invalid-properties.md
+   */
+  'css/no-invalid-properties'?: Linter.RuleEntry<CssNoInvalidProperties>;
+  /**
+   * Disallow unmatchable selectors
+   * @see https://github.com/eslint/css/blob/main/docs/rules/no-unmatchable-selectors.md
+   */
+  'css/no-unmatchable-selectors'?: Linter.RuleEntry<[]>;
+  /**
+   * Enforce the use of logical properties
+   * @see https://github.com/eslint/css/blob/main/docs/rules/prefer-logical-properties.md
+   */
+  'css/prefer-logical-properties'?: Linter.RuleEntry<CssPreferLogicalProperties>;
+  /**
+   * Enforce the use of relative font units
+   * @see https://github.com/eslint/css/blob/main/docs/rules/relative-font-units.md
+   */
+  'css/relative-font-units'?: Linter.RuleEntry<CssRelativeFontUnits>;
+  /**
+   * Disallow and limit CSS selectors
+   * @see https://github.com/eslint/css/blob/main/docs/rules/selector-complexity.md
+   */
+  'css/selector-complexity'?: Linter.RuleEntry<CssSelectorComplexity>;
+  /**
+   * Enforce the use of baseline features
+   * @see https://github.com/eslint/css/blob/main/docs/rules/use-baseline.md
+   */
+  'css/use-baseline'?: Linter.RuleEntry<CssUseBaseline>;
+  /**
+   * Require use of layers
+   * @see https://github.com/eslint/css/blob/main/docs/rules/use-layers.md
+   */
+  'css/use-layers'?: Linter.RuleEntry<CssUseLayers>;
+}
+/* ======= Declarations ======= */
+// ----- css-order/properties-order -----
+type CssOrderPropertiesOrder = [] | [(string | {
+  properties: string[];
+  groupName?: string;
+  order?: "flexible";
+})[]] | [(string | {
+  properties: string[];
+  groupName?: string;
+  order?: "flexible";
+})[], {
+  unspecified?: ("ignore" | "top" | "bottom" | "bottomAlphabetical");
+}];
+// ----- css-stylistic/at-rule-name-case -----
+type CssStylisticAtRuleNameCase = [] | [("lower" | "upper")];
+// ----- css-stylistic/at-rule-name-newline-after -----
+type CssStylisticAtRuleNameNewlineAfter = [] | [("always" | "always-multi-line")];
+// ----- css-stylistic/at-rule-name-space-after -----
+type CssStylisticAtRuleNameSpaceAfter = [] | [("always" | "always-single-line")];
+// ----- css-stylistic/at-rule-semicolon-newline-after -----
+type CssStylisticAtRuleSemicolonNewlineAfter = [] | ["always"];
+// ----- css-stylistic/at-rule-semicolon-space-before -----
+type CssStylisticAtRuleSemicolonSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/block-closing-brace-empty-line-before -----
+type CssStylisticBlockClosingBraceEmptyLineBefore = [] | [("always-multi-line" | "never")] | [("always-multi-line" | "never"), {
+  except?: ("after-closing-brace" | ("after-closing-brace")[]);
+}];
+// ----- css-stylistic/block-closing-brace-newline-after -----
+type CssStylisticBlockClosingBraceNewlineAfter = [] | [("always" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line")] | [("always" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line"), {
+  ignoreAtRules?: (string | {} | (string | {})[]);
+}];
+// ----- css-stylistic/block-closing-brace-newline-before -----
+type CssStylisticBlockClosingBraceNewlineBefore = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/block-closing-brace-space-after -----
+type CssStylisticBlockClosingBraceSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/block-closing-brace-space-before -----
+type CssStylisticBlockClosingBraceSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/block-opening-brace-newline-after -----
+type CssStylisticBlockOpeningBraceNewlineAfter = [] | [("always" | "rules" | "always-multi-line" | "never-multi-line")] | [("always" | "rules" | "always-multi-line" | "never-multi-line"), {
+  ignore?: ("rules" | ("rules")[]);
+}];
+// ----- css-stylistic/block-opening-brace-newline-before -----
+type CssStylisticBlockOpeningBraceNewlineBefore = [] | [("always" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/block-opening-brace-space-after -----
+type CssStylisticBlockOpeningBraceSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line")] | [("always" | "never" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line"), {
+  ignore?: ("at-rules" | ("at-rules")[]);
+}];
+// ----- css-stylistic/block-opening-brace-space-before -----
+type CssStylisticBlockOpeningBraceSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line")] | [("always" | "never" | "always-single-line" | "never-single-line" | "always-multi-line" | "never-multi-line"), {
+  ignoreAtRules?: (string | {} | (string | {})[]);
+  ignoreSelectors?: (string | {} | (string | {})[]);
+}];
+// ----- css-stylistic/color-hex-case -----
+type CssStylisticColorHexCase = [] | [("lower" | "upper")];
+// ----- css-stylistic/declaration-bang-space-after -----
+type CssStylisticDeclarationBangSpaceAfter = [] | [("always" | "never")];
+// ----- css-stylistic/declaration-bang-space-before -----
+type CssStylisticDeclarationBangSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/declaration-block-semicolon-newline-after -----
+type CssStylisticDeclarationBlockSemicolonNewlineAfter = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/declaration-block-semicolon-newline-before -----
+type CssStylisticDeclarationBlockSemicolonNewlineBefore = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/declaration-block-semicolon-space-after -----
+type CssStylisticDeclarationBlockSemicolonSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/declaration-block-semicolon-space-before -----
+type CssStylisticDeclarationBlockSemicolonSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/declaration-block-trailing-semicolon -----
+type CssStylisticDeclarationBlockTrailingSemicolon = [] | [("always" | "never")] | [("always" | "never"), {
+  ignore?: ("single-declaration" | ("single-declaration")[]);
+}];
+// ----- css-stylistic/declaration-colon-newline-after -----
+type CssStylisticDeclarationColonNewlineAfter = [] | [("always" | "always-multi-line")];
+// ----- css-stylistic/declaration-colon-space-after -----
+type CssStylisticDeclarationColonSpaceAfter = [] | [("always" | "never" | "always-single-line")];
+// ----- css-stylistic/declaration-colon-space-before -----
+type CssStylisticDeclarationColonSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/function-comma-newline-after -----
+type CssStylisticFunctionCommaNewlineAfter = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/function-comma-newline-before -----
+type CssStylisticFunctionCommaNewlineBefore = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/function-comma-space-after -----
+type CssStylisticFunctionCommaSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/function-comma-space-before -----
+type CssStylisticFunctionCommaSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/function-max-empty-lines -----
+type CssStylisticFunctionMaxEmptyLines = [] | [number];
+// ----- css-stylistic/function-parentheses-newline-inside -----
+type CssStylisticFunctionParenthesesNewlineInside = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/function-parentheses-space-inside -----
+type CssStylisticFunctionParenthesesSpaceInside = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/function-whitespace-after -----
+type CssStylisticFunctionWhitespaceAfter = [] | [("always" | "never")];
+// ----- css-stylistic/indentation -----
+type CssStylisticIndentation = [] | [(number | "tab")] | [(number | "tab"), {
+  baseIndentLevel?: (number | "auto");
+  except?: (("block" | "param" | "value") | ("block" | "param" | "value")[]);
+  ignore?: (("inside-parens" | "param" | "value") | ("inside-parens" | "param" | "value")[]);
+  indentClosingBrace?: boolean;
+  indentInsideParens?: ("once-at-root-twice-in-block" | "twice");
+}];
+// ----- css-stylistic/linebreaks -----
+type CssStylisticLinebreaks = [] | [("unix" | "windows")];
+// ----- css-stylistic/max-empty-lines -----
+type CssStylisticMaxEmptyLines = [] | [number] | [number, {
+  ignore?: ("comments" | ("comments")[]);
+}];
+// ----- css-stylistic/max-line-length -----
+type CssStylisticMaxLineLength = [] | [number] | [number, {
+  ignore?: (("comments" | "non-comments") | ("comments" | "non-comments")[]);
+  ignorePattern?: (string | {} | (string | {})[]);
+}];
+// ----- css-stylistic/media-feature-colon-space-after -----
+type CssStylisticMediaFeatureColonSpaceAfter = [] | [("always" | "never")];
+// ----- css-stylistic/media-feature-colon-space-before -----
+type CssStylisticMediaFeatureColonSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/media-feature-name-case -----
+type CssStylisticMediaFeatureNameCase = [] | [("lower" | "upper")];
+// ----- css-stylistic/media-feature-parentheses-space-inside -----
+type CssStylisticMediaFeatureParenthesesSpaceInside = [] | [("always" | "never")];
+// ----- css-stylistic/media-feature-range-operator-space-after -----
+type CssStylisticMediaFeatureRangeOperatorSpaceAfter = [] | [("always" | "never")];
+// ----- css-stylistic/media-feature-range-operator-space-before -----
+type CssStylisticMediaFeatureRangeOperatorSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/media-query-list-comma-newline-after -----
+type CssStylisticMediaQueryListCommaNewlineAfter = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/media-query-list-comma-newline-before -----
+type CssStylisticMediaQueryListCommaNewlineBefore = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/media-query-list-comma-space-after -----
+type CssStylisticMediaQueryListCommaSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/media-query-list-comma-space-before -----
+type CssStylisticMediaQueryListCommaSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/named-grid-areas-alignment -----
+type CssStylisticNamedGridAreasAlignment = [] | [true] | [true, {
+  alignQuotes?: boolean;
+  gap?: number;
+}];
+// ----- css-stylistic/no-empty-first-line -----
+type CssStylisticNoEmptyFirstLine = [] | [true];
+// ----- css-stylistic/no-eol-whitespace -----
+type CssStylisticNoEolWhitespace = [] | [true] | [true, {
+  ignore?: ("empty-lines" | ("empty-lines")[]);
+}];
+// ----- css-stylistic/no-extra-semicolons -----
+type CssStylisticNoExtraSemicolons = [] | [true];
+// ----- css-stylistic/no-missing-end-of-source-newline -----
+type CssStylisticNoMissingEndOfSourceNewline = [] | [true];
+// ----- css-stylistic/no-multiple-whitespaces -----
+type CssStylisticNoMultipleWhitespaces = [] | [true];
+// ----- css-stylistic/number-leading-zero -----
+type CssStylisticNumberLeadingZero = [] | [("always" | "never")];
+// ----- css-stylistic/number-no-trailing-zeros -----
+type CssStylisticNumberNoTrailingZeros = [] | [true];
+// ----- css-stylistic/property-case -----
+type CssStylisticPropertyCase = [] | [("lower" | "upper")] | [("lower" | "upper"), {
+  ignoreProperties?: (string | {})[];
+  ignoreSelectors?: (string | {} | (string | {})[]);
+}];
+// ----- css-stylistic/selector-attribute-brackets-space-inside -----
+type CssStylisticSelectorAttributeBracketsSpaceInside = [] | [("always" | "never")];
+// ----- css-stylistic/selector-attribute-operator-space-after -----
+type CssStylisticSelectorAttributeOperatorSpaceAfter = [] | [("always" | "never")];
+// ----- css-stylistic/selector-attribute-operator-space-before -----
+type CssStylisticSelectorAttributeOperatorSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/selector-combinator-space-after -----
+type CssStylisticSelectorCombinatorSpaceAfter = [] | [("always" | "never")];
+// ----- css-stylistic/selector-combinator-space-before -----
+type CssStylisticSelectorCombinatorSpaceBefore = [] | [("always" | "never")];
+// ----- css-stylistic/selector-descendant-combinator-no-non-space -----
+type CssStylisticSelectorDescendantCombinatorNoNonSpace = [] | [true];
+// ----- css-stylistic/selector-list-comma-newline-after -----
+type CssStylisticSelectorListCommaNewlineAfter = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/selector-list-comma-newline-before -----
+type CssStylisticSelectorListCommaNewlineBefore = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/selector-list-comma-space-after -----
+type CssStylisticSelectorListCommaSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/selector-list-comma-space-before -----
+type CssStylisticSelectorListCommaSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/selector-max-empty-lines -----
+type CssStylisticSelectorMaxEmptyLines = [] | [number];
+// ----- css-stylistic/selector-pseudo-class-case -----
+type CssStylisticSelectorPseudoClassCase = [] | [("lower" | "upper")];
+// ----- css-stylistic/selector-pseudo-class-parentheses-space-inside -----
+type CssStylisticSelectorPseudoClassParenthesesSpaceInside = [] | [("always" | "never")];
+// ----- css-stylistic/selector-pseudo-element-case -----
+type CssStylisticSelectorPseudoElementCase = [] | [("lower" | "upper")];
+// ----- css-stylistic/string-quotes -----
+type CssStylisticStringQuotes = [] | [("single" | "double")] | [("single" | "double"), {
+  avoidEscape?: boolean;
+}];
+// ----- css-stylistic/unit-case -----
+type CssStylisticUnitCase = [] | [("lower" | "upper")];
+// ----- css-stylistic/value-list-comma-newline-after -----
+type CssStylisticValueListCommaNewlineAfter = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/value-list-comma-newline-before -----
+type CssStylisticValueListCommaNewlineBefore = [] | [("always" | "always-multi-line" | "never-multi-line")];
+// ----- css-stylistic/value-list-comma-space-after -----
+type CssStylisticValueListCommaSpaceAfter = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/value-list-comma-space-before -----
+type CssStylisticValueListCommaSpaceBefore = [] | [("always" | "never" | "always-single-line" | "never-single-line")];
+// ----- css-stylistic/value-list-max-empty-lines -----
+type CssStylisticValueListMaxEmptyLines = [] | [number];
+// ----- css/no-invalid-properties -----
+type CssNoInvalidProperties = [] | [{
+  allowUnknownVariables?: boolean;
+}];
+// ----- css/prefer-logical-properties -----
+type CssPreferLogicalProperties = [] | [{
+  allowProperties?: ("bottom" | "border-bottom" | "border-bottom-color" | "border-bottom-left-radius" | "border-bottom-right-radius" | "border-bottom-style" | "border-bottom-width" | "border-left" | "border-left-color" | "border-left-style" | "border-left-width" | "border-right" | "border-right-color" | "border-right-style" | "border-right-width" | "border-top" | "border-top-color" | "border-top-left-radius" | "border-top-right-radius" | "border-top-style" | "border-top-width" | "contain-intrinsic-height" | "contain-intrinsic-width" | "height" | "left" | "margin-bottom" | "margin-left" | "margin-right" | "margin-top" | "max-height" | "max-width" | "min-height" | "min-width" | "overflow-x" | "overflow-y" | "overscroll-behavior-x" | "overscroll-behavior-y" | "padding-bottom" | "padding-left" | "padding-right" | "padding-top" | "right" | "scroll-margin-bottom" | "scroll-margin-left" | "scroll-margin-right" | "scroll-margin-top" | "scroll-padding-bottom" | "scroll-padding-left" | "scroll-padding-right" | "scroll-padding-top" | "top" | "width")[];
+  allowUnits?: ("cqh" | "cqw" | "dvh" | "dvw" | "lvh" | "lvw" | "svh" | "svw" | "vh" | "vw")[];
+}];
+// ----- css/relative-font-units -----
+type CssRelativeFontUnits = [] | [{
+  allowUnits?: ("%" | "cap" | "ch" | "em" | "ex" | "ic" | "lh" | "rcap" | "rch" | "rem" | "rex" | "ric" | "rlh")[];
+}];
+// ----- css/selector-complexity -----
+type CssSelectorComplexity = [] | [{
+  maxIds?: number;
+  maxClasses?: number;
+  maxTypes?: number;
+  maxAttributes?: number;
+  maxPseudoClasses?: number;
+  maxUniversals?: number;
+  maxCompounds?: number;
+  maxCombinators?: number;
+  disallowCombinators?: string[];
+  disallowPseudoClasses?: string[];
+  disallowPseudoElements?: string[];
+  disallowAttributes?: string[];
+  disallowAttributeMatchers?: string[];
+}];
+// ----- css/use-baseline -----
+type CssUseBaseline = [] | [{
+  available?: (("widely" | "newly") | number);
+  allowAtRules?: ("position-try" | "keyframes" | "layer" | "charset" | "container" | "counter-style" | "view-transition" | "custom-media" | "font-face" | "font-palette-values" | "font-feature-values" | "function" | "import" | "media" | "namespace" | "page" | "property" | "scope" | "starting-style" | "supports")[];
+  allowFunctions?: ("abs" | "sign" | "alpha" | "anchor" | "anchor-size" | "attr" | "calc" | "calc-size" | "shape" | "rect" | "color" | "color-mix" | "conic-gradient" | "repeating-conic-gradient" | "contrast-color" | "round" | "superellipse" | "counter" | "counters" | "cross-fade" | "cubic-bezier" | "var" | "dynamic-range-limit-mix" | "element" | "exp" | "hypot" | "log" | "pow" | "sqrt" | "blur" | "brightness" | "contrast" | "drop-shadow" | "grayscale" | "hue-rotate" | "invert" | "opacity" | "saturate" | "sepia" | "filter" | "fit-content" | "url" | "type" | "linear-gradient" | "radial-gradient" | "repeating-linear-gradient" | "repeating-radial-gradient" | "hsl" | "hwb" | "if" | "image" | "image-set" | "lab" | "lch" | "light-dark" | "clamp" | "max" | "min" | "ray" | "oklab" | "oklch" | "paint" | "path" | "progress" | "random" | "xywh" | "rgb" | "mod" | "rem" | "env" | "circle" | "ellipse" | "inset" | "polygon" | "sibling-count" | "sibling-index" | "steps" | "matrix" | "rotate" | "scale" | "scaleX" | "scaleY" | "skew" | "skewX" | "skewY" | "translate" | "translateX" | "translateY" | "matrix3d" | "perspective" | "rotate3d" | "rotateX" | "rotateY" | "rotateZ" | "scale3d" | "scaleZ" | "translate3d" | "translateZ" | "acos" | "asin" | "atan" | "atan2" | "cos" | "sin" | "tan" | "cross-origin" | "integrity" | "referrer-policy")[];
+  allowMediaConditions?: ("color-gamut" | "device-posture" | "device-aspect-ratio" | "device-height" | "device-width" | "display-mode" | "dynamic-range" | "forced-colors" | "any-hover" | "any-pointer" | "hover" | "pointer" | "inverted-colors" | "aspect-ratio" | "calc" | "color" | "color-index" | "grid" | "height" | "monochrome" | "nested-queries" | "orientation" | "width" | "overflow-block" | "overflow-inline" | "prefers-color-scheme" | "prefers-contrast" | "prefers-reduced-data" | "prefers-reduced-motion" | "prefers-reduced-transparency" | "resolution" | "-webkit-device-pixel-ratio" | "-webkit-max-device-pixel-ratio" | "-webkit-min-device-pixel-ratio" | "scripting" | "-webkit-transform-3d" | "update" | "video-dynamic-range" | "horizontal-viewport-segments" | "vertical-viewport-segments")[];
+  allowProperties?: ("accent-color" | "alignment-baseline" | "all" | "anchor-name" | "anchor-scope" | "position-anchor" | "position-area" | "position-try" | "position-try-fallbacks" | "position-try-order" | "position-visibility" | "animation-composition" | "animation" | "animation-delay" | "animation-direction" | "animation-duration" | "animation-fill-mode" | "animation-iteration-count" | "animation-name" | "animation-play-state" | "animation-timing-function" | "appearance" | "aspect-ratio" | "backdrop-filter" | "background" | "background-attachment" | "background-blend-mode" | "background-clip" | "background-color" | "background-image" | "background-origin" | "background-position" | "background-position-x" | "background-position-y" | "background-repeat" | "background-size" | "baseline-shift" | "baseline-source" | "border-image" | "border-image-outset" | "border-image-repeat" | "border-image-slice" | "border-image-source" | "border-image-width" | "border-bottom-left-radius" | "border-bottom-right-radius" | "border-radius" | "border-top-left-radius" | "border-top-right-radius" | "border-shape" | "border" | "border-bottom" | "border-bottom-color" | "border-bottom-style" | "border-bottom-width" | "border-color" | "border-left" | "border-left-color" | "border-left-style" | "border-left-width" | "border-right" | "border-right-color" | "border-right-style" | "border-right-width" | "border-style" | "border-top" | "border-top-color" | "border-top-style" | "border-top-width" | "border-width" | "box-decoration-break" | "box-shadow" | "box-sizing" | "caret-color" | "caret-shape" | "clip" | "clip-path" | "color" | "color-adjust" | "color-scheme" | "column-fill" | "column-span" | "contain" | "contain-intrinsic-block-size" | "contain-intrinsic-height" | "contain-intrinsic-inline-size" | "contain-intrinsic-size" | "contain-intrinsic-width" | "container" | "container-name" | "container-type" | "content" | "content-visibility" | "corner-block-end-shape" | "corner-block-start-shape" | "corner-bottom-left-shape" | "corner-bottom-right-shape" | "corner-bottom-shape" | "corner-end-end-shape" | "corner-end-start-shape" | "corner-inline-end-shape" | "corner-inline-start-shape" | "corner-left-shape" | "corner-right-shape" | "corner-shape" | "corner-start-end-shape" | "corner-start-start-shape" | "corner-top-left-shape" | "corner-top-right-shape" | "corner-top-shape" | "counter-set" | "counter-increment" | "counter-reset" | "custom-property" | "display" | "dominant-baseline" | "dynamic-range-limit" | "field-sizing" | "filter" | "align-content" | "align-items" | "align-self" | "flex" | "flex-basis" | "flex-direction" | "flex-flow" | "flex-grow" | "flex-shrink" | "flex-wrap" | "justify-content" | "justify-items" | "order" | "place-content" | "place-items" | "place-self" | "clear" | "float" | "font-family" | "font-feature-settings" | "font-kerning" | "font-language-override" | "font-optical-sizing" | "font-palette" | "font" | "font-size" | "font-size-adjust" | "font-stretch" | "font-style" | "font-synthesis" | "font-synthesis-position" | "font-synthesis-small-caps" | "font-synthesis-style" | "font-synthesis-weight" | "font-variant" | "font-variant-alternates" | "font-variant-caps" | "font-variant-east-asian" | "font-variant-emoji" | "font-variant-ligatures" | "font-variant-numeric" | "font-variant-position" | "font-variation-settings" | "font-weight" | "font-width" | "forced-color-adjust" | "frame-sizing" | "column-rule-break" | "column-rule-inset" | "column-rule-inset-cap" | "column-rule-inset-cap-end" | "column-rule-inset-cap-start" | "column-rule-inset-end" | "column-rule-inset-junction" | "column-rule-inset-junction-end" | "column-rule-inset-junction-start" | "column-rule-inset-start" | "column-rule-visibility-items" | "row-rule" | "row-rule-break" | "row-rule-color" | "row-rule-inset" | "row-rule-inset-cap" | "row-rule-inset-cap-end" | "row-rule-inset-cap-start" | "row-rule-inset-end" | "row-rule-inset-junction" | "row-rule-inset-junction-end" | "row-rule-inset-junction-start" | "row-rule-inset-start" | "row-rule-style" | "row-rule-visibility-items" | "row-rule-width" | "rule" | "rule-break" | "rule-color" | "rule-inset" | "rule-inset-cap" | "rule-inset-end" | "rule-inset-junction" | "rule-inset-start" | "rule-overlap" | "rule-style" | "rule-visibility-items" | "rule-width" | "glyph-orientation-vertical" | "gap" | "grid" | "grid-area" | "grid-auto-columns" | "grid-auto-flow" | "grid-auto-rows" | "grid-column" | "grid-column-end" | "grid-column-start" | "grid-row" | "grid-row-end" | "grid-row-start" | "grid-template" | "grid-template-areas" | "grid-template-columns" | "grid-template-rows" | "justify-self" | "row-gap" | "hanging-punctuation" | "hyphenate-character" | "hyphenate-limit-chars" | "hyphens" | "image-orientation" | "image-rendering" | "ime-mode" | "rotate" | "scale" | "translate" | "initial-letter" | "interactivity" | "interpolate-size" | "isolation" | "direction" | "unicode-bidi" | "letter-spacing" | "line-break" | "line-clamp" | "line-height" | "list-style" | "list-style-image" | "list-style-position" | "list-style-type" | "block-size" | "border-block" | "border-block-color" | "border-block-end" | "border-block-end-color" | "border-block-end-style" | "border-block-end-width" | "border-block-start" | "border-block-start-color" | "border-block-start-style" | "border-block-start-width" | "border-block-style" | "border-block-width" | "border-end-end-radius" | "border-end-start-radius" | "border-inline" | "border-inline-color" | "border-inline-end" | "border-inline-end-color" | "border-inline-end-style" | "border-inline-end-width" | "border-inline-start" | "border-inline-start-color" | "border-inline-start-style" | "border-inline-start-width" | "border-inline-style" | "border-inline-width" | "border-start-end-radius" | "border-start-start-radius" | "inline-size" | "inset" | "inset-block" | "inset-block-end" | "inset-block-start" | "inset-inline" | "inset-inline-end" | "inset-inline-start" | "margin-block" | "margin-block-end" | "margin-block-start" | "margin-inline" | "margin-inline-end" | "margin-inline-start" | "max-block-size" | "max-inline-size" | "min-block-size" | "min-inline-size" | "overflow-block" | "overflow-inline" | "padding-block" | "padding-block-end" | "padding-block-start" | "padding-inline" | "padding-inline-end" | "padding-inline-start" | "margin" | "margin-bottom" | "margin-left" | "margin-right" | "margin-top" | "margin-trim" | "mask-border" | "mask-border-outset" | "mask-border-repeat" | "mask-border-slice" | "mask-border-source" | "mask-border-width" | "mask-type" | "mask" | "mask-clip" | "mask-composite" | "mask-image" | "mask-mode" | "mask-origin" | "mask-position" | "mask-repeat" | "mask-size" | "math-depth" | "math-shift" | "math-style" | "max-height" | "max-width" | "min-height" | "min-width" | "mix-blend-mode" | "offset" | "offset-anchor" | "offset-distance" | "offset-path" | "offset-position" | "offset-rotate" | "column-count" | "column-gap" | "column-rule" | "column-rule-color" | "column-rule-style" | "column-rule-width" | "column-width" | "columns" | "object-fit" | "object-position" | "object-view-box" | "opacity" | "fill-opacity" | "stroke-opacity" | "outline" | "outline-color" | "outline-offset" | "outline-style" | "outline-width" | "overflow-anchor" | "overflow-clip-margin" | "overflow" | "overflow-x" | "overflow-y" | "overflow-wrap" | "overlay" | "overscroll-behavior" | "overscroll-behavior-block" | "overscroll-behavior-inline" | "overscroll-behavior-x" | "overscroll-behavior-y" | "padding" | "padding-bottom" | "padding-left" | "padding-right" | "padding-top" | "page-break-after" | "page-break-before" | "page-break-inside" | "break-after" | "break-before" | "break-inside" | "page" | "paint-order" | "bottom" | "left" | "right" | "top" | "pointer-events" | "position" | "print-color-adjust" | "quotes" | "reading-flow" | "reading-order" | "resize" | "ruby-align" | "ruby-overhang" | "ruby-position" | "scroll-behavior" | "animation-range" | "animation-range-end" | "animation-range-start" | "animation-timeline" | "scroll-timeline" | "scroll-timeline-axis" | "scroll-timeline-name" | "timeline-scope" | "view-timeline" | "view-timeline-axis" | "view-timeline-inset" | "view-timeline-name" | "scroll-initial-target" | "scroll-marker-group" | "scroll-margin" | "scroll-margin-block" | "scroll-margin-block-end" | "scroll-margin-block-start" | "scroll-margin-bottom" | "scroll-margin-inline" | "scroll-margin-inline-end" | "scroll-margin-inline-start" | "scroll-margin-left" | "scroll-margin-right" | "scroll-margin-top" | "scroll-padding" | "scroll-padding-block" | "scroll-padding-block-end" | "scroll-padding-block-start" | "scroll-padding-bottom" | "scroll-padding-inline" | "scroll-padding-inline-end" | "scroll-padding-inline-start" | "scroll-padding-left" | "scroll-padding-right" | "scroll-padding-top" | "scroll-snap-align" | "scroll-snap-stop" | "scroll-snap-type" | "scroll-target-group" | "scrollbar-color" | "scrollbar-gutter" | "scrollbar-width" | "shape-image-threshold" | "shape-margin" | "shape-outside" | "speak" | "speak-as" | "clip-rule" | "color-interpolation" | "cx" | "cy" | "d" | "fill" | "fill-rule" | "marker" | "marker-end" | "marker-mid" | "marker-start" | "r" | "rx" | "ry" | "shape-rendering" | "stop-color" | "stop-opacity" | "stroke" | "stroke-color" | "stroke-dasharray" | "stroke-dashoffset" | "stroke-linecap" | "stroke-linejoin" | "stroke-miterlimit" | "stroke-width" | "text-anchor" | "text-rendering" | "vector-effect" | "x" | "y" | "color-interpolation-filters" | "flood-color" | "flood-opacity" | "lighting-color" | "tab-size" | "border-collapse" | "border-spacing" | "caption-side" | "empty-cells" | "table-layout" | "text-align" | "text-align-last" | "text-autospace" | "text-box" | "text-box-edge" | "text-box-trim" | "text-combine-upright" | "text-decoration" | "text-decoration-color" | "text-decoration-line" | "text-decoration-style" | "text-decoration-thickness" | "text-decoration-skip-ink" | "text-emphasis" | "text-emphasis-color" | "text-emphasis-position" | "text-emphasis-style" | "text-fit" | "text-indent" | "text-justify" | "text-orientation" | "text-overflow" | "text-shadow" | "text-size-adjust" | "text-spacing-trim" | "-webkit-text-fill-color" | "-webkit-text-stroke" | "-webkit-text-stroke-color" | "-webkit-text-stroke-width" | "text-transform" | "text-underline-offset" | "text-underline-position" | "text-wrap" | "text-wrap-mode" | "text-wrap-style" | "touch-action" | "transform-box" | "transform" | "transform-origin" | "backface-visibility" | "perspective" | "perspective-origin" | "transform-style" | "transition-behavior" | "transition" | "transition-delay" | "transition-duration" | "transition-property" | "transition-timing-function" | "user-select" | "vertical-align" | "view-transition-class" | "view-transition-name" | "view-transition-scope" | "visibility" | "white-space" | "white-space-collapse" | "orphans" | "widows" | "height" | "width" | "will-change" | "window-drag" | "word-break" | "word-spacing" | "writing-mode" | "z-index" | "zoom")[];
+  allowPropertyValues?: {
+    "accent-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "currentColor" | "transparent")[];
+    "alignment-baseline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alphabetic" | "baseline" | "central" | "ideographic" | "mathematical" | "middle" | "text-after-edge" | "text-before-edge")[];
+    all?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "anchor-name"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "anchor-scope"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "none")[];
+    "position-anchor"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none" | "normal")[];
+    "position-area"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block-end" | "block-start" | "bottom" | "center" | "end" | "inline-end" | "inline-start" | "left" | "none" | "right" | "self-block-end" | "self-block-start" | "self-end" | "self-inline-end" | "self-inline-start" | "self-start" | "self-x-end" | "self-x-start" | "self-y-end" | "self-y-start" | "span-all" | "span-block-end" | "span-block-start" | "span-bottom" | "span-end" | "span-inline-end" | "span-inline-start" | "span-left" | "span-right" | "span-self-block-end" | "span-self-block-start" | "span-self-end" | "span-self-inline-end" | "span-self-inline-start" | "span-self-start" | "span-self-x-end" | "span-self-x-start" | "span-self-y-end" | "span-self-y-start" | "span-start" | "span-top" | "span-x-end" | "span-x-start" | "span-y-end" | "span-y-start" | "start" | "top" | "x-end" | "x-start" | "y-end" | "y-start")[];
+    "position-try"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block-end" | "block-start" | "bottom" | "center" | "end" | "flip-block" | "flip-inline" | "flip-start" | "flip-x" | "flip-y" | "inline-end" | "inline-start" | "left" | "none" | "right" | "self-block-end" | "self-block-start" | "self-end" | "self-inline-end" | "self-inline-start" | "self-start" | "self-x-end" | "self-x-start" | "self-y-end" | "self-y-start" | "span-all" | "span-block-end" | "span-block-start" | "span-bottom" | "span-end" | "span-inline-end" | "span-inline-start" | "span-left" | "span-right" | "span-self-block-end" | "span-self-block-start" | "span-self-end" | "span-self-inline-end" | "span-self-inline-start" | "span-self-start" | "span-self-x-end" | "span-self-x-start" | "span-self-y-end" | "span-self-y-start" | "span-start" | "span-top" | "span-x-end" | "span-x-start" | "span-y-end" | "span-y-start" | "start" | "top" | "x-end" | "x-start" | "y-end" | "y-start")[];
+    "position-try-fallbacks"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block-end" | "block-start" | "bottom" | "center" | "end" | "flip-block" | "flip-inline" | "flip-start" | "flip-x" | "flip-y" | "inline-end" | "inline-start" | "left" | "none" | "position-area" | "right" | "self-block-end" | "self-block-start" | "self-end" | "self-inline-end" | "self-inline-start" | "self-start" | "self-x-end" | "self-x-start" | "self-y-end" | "self-y-start" | "span-all" | "span-block-end" | "span-block-start" | "span-bottom" | "span-end" | "span-inline-end" | "span-inline-start" | "span-left" | "span-right" | "span-self-block-end" | "span-self-block-start" | "span-self-end" | "span-self-inline-end" | "span-self-inline-start" | "span-self-start" | "span-self-x-end" | "span-self-x-start" | "span-self-y-end" | "span-self-y-start" | "span-start" | "span-top" | "span-x-end" | "span-x-start" | "span-y-end" | "span-y-start" | "start" | "top" | "x-end" | "x-start" | "y-end" | "y-start")[];
+    "position-try-order"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "most-block-size" | "most-height" | "most-inline-size" | "most-width" | "normal")[];
+    "position-visibility"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "always" | "anchor-valid" | "anchor-visible" | "no-overflow" | "anchors-valid" | "anchors-visible")[];
+    "animation-composition"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    animation?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alternate" | "alternate-reverse" | "auto" | "backwards" | "both" | "ease" | "ease-in" | "ease-in-out" | "ease-out" | "forwards" | "infinite" | "linear" | "none" | "normal" | "reverse" | "step-end" | "step-start")[];
+    "animation-delay"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "animation-direction"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alternate" | "alternate-reverse" | "normal" | "reverse")[];
+    "animation-duration"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "animation-fill-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "backwards" | "both" | "forwards" | "none")[];
+    "animation-iteration-count"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "infinite")[];
+    "animation-name"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "animation-play-state"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "paused" | "running")[];
+    "animation-timing-function"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "ease" | "ease-in" | "ease-in-out" | "ease-out" | "jump" | "linear" | "step-end" | "step-start")[];
+    appearance?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "button" | "checkbox" | "listbox" | "menulist" | "menulist-button" | "meter" | "none" | "progress-bar" | "radio" | "searchfield" | "textarea" | "textfield" | "base-select")[];
+    "aspect-ratio"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "backdrop-filter"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    background?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "local" | "no-repeat" | "none" | "repeat" | "repeat-x" | "repeat-y" | "round" | "scroll" | "space" | "transparent" | "background-clip" | "background-origin" | "background-size" | "currentColor")[];
+    "background-attachment"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "fixed" | "local" | "scroll")[];
+    "background-blend-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "background-clip"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border-box" | "content-box" | "padding-box" | "border-area" | "text")[];
+    "background-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "background-image"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none" | "element" | "gradients" | "image-set")[];
+    "background-origin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border-box" | "content-box" | "padding-box")[];
+    "background-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bottom" | "center" | "left" | "right" | "top")[];
+    "background-position-x"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "background-position-y"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "background-repeat"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "2-value" | "no-repeat" | "repeat" | "repeat-x" | "repeat-y" | "round" | "space")[];
+    "background-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contain" | "cover")[];
+    "baseline-shift"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "sub" | "super")[];
+    "baseline-source"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "first" | "last")[];
+    "border-image"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "fill" | "gradient" | "none" | "repeat" | "round" | "space" | "stretch")[];
+    "border-image-outset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "border-image-repeat"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "repeat" | "round" | "space" | "stretch")[];
+    "border-image-slice"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "border-image-source"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "border-image-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "border-bottom-left-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "border-bottom-right-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "border-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "border-top-left-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "border-top-right-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "border-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    border?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent" | "currentColor")[];
+    "border-bottom"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent" | "currentColor")[];
+    "border-bottom-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "border-bottom-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-bottom-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "border-left"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent" | "currentColor")[];
+    "border-left-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "border-left-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-left-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-right"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent" | "currentColor")[];
+    "border-right-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "border-right-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-right-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-top"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent" | "currentColor")[];
+    "border-top-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "border-top-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-top-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "box-decoration-break"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "clone" | "slice")[];
+    "box-shadow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "inset" | "none")[];
+    "box-sizing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border-box" | "content-box")[];
+    "caret-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "caret-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "bar" | "block" | "underscore")[];
+    clip?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "clip-path"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "path" | "fill-box" | "stroke-box" | "view-box")[];
+    color?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transparent" | "currentColor")[];
+    "color-adjust"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "color-scheme"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dark" | "light" | "normal" | "only")[];
+    "column-fill"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "balance")[];
+    "column-span"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "none")[];
+    contain?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "content" | "none" | "strict" | "inline-size" | "layout" | "paint" | "size" | "style")[];
+    "contain-intrinsic-block-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "contain-intrinsic-height"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "contain-intrinsic-inline-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "contain-intrinsic-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "contain-intrinsic-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    container?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "container-name"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "container-type"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchored" | "inline-size" | "normal" | "size" | "scroll-state")[];
+    content?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "close-quote" | "gradient" | "no-close-quote" | "no-open-quote" | "none" | "normal" | "open-quote" | "url" | "image-set")[];
+    "content-visibility"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "hidden" | "visible")[];
+    "corner-block-end-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-block-start-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-bottom-left-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-bottom-right-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-bottom-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-end-end-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-end-start-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-inline-end-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-inline-start-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-left-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-right-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-start-end-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-start-start-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-top-left-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-top-right-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "corner-top-shape"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "counter-set"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "list-item" | "none")[];
+    "counter-increment"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "list-item" | "none")[];
+    "counter-reset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "reversed" | "list-item" | "none")[];
+    "custom-property"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    display?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block" | "inline" | "inline-block" | "none" | "contents" | "flow-root" | "list-item" | "ruby" | "ruby-base" | "ruby-base-container" | "ruby-text" | "ruby-text-container" | "inline-table" | "table" | "table-caption" | "table-cell" | "table-column" | "table-column-group" | "table-footer-group" | "table-header-group" | "table-row" | "table-row-group" | "flex" | "inline-flex" | "grid" | "inline-grid" | "math")[];
+    "dominant-baseline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alphabetic" | "auto" | "central" | "hanging" | "ideographic" | "mathematical" | "middle")[];
+    "dynamic-range-limit"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "constrained" | "no-limit" | "standard")[];
+    "field-sizing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "content" | "fixed")[];
+    filter?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "blur" | "brightness" | "contrast" | "drop-shadow" | "grayscale" | "hue-rotate" | "invert" | "opacity" | "saturate" | "sepia")[];
+    "align-content"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "align-items"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-center")[];
+    "align-self"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-center" | "auto" | "normal" | "stretch")[];
+    flex?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "flex-basis"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "content" | "fit-content" | "max-content" | "min-content")[];
+    "flex-direction"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "column" | "column-reverse" | "row" | "row-reverse")[];
+    "flex-flow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "flex-grow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "flex-shrink"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "flex-wrap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "nowrap" | "wrap" | "wrap-reverse" | "balance")[];
+    "justify-content"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "left" | "normal" | "right")[];
+    "justify-items"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-center" | "center" | "left" | "legacy" | "right")[];
+    order?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "place-content"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "place-items"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-center")[];
+    "place-self"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-center")[];
+    clear?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "both" | "left" | "none" | "right" | "inline-end" | "inline-start")[];
+    float?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "left" | "none" | "right" | "inline-end" | "inline-start")[];
+    "font-family"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "cursive" | "fantasy" | "monospace" | "sans-serif" | "serif" | "math" | "system-ui" | "ui-monospace" | "ui-rounded" | "ui-sans-serif" | "ui-serif")[];
+    "font-feature-settings"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "font-kerning"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none" | "normal")[];
+    "font-language-override"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "font-optical-sizing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "font-palette"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dark" | "light" | "normal")[];
+    font?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "caption" | "icon" | "menu" | "message-box" | "small-caption" | "status-bar")[];
+    "font-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "xxx-large" | "math")[];
+    "font-size-adjust"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "from-font" | "none" | "two-values")[];
+    "font-stretch"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "condensed" | "expanded" | "extra-condensed" | "extra-expanded" | "normal" | "percentage" | "semi-condensed" | "semi-expanded" | "ultra-condensed" | "ultra-expanded")[];
+    "font-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "italic" | "normal" | "oblique" | "oblique-angle")[];
+    "font-synthesis"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "position" | "small-caps" | "style" | "weight")[];
+    "font-synthesis-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "font-synthesis-small-caps"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "font-synthesis-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "font-synthesis-weight"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "font-variant"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "historical-forms" | "none" | "normal" | "sub" | "super")[];
+    "font-variant-alternates"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "annotation" | "historical-forms" | "normal" | "ornaments" | "styleset" | "stylistic" | "swash")[];
+    "font-variant-caps"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all-petite-caps" | "all-small-caps" | "normal" | "petite-caps" | "small-caps" | "titling-caps" | "unicase")[];
+    "font-variant-east-asian"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "full-width" | "jis04" | "jis78" | "jis83" | "jis90" | "normal" | "proportional-width" | "ruby" | "simplified" | "traditional")[];
+    "font-variant-emoji"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "emoji" | "normal" | "text" | "unicode")[];
+    "font-variant-ligatures"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "common-ligatures" | "contextual" | "discretionary-ligatures" | "historical-ligatures" | "no-common-ligatures" | "no-contextual" | "no-discretionary-ligatures" | "no-historical-ligatures" | "none" | "normal")[];
+    "font-variant-numeric"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "diagonal-fractions" | "lining-nums" | "normal" | "oldstyle-nums" | "ordinal" | "proportional-nums" | "slashed-zero" | "stacked-fractions" | "tabular-nums")[];
+    "font-variant-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal" | "sub" | "super")[];
+    "font-variation-settings"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "font-weight"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bold" | "bolder" | "lighter" | "normal" | "number")[];
+    "font-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "condensed" | "expanded" | "extra-condensed" | "extra-expanded" | "normal" | "semi-condensed" | "semi-expanded" | "ultra-condensed" | "ultra-expanded")[];
+    "forced-color-adjust"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none" | "preserve-parent-color")[];
+    "frame-sizing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "content-block-size" | "content-height" | "content-inline-size" | "content-width")[];
+    "column-rule-break"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "intersection" | "none" | "normal")[];
+    "column-rule-inset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-cap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-cap-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-cap-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-junction"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-junction-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-junction-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-inset-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "column-rule-visibility-items"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "around" | "between" | "normal")[];
+    "row-rule"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "row-rule-break"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "intersection" | "none" | "normal")[];
+    "row-rule-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "row-rule-inset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-cap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-cap-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-cap-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-junction"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-junction-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-junction-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-inset-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "row-rule-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "row-rule-visibility-items"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "around" | "between" | "normal")[];
+    "row-rule-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    rule?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "rule-break"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "intersection" | "none" | "normal")[];
+    "rule-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "rule-inset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "rule-inset-cap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "rule-inset-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "rule-inset-junction"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "rule-inset-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlap-join")[];
+    "rule-overlap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "column-over-row" | "row-over-column")[];
+    "rule-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "rule-visibility-items"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "around" | "between" | "normal")[];
+    "rule-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "glyph-orientation-vertical"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    gap?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    grid?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-area"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-auto-columns"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-auto-flow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "column" | "dense" | "row")[];
+    "grid-auto-rows"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-column"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-column-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-column-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-row"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-row-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-row-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "grid-template"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "grid-template-areas"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "grid-template-columns"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "fit-content" | "max-content" | "min-content" | "minmax" | "none" | "repeat" | "animation" | "subgrid")[];
+    "grid-template-rows"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "fit-content" | "max-content" | "min-content" | "minmax" | "none" | "repeat" | "animation" | "subgrid")[];
+    "justify-self"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-center" | "auto" | "left" | "normal" | "right" | "stretch")[];
+    "row-gap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "hanging-punctuation"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "allow-end" | "first" | "force-end" | "last" | "none")[];
+    "hyphenate-character"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "hyphenate-limit-chars"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    hyphens?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "image-orientation"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "from-image" | "none")[];
+    "image-rendering"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "crisp-edges" | "auto" | "pixelated" | "smooth")[];
+    "ime-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    rotate?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    scale?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    translate?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "initial-letter"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    interactivity?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "inert")[];
+    "interpolate-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "allow-keywords" | "numeric-only")[];
+    isolation?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    direction?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "ltr" | "rtl")[];
+    "unicode-bidi"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bidi-override" | "embed" | "isolate" | "isolate-override" | "normal" | "plaintext")[];
+    "letter-spacing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "line-break"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anywhere" | "auto" | "loose" | "normal" | "strict")[];
+    "line-clamp"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "line-height"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "list-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "inside" | "none" | "outside" | "symbols")[];
+    "list-style-image"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "list-style-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "inside" | "outside")[];
+    "list-style-type"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "arabic-indic" | "armenian" | "bengali" | "cambodian" | "circle" | "cjk-decimal" | "cjk-earthly-branch" | "cjk-heavenly-stem" | "cjk-ideographic" | "decimal" | "decimal-leading-zero" | "devanagari" | "disc" | "disclosure-closed" | "disclosure-open" | "ethiopic-numeric" | "georgian" | "gujarati" | "gurmukhi" | "hebrew" | "hiragana" | "hiragana-iroha" | "japanese-formal" | "japanese-informal" | "kannada" | "katakana" | "katakana-iroha" | "khmer" | "korean-hangul-formal" | "korean-hanja-formal" | "korean-hanja-informal" | "lao" | "lower-alpha" | "lower-armenian" | "lower-greek" | "lower-latin" | "lower-roman" | "malayalam" | "mongolian" | "myanmar" | "none" | "oriya" | "persian" | "simp-chinese-formal" | "simp-chinese-informal" | "square" | "string" | "symbols" | "tamil" | "telugu" | "thai" | "tibetan" | "trad-chinese-formal" | "trad-chinese-informal" | "upper-alpha" | "upper-armenian" | "upper-latin" | "upper-roman")[];
+    "block-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content")[];
+    "border-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "border-block-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "border-block-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "border-block-end-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "border-block-end-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-block-end-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-block-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "border-block-start-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "border-block-start-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-block-start-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-block-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-block-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-end-end-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "border-end-start-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "border-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "border-inline-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "border-inline-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "border-inline-end-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "border-inline-end-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-inline-end-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-inline-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "border-inline-start-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "border-inline-start-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-inline-start-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-inline-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "border-inline-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "border-start-end-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "border-start-start-radius"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "inline-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content")[];
+    inset?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "inset-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "inset-block-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "inset-block-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "inset-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "inset-inline-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "inset-inline-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "margin-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size")[];
+    "margin-block-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size")[];
+    "margin-block-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size")[];
+    "margin-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size")[];
+    "margin-inline-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size")[];
+    "margin-inline-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size")[];
+    "max-block-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content")[];
+    "max-inline-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content")[];
+    "min-block-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content")[];
+    "min-inline-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content")[];
+    "overflow-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlay")[];
+    "overflow-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "overlay")[];
+    "padding-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-block-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-block-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-inline-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-inline-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    margin?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "auto")[];
+    "margin-bottom"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "auto")[];
+    "margin-left"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "auto")[];
+    "margin-right"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "auto")[];
+    "margin-top"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "auto")[];
+    "margin-trim"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block" | "block-end" | "block-start" | "inline" | "inline-end" | "inline-start" | "none")[];
+    "mask-border"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-border-outset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-border-repeat"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-border-slice"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-border-source"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-border-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-type"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alpha" | "luminance")[];
+    mask?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-clip"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border" | "content" | "padding" | "text")[];
+    "mask-composite"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "add" | "exclude" | "intersect" | "subtract")[];
+    "mask-image"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alpha" | "luminance" | "match-source")[];
+    "mask-origin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border" | "content" | "fill-box" | "padding" | "stroke-box" | "view-box")[];
+    "mask-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-repeat"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "mask-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "math-depth"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "math-shift"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "math-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "max-height"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content" | "none" | "stretch")[];
+    "max-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content" | "none" | "stretch")[];
+    "min-height"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content" | "auto" | "stretch")[];
+    "min-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content" | "auto" | "stretch")[];
+    "mix-blend-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "plus-darker" | "plus-lighter")[];
+    offset?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "offset-anchor"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "bottom" | "center" | "left" | "right" | "top")[];
+    "offset-distance"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "offset-path"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border-box" | "content-box" | "fill-box" | "margin-box" | "none" | "padding-box" | "path" | "ray" | "stroke-box" | "url" | "view-box")[];
+    "offset-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "bottom" | "center" | "left" | "normal" | "right" | "top")[];
+    "offset-rotate"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "reverse")[];
+    "column-count"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "column-gap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "column-rule"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "column-rule-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "column-rule-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "dashed" | "dotted" | "double" | "groove" | "hidden" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "column-rule-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "column-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    columns?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "object-fit"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "contain" | "cover" | "fill" | "none" | "scale-down")[];
+    "object-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "object-view-box"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    opacity?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "fill-opacity"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "stroke-opacity"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    outline?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "dashed" | "dotted" | "double" | "groove" | "inset" | "medium" | "none" | "outset" | "ridge" | "solid" | "thick" | "thin" | "transparent")[];
+    "outline-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "outline-offset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "outline-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "dashed" | "dotted" | "double" | "groove" | "inset" | "none" | "outset" | "ridge" | "solid")[];
+    "outline-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "medium" | "thick" | "thin")[];
+    "overflow-anchor"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "overflow-clip-margin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border-box" | "content-box" | "padding-box")[];
+    overflow?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "clip" | "auto" | "hidden" | "scroll" | "visible")[];
+    "overflow-x"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "clip" | "auto" | "hidden" | "scroll" | "visible")[];
+    "overflow-y"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "clip" | "auto" | "hidden" | "scroll" | "visible")[];
+    "overflow-wrap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anywhere" | "break-word" | "normal")[];
+    overlay?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "overscroll-behavior"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contain" | "none")[];
+    "overscroll-behavior-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contain" | "none")[];
+    "overscroll-behavior-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contain" | "none")[];
+    "overscroll-behavior-x"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contain" | "none")[];
+    "overscroll-behavior-y"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contain" | "none")[];
+    padding?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-bottom"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-left"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-right"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "padding-top"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "page-break-after"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "always" | "auto" | "avoid" | "left" | "right")[];
+    "page-break-before"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "always" | "auto" | "avoid" | "left" | "right")[];
+    "page-break-inside"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "avoid")[];
+    "break-after"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "avoid-column" | "column" | "always" | "auto" | "avoid" | "avoid-page" | "left" | "page" | "recto" | "right" | "verso")[];
+    "break-before"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "avoid-column" | "column" | "always" | "auto" | "avoid" | "avoid-page" | "left" | "page" | "recto" | "right" | "verso")[];
+    "break-inside"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "avoid-column" | "auto" | "avoid" | "avoid-page")[];
+    page?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "paint-order"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    bottom?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    left?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    right?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    top?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor" | "anchor-size" | "auto")[];
+    "pointer-events"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    position?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "absolute" | "fixed" | "relative" | "static" | "sticky")[];
+    "print-color-adjust"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "economy" | "exact")[];
+    quotes?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "reading-flow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "flex-flow" | "flex-visual" | "grid-columns" | "grid-order" | "grid-rows" | "normal" | "source-order")[];
+    "reading-order"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    resize?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block" | "inline")[];
+    "ruby-align"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "center" | "space-around" | "space-between" | "start")[];
+    "ruby-overhang"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "ruby-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "alternate" | "inter-character" | "over" | "under")[];
+    "scroll-behavior"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "smooth")[];
+    "animation-range"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "animation-range-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "animation-range-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "animation-timeline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "scroll" | "view")[];
+    "scroll-timeline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-timeline-axis"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block" | "inline" | "x" | "y")[];
+    "scroll-timeline-name"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "timeline-scope"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "none")[];
+    "view-timeline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "view-timeline-axis"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block" | "inline" | "x" | "y")[];
+    "view-timeline-inset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "view-timeline-name"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-initial-target"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "nearest" | "none")[];
+    "scroll-marker-group"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "after" | "before" | "none")[];
+    "scroll-margin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-block-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-block-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-bottom"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-inline-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-inline-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-left"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-right"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-margin-top"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-padding"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-block"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-block-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-block-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-bottom"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-padding-inline"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-inline-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-inline-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scroll-padding-left"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-padding-right"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-padding-top"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "scroll-snap-align"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "center" | "end" | "none" | "start")[];
+    "scroll-snap-stop"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "always" | "normal")[];
+    "scroll-snap-type"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "block" | "both" | "inline" | "none" | "x" | "y")[];
+    "scroll-target-group"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none")[];
+    "scrollbar-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "scrollbar-gutter"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "stable")[];
+    "scrollbar-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none" | "thin")[];
+    "shape-image-threshold"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "percentages")[];
+    "shape-margin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "shape-outside"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "circle" | "gradient" | "image" | "inset" | "none" | "path" | "polygon")[];
+    speak?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "speak-as"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "digits" | "literal-punctuation" | "no-punctuation" | "normal" | "spell-out")[];
+    "clip-rule"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "evenodd" | "nonzero")[];
+    "color-interpolation"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "linearGradient" | "sRGB")[];
+    cx?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    cy?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    d?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    fill?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "fill-rule"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "evenodd" | "nonzero")[];
+    marker?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "marker-end"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "marker-mid"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "marker-start"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    r?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    rx?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    ry?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "shape-rendering"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "stop-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "stop-opacity"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    stroke?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "stroke-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "stroke-dasharray"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "stroke-dashoffset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "stroke-linecap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "butt" | "round" | "square")[];
+    "stroke-linejoin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bevel" | "miter" | "round")[];
+    "stroke-miterlimit"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "stroke-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "text-anchor"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "end" | "middle" | "start")[];
+    "text-rendering"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "geometricPrecision")[];
+    "vector-effect"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    x?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    y?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "color-interpolation-filters"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "linearRGB" | "sRGB")[];
+    "flood-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "flood-opacity"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "lighting-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "tab-size"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "length")[];
+    "border-collapse"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "collapse" | "separate")[];
+    "border-spacing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "caption-side"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bottom" | "bottom-outside" | "top" | "top-outside")[];
+    "empty-cells"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "hide" | "show")[];
+    "table-layout"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "fixed")[];
+    "text-align"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "center" | "end" | "justify" | "left" | "match-parent" | "right" | "start")[];
+    "text-align-last"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "text-autospace"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "ideograph-alpha" | "ideograph-numeric" | "insert" | "no-autospace" | "normal" | "punctuation" | "replace")[];
+    "text-box"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "text-box-edge"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    "text-box-trim"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none" | "trim-both" | "trim-end" | "trim-start")[];
+    "text-combine-upright"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "none")[];
+    "text-decoration"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "line-through" | "none" | "overline" | "transparent" | "underline")[];
+    "text-decoration-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "text-decoration-line"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "line-through" | "none" | "overline" | "underline" | "blink" | "grammar-error" | "spelling-error")[];
+    "text-decoration-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "wavy")[];
+    "text-decoration-thickness"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "from-font" | "percentage")[];
+    "text-decoration-skip-ink"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none" | "all")[];
+    "text-emphasis"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "text-emphasis-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "currentColor" | "transparent")[];
+    "text-emphasis-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "left" | "over" | "right" | "under")[];
+    "text-emphasis-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "circle" | "dot" | "double-circle" | "filled" | "none" | "sesame" | "triangle")[];
+    "text-fit"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "grow" | "none" | "shrink")[];
+    "text-indent"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "each-line" | "hanging")[];
+    "text-justify"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "inter-character" | "inter-word" | "none")[];
+    "text-orientation"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "mixed" | "sideways" | "upright")[];
+    "text-overflow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "string" | "clip" | "ellipsis")[];
+    "text-shadow"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "text-size-adjust"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "none" | "percentages")[];
+    "text-spacing-trim"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal" | "space-all" | "space-first" | "trim-start")[];
+    "-webkit-text-fill-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "-webkit-text-stroke"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "-webkit-text-stroke-color"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "-webkit-text-stroke-width"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "text-transform"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "math-auto" | "capitalize" | "full-size-kana" | "full-width" | "lowercase" | "none" | "uppercase")[];
+    "text-underline-offset"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "percentage")[];
+    "text-underline-position"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "from-font" | "left" | "right" | "under")[];
+    "text-wrap"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "nowrap" | "stable" | "wrap" | "balance" | "pretty")[];
+    "text-wrap-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "nowrap" | "wrap")[];
+    "text-wrap-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "stable" | "balance" | "pretty")[];
+    "touch-action"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "manipulation" | "none" | "pan-down" | "pan-left" | "pan-right" | "pan-up" | "pan-x" | "pan-y" | "pinch-zoom")[];
+    "transform-box"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "border-box" | "content-box" | "fill-box" | "stroke-box" | "view-box")[];
+    transform?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none" | "3d")[];
+    "transform-origin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bottom" | "center" | "left" | "right" | "top")[];
+    "backface-visibility"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    perspective?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "perspective-origin"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "bottom" | "center" | "left" | "right" | "top")[];
+    "transform-style"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "transition-behavior"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    transition?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "transition-behavior" | "all" | "ease" | "ease-in" | "ease-in-out" | "ease-out" | "linear" | "none" | "step-end" | "step-start")[];
+    "transition-delay"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "transition-duration"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    "transition-property"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "none")[];
+    "transition-timing-function"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "ease" | "ease-in" | "ease-in-out" | "ease-out" | "jump" | "linear" | "step-end" | "step-start")[];
+    "user-select"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "auto" | "none" | "text")[];
+    "vertical-align"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "baseline" | "bottom" | "middle" | "sub" | "super" | "text-bottom" | "text-top" | "top")[];
+    "view-transition-class"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "none")[];
+    "view-transition-name"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "match-element" | "none")[];
+    "view-transition-scope"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "all" | "none")[];
+    visibility?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "collapse" | "hidden" | "visible")[];
+    "white-space"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "break-spaces" | "normal" | "nowrap" | "pre" | "pre-line" | "pre-wrap")[];
+    "white-space-collapse"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "break-spaces" | "collapse" | "preserve" | "preserve-breaks" | "preserve-spaces")[];
+    orphans?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    widows?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+    height?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content" | "stretch" | "auto")[];
+    width?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "anchor-size" | "fit-content" | "max-content" | "min-content" | "stretch" | "auto")[];
+    "will-change"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto" | "contents" | "scroll-position")[];
+    "window-drag"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "move" | "none")[];
+    "word-break"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "break-all" | "keep-all" | "normal" | "auto-phrase" | "break-word")[];
+    "word-spacing"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "normal")[];
+    "writing-mode"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "horizontal-tb" | "sideways-lr" | "sideways-rl" | "vertical-lr" | "vertical-rl" | "lr" | "lr-tb" | "rl" | "rl-tb" | "tb" | "tb-rl")[];
+    "z-index"?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset" | "auto")[];
+    zoom?: ("revert-layer" | "inherit" | "initial" | "revert" | "unset")[];
+  };
+  allowSelectors?: ("active-view-transition" | "active-view-transition-type" | "autofill" | "defined" | "backdrop" | "after" | "before" | "column" | "checkmark" | "picker" | "picker-icon" | "default" | "details-content" | "dir" | "empty" | "file-selector-button" | "first-letter" | "first-line" | "focus-visible" | "focus-within" | "in-range" | "invalid" | "optional" | "out-of-range" | "required" | "valid" | "fullscreen" | "has" | "has-slotted" | "heading" | "headingfunction" | "highlight" | "host" | "hostfunction" | "host-context" | "indeterminate" | "checked" | "disabled" | "enabled" | "interest-source" | "interest-target" | "is" | "lang" | "any-link" | "link" | "visited" | "marker" | "buffering" | "muted" | "paused" | "playing" | "seeking" | "stalled" | "volume-locked" | "modal" | "namespace" | "nesting" | "not" | "first-child" | "last-child" | "nth-child" | "nth-last-child" | "only-child" | "first-of-type" | "last-of-type" | "nth-last-of-type" | "nth-of-type" | "only-of-type" | "open" | "first" | "left" | "right" | "picture-in-picture" | "placeholder" | "placeholder-shown" | "popover-open" | "read-only" | "read-write" | "root" | "scope" | "scroll-button" | "target-after" | "target-before" | "target-current" | "scroll-marker" | "scroll-marker-group" | "selection" | "attribute" | "child" | "class" | "descendant" | "id" | "list" | "next-sibling" | "subsequent-sibling" | "type" | "universal" | "part" | "slotted" | "grammar-error" | "spelling-error" | "state" | "target" | "target-text" | "future" | "past" | "active" | "focus" | "hover" | "user-invalid" | "user-valid" | "view-transition" | "view-transition-group" | "view-transition-image-pair" | "view-transition-new" | "view-transition-old" | "cue" | "xr-overlay" | "where")[];
+  allowUnits?: ("cap" | "ch" | "cqw" | "cqh" | "cqi" | "cqb" | "cqmin" | "cqmax" | "em" | "ex" | "ic" | "lh" | "Q" | "rcap" | "rch" | "rem" | "rex" | "ric" | "rlh" | "vb" | "vi" | "dvb" | "dvh" | "dvi" | "dvmax" | "dvmin" | "dvw" | "lvb" | "lvh" | "lvi" | "lvmax" | "lvmin" | "lvw" | "svb" | "svh" | "svi" | "svmax" | "svmin" | "svw" | "vh" | "vmax" | "vmin" | "vw")[];
+}];
+// ----- css/use-layers -----
+type CssUseLayers = [] | [{
+  allowUnnamedLayers?: boolean;
+  requireImportLayers?: boolean;
+  layerNamePattern?: string;
+}];
+//#endregion
+//#region src/index.d.ts
+declare module "@eslint/core" {
+  interface RulesConfig extends CssRuleOptions {}
+}
+declare module "@antfu/eslint-config" {
+  interface RuleOptions extends CssRuleOptions {}
+}
+declare module "@zinkawaii/eslint-config" {
+  interface RuleOptions extends CssRuleOptions {}
+}
+declare const _default: Linter.Config[];
+//#endregion
+export { _default as default };

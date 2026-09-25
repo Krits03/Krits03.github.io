@@ -1,0 +1,19 @@
+import { defu } from "defu";
+import { reactive, watchEffect } from "vue";
+import {
+  useNuxtApp,
+  useRequestEvent
+} from "#app";
+export function useSiteConfig(options) {
+  const stack = import.meta.server ? useRequestEvent()?.context.siteConfig.get(defu({ resolveRefs: true }, options)) : reactive({});
+  if (import.meta.client) {
+    watchEffect(() => {
+      const data = useNuxtApp().$nuxtSiteConfig.get(defu({ resolveRefs: true }, options));
+      if (stack && data) {
+        Object.assign(stack, data);
+      }
+    });
+  }
+  delete stack._priority;
+  return stack;
+}

@@ -1,0 +1,32 @@
+import { T as Thing, S as SchemaOrgNodeDefinition, M as MetaInput, R as ResolvedMeta, a as SchemaOrgGraph, A as Arrayable } from './shared/schema-org.CFcsqFfN.mjs';
+export { i as AggregateOffer, h as AggregateOfferSimple, l as AggregateRating, k as AggregateRatingSimple, o as Article, n as ArticleSimple, q as Book, s as BookEdition, r as BookEditionSimple, B as BookSimple, x as BreadcrumbList, w as BreadcrumbSimple, D as Comment, C as CommentSimple, G as Course, F as CourseSimple, K as Event, J as EventSimple, a1 as FoodEstablishment, a0 as FoodEstablishmentSimple, a4 as HowTo, aa as HowToDirection, a5 as HowToId, a3 as HowToSimple, a8 as HowToStep, a7 as HowToStepSimple, I as Id, d as IdReference, b as Identity, ad as ImageObject, ac as ImageSimple, ag as ItemList, af as ItemListSimple, aj as JobPosting, ai as JobPostingSimple, am as ListItem, al as ListItemSimple, ap as LocalBusiness, ao as LocalBusinessSimple, as as Movie, ar as MovieSimple, N as NodeRelation, e as NodeRelations, aX as NutritionInformation, av as Offer, au as OfferSimple, ax as OpeningHoursSimple, ay as OpeningHoursSpecification, O as OptionalSchemaOrgPrefix, aB as Organization, aA as OrganizationSimple, aE as Person, aD as PersonSimple, X as Place, V as PlaceSimple, aJ as PostalAddress, aI as PostalAddressName, aG as PostalAddressSimple, aH as PostalAddressStrict, P as PrimaryArticleId, u as PrimaryBookId, y as PrimaryBreadcrumbId, L as PrimaryEventId, b9 as PrimaryWebPageId, bg as PrimaryWebSiteId, aM as Product, aN as ProductId, aL as ProductSimple, aQ as Question, aP as QuestionSimple, aT as Rating, aS as RatingSimple, bc as ReadAction, bb as ReadActionInput, aW as Recipe, aY as RecipeId, aV as RecipeSimple, f as ResolvableDate, a$ as Review, a_ as ReviewSimple, g as SchemaOrgNode, bj as SearchAction, bi as SearchActionInput, b2 as SoftwareApp, b1 as SoftwareAppSimple, U as UserConfig, b5 as VideoObject, b4 as VideoSimple, _ as VirtualLocation, Z as VirtualLocationSimple, b8 as WebPage, b7 as WebPageSimple, bf as WebSite, be as WebSiteSimple, W as WithResolver, aK as addressResolver, j as aggregateOfferResolver, m as aggregateRatingResolver, p as articleResolver, t as bookEditionResolver, v as bookResolver, z as breadcrumbResolver, E as commentResolver, H as courseResolver, c as createSchemaOrgGraph, Q as eventResolver, a2 as foodEstablishmentResolver, a6 as howToResolver, ab as howToStepDirectionResolver, a9 as howToStepResolver, ae as imageResolver, ah as itemListResolver, ak as jobPostingResolver, an as listItemResolver, aq as localBusinessResolver, at as movieResolver, aw as offerResolver, az as openingHoursResolver, aC as organizationResolver, aF as personResolver, Y as placeResolver, aO as productResolver, aR as questionResolver, aU as ratingResolver, bd as readActionResolver, aZ as recipeResolver, b0 as reviewResolver, bk as searchActionResolver, b3 as softwareAppResolver, b6 as videoResolver, $ as virtualLocationResolver, ba as webPageResolver, bh as webSiteResolver } from './shared/schema-org.CFcsqFfN.mjs';
+export { Z as DataCatalog, Y as DataDownload, $ as Dataset, _ as DatasetSimple, a3 as MusicAlbum, a2 as MusicAlbumSimple, a6 as MusicGroup, a5 as MusicGroupSimple, a9 as MusicPlaylist, a8 as MusicPlaylistSimple, ac as MusicRecording, ab as MusicRecordingSimple, af as PodcastEpisode, ae as PodcastEpisodeSimple, ai as PodcastSeason, ah as PodcastSeasonSimple, al as PodcastSeries, ak as PodcastSeriesSimple, a0 as PrimaryDatasetId, ap as Service, an as ServiceChannel, aq as ServiceId, ao as ServiceSimple, at as TVEpisode, as as TVEpisodeSimple, aw as TVSeason, av as TVSeasonSimple, az as TVSeries, ay as TVSeriesSimple, X as UseSchemaOrgInput, a1 as datasetResolver, d as defineAddress, a as defineAggregateOffer, b as defineAggregateRating, c as defineArticle, e as defineBook, f as defineBookEdition, g as defineBreadcrumb, h as defineComment, i as defineCourse, j as defineDataset, k as defineEvent, l as defineFoodEstablishment, m as defineHowTo, n as defineHowToStep, o as defineImage, p as defineItemList, q as defineJobPosting, r as defineListItem, s as defineLocalBusiness, t as defineMovie, u as defineMusicAlbum, v as defineMusicGroup, w as defineMusicPlaylist, x as defineMusicRecording, y as defineOffer, z as defineOpeningHours, A as defineOrganization, B as definePerson, C as definePlace, D as definePodcastEpisode, E as definePodcastSeason, F as definePodcastSeries, G as defineProduct, H as defineQuestion, I as defineReadAction, J as defineRecipe, K as defineReview, L as defineSearchAction, M as defineService, N as defineSoftwareApp, O as defineTVEpisode, P as defineTVSeason, Q as defineTVSeries, R as defineVideo, S as defineVirtualLocation, T as defineWebPage, U as defineWebSite, a4 as musicAlbumResolver, a7 as musicGroupResolver, aa as musicPlaylistResolver, ad as musicRecordingResolver, V as normalizeSchemaOrgInput, ag as podcastEpisodeResolver, aj as podcastSeasonResolver, am as podcastSeriesResolver, ar as serviceResolver, au as tvEpisodeResolver, ax as tvSeasonResolver, aA as tvSeriesResolver, W as useSchemaOrg } from './shared/schema-org.UT1u1UYq.mjs';
+export { P as PluginSchemaOrg, a as PluginSchemaOrgOptions, S as SchemaOrgUnheadPlugin, U as UnheadSchemaOrg } from './shared/schema-org.oFHFm6my.mjs';
+import 'unhead/types';
+
+declare function defineSchemaOrgResolver<T extends Thing>(schema: SchemaOrgNodeDefinition<T>): SchemaOrgNodeDefinition<T>;
+
+interface ResolverOptions {
+    /**
+     * Return single images as an object.
+     */
+    array?: boolean;
+    /**
+     * Move added nodes to the root graph.
+     */
+    root?: boolean;
+    /**
+     * Generates ids for nodes.
+     */
+    generateId?: boolean;
+    afterResolve?: (node: any) => void;
+}
+
+declare function resolveMeta(meta: Partial<MetaInput>): ResolvedMeta;
+declare function resolveNode<T extends Thing>(node: T, ctx: SchemaOrgGraph, resolver?: SchemaOrgNodeDefinition<T>): T;
+declare function resolveNodeId<T extends Thing>(node: T, ctx: SchemaOrgGraph, resolver?: SchemaOrgNodeDefinition<T>, resolveAsRoot?: boolean): T;
+declare function resolveRelation(input: Arrayable<any>, ctx: SchemaOrgGraph, fallbackResolver?: SchemaOrgNodeDefinition<any>, options?: ResolverOptions): any;
+
+declare function merge(target: any, source: any): any;
+
+export { Arrayable, MetaInput, ResolvedMeta, SchemaOrgGraph, SchemaOrgNodeDefinition, Thing, defineSchemaOrgResolver, merge, resolveMeta, resolveNode, resolveNodeId, resolveRelation };

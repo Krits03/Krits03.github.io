@@ -1,0 +1,48 @@
+{
+  "name": "eslint-plugin-css-stylistic",
+  "type": "module",
+  "version": "0.0.2",
+  "description": "Stylistic CSS rules for ESLint",
+  "author": "KazariEX",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "KazariEX/eslint-plugin-css-stylistic"
+  },
+  "exports": {
+    ".": "./dist/index.mjs"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "@eslint/css": ">=1.0.0",
+    "eslint": ">=10.0.0"
+  },
+  "dependencies": {
+    "postcss-value-parser": "^4.2.0"
+  },
+  "devDependencies": {
+    "@eslint/css": "^1.4.0",
+    "@eslint/css-tree": "^4.0.5",
+    "@types/node": "^26.1.2",
+    "@zinkawaii/eslint-config": "^0.5.0",
+    "@zinkawaii/tsconfig": "^0.1.0",
+    "bumpp": "^12.1.1",
+    "eslint": "^10.8.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown -w",
+    "release": "bumpp --no-push -c \"release: v%s\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm run eslint && pnpm run typecheck && pnpm run test",
+    "eslint": "eslint",
+    "typecheck": "tsc"
+  }
+}

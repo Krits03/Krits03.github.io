@@ -1,0 +1,105 @@
+import { defu } from "defu";
+import { injectHead, useHead, useRuntimeConfig } from "nuxt/app";
+import { joinURL, withQuery } from "ufo";
+import { toValue } from "vue";
+import { componentNames } from "#build/nuxt-og-image/components.mjs";
+import { buildOgImageUrl, generateMeta, separateProps } from "../shared.js";
+const clientEntriesByHead = /* @__PURE__ */ new WeakMap();
+function registerClientOgHead(ogKey, input, options) {
+  let entries;
+  try {
+    const head = injectHead();
+    if (head) {
+      entries = clientEntriesByHead.get(head);
+      if (!entries) {
+        entries = /* @__PURE__ */ new Map();
+        clientEntriesByHead.set(head, entries);
+      }
+    }
+  } catch {
+  }
+  entries?.get(ogKey)?.dispose();
+  const entry = useHead(input, options);
+  if (entry && entries)
+    entries.set(ogKey, entry);
+}
+function resolveReactiveOptions(input) {
+  const options = toValue(input);
+  if (options === false)
+    return false;
+  const opts = options;
+  if (opts.width)
+    opts.width = toValue(opts.width);
+  if (opts.height)
+    opts.height = toValue(opts.height);
+  if (opts.alt)
+    opts.alt = toValue(opts.alt);
+  if (opts.url)
+    opts.url = toValue(opts.url);
+  if (opts.props) {
+    opts.props = { ...opts.props };
+    for (const key in opts.props) {
+      opts.props[key] = toValue(opts.props[key]);
+    }
+  }
+  return opts;
+}
+function buildResolverUrl(baseURL, basePath, ogKey, query) {
+  const resolverUrl = `${joinURL("/", baseURL, "_og/r", basePath)}.png`;
+  const queryObj = {};
+  if (query) {
+    for (const [k, v] of Object.entries(query)) {
+      if (!k.startsWith("_og_"))
+        queryObj[k] = v;
+    }
+  }
+  if (ogKey === "twitter")
+    queryObj._og_key = "twitter";
+  return Object.keys(queryObj).length ? withQuery(resolverUrl, queryObj) : resolverUrl;
+}
+export function clientProcessOgImageOptions(input, route, basePath) {
+  const inputs = Array.isArray(input) ? input : [input];
+  const rc = useRuntimeConfig();
+  const baseURL = rc.app.baseURL;
+  const publicCfg = rc.public?.["nuxt-og-image"] || {};
+  const defaults = publicCfg.defaults || {};
+  const paths = [];
+  for (const rawInput of inputs) {
+    const resolved = resolveReactiveOptions(rawInput);
+    if (resolved === false)
+      continue;
+    const validOptions = resolved;
+    for (const key in defaults) {
+      if (validOptions[key] === void 0)
+        validOptions[key] = defaults[key];
+    }
+    if (route.query)
+      validOptions._query = route.query;
+    const ogKey = validOptions.key || "og";
+    if (validOptions.url) {
+      const url = validOptions.url;
+      registerClientOgHead(ogKey, { meta: generateMeta(url, validOptions) }, { tagPriority: "high" });
+      paths.push(url);
+      continue;
+    }
+    if (publicCfg.hasServerRuntime) {
+      const finalUrl2 = buildResolverUrl(baseURL, basePath, ogKey, route.query);
+      registerClientOgHead(ogKey, { meta: generateMeta(finalUrl2, validOptions) }, { tagPriority: 35 });
+      paths.push(finalUrl2);
+      continue;
+    }
+    const opts = separateProps(defu(validOptions, defaults));
+    const extension = opts.extension || defaults?.extension || "png";
+    const urlOpts = { ...opts, _path: basePath };
+    const componentName = opts.component || componentNames?.[0]?.pascalName;
+    const component = componentNames?.find((c) => c.pascalName === componentName || c.kebabName === componentName);
+    if (component?.hash)
+      urlOpts._componentHash = component.hash;
+    const result = buildOgImageUrl(urlOpts, extension, true, defaults, void 0);
+    const resolvedUrl = joinURL("/", baseURL, result.url);
+    const finalUrl = opts._query && Object.keys(opts._query).length ? withQuery(resolvedUrl, { _query: opts._query }) : resolvedUrl;
+    registerClientOgHead(ogKey, { meta: generateMeta(finalUrl, opts) }, { processTemplateParams: true, tagPriority: 35 });
+    paths.push(finalUrl);
+  }
+  return paths;
+}

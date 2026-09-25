@@ -1,0 +1,171 @@
+import { createVNodes, resolveSvgDimension, SVG_CAMEL_ATTR_VALUES } from "../core/vnodes.js";
+const RE_RELATIVE_UNIT = /^([\d.]+)(em|rem)$/;
+const RE_TW_TEXT_ARBITRARY = /(?:^|\s)text-\[(\d+(?:\.\d+)?)(px|rem|em)\]/;
+const RE_FONT_SIZE_PX = /^(\d+(?:\.\d+)?)(px)?$/;
+const DEFAULT_FONT_SIZE = 16;
+const RE_UPPERCASE = /[A-Z]/g;
+const RE_DQUOTE = /"/g;
+const RE_AMP = /&/g;
+const RE_LT = /</g;
+const RE_GT = />/g;
+export async function createTakumiNodes(ctx) {
+  const vnodeTree = await createVNodes(ctx);
+  return await ctx.timings.measure("takumi-nodes", () => vnodeToTakumiNode(vnodeTree, DEFAULT_FONT_SIZE));
+}
+function pickNumericDimension(props, key) {
+  const v = props[key];
+  if (v == null)
+    return void 0;
+  const n = Number(v);
+  return Number.isNaN(n) ? void 0 : n;
+}
+function resolveRelativeUnit(value, inheritedFontSize) {
+  if (value == null)
+    return void 0;
+  const match = String(value).match(RE_RELATIVE_UNIT);
+  if (!match)
+    return void 0;
+  const n = Number.parseFloat(match[1]);
+  return match[2] === "rem" ? n * DEFAULT_FONT_SIZE : n * inheritedFontSize;
+}
+function extractFontSize(props, style) {
+  if (style?.fontSize != null) {
+    const m = String(style.fontSize).match(RE_FONT_SIZE_PX);
+    if (m)
+      return Number.parseFloat(m[1]);
+  }
+  const twStr = props.tw || props.class || "";
+  const twMatch = twStr.match(RE_TW_TEXT_ARBITRARY);
+  if (twMatch) {
+    const val = Number.parseFloat(twMatch[1]);
+    if (twMatch[2] === "px")
+      return val;
+  }
+  return void 0;
+}
+function extractColor(style) {
+  const color = style?.color;
+  return typeof color === "string" && color ? color : void 0;
+}
+export async function vnodeToTakumiNode(vnode, inheritedFontSize, inheritedColor) {
+  const { style, children, class: cls, tw, src, ...rest } = vnode.props;
+  const nodeColor = extractColor(style) ?? inheritedColor;
+  const baseMetadata = {
+    tw: tw || cls || void 0,
+    style
+  };
+  if (vnode.type === "svg") {
+    const hasExplicitFontSize = inheritedFontSize !== DEFAULT_FONT_SIZE;
+    const isRelativeW = RE_RELATIVE_UNIT.test(String(rest.width ?? ""));
+    const isRelativeH = RE_RELATIVE_UNIT.test(String(rest.height ?? ""));
+    return {
+      ...baseMetadata,
+      type: "image",
+      src: vnodeToHtmlString(vnode, nodeColor),
+      // When em/rem + explicit parent font size → resolve to px.
+      // When em/rem + default font size → leave undefined (takumi handles natively).
+      // Otherwise → use standard resolution chain (numeric attrs → style → viewBox).
+      width: isRelativeW ? hasExplicitFontSize ? resolveRelativeUnit(rest.width, inheritedFontSize) : void 0 : resolveSvgDimension(rest, style, "width"),
+      height: isRelativeH ? hasExplicitFontSize ? resolveRelativeUnit(rest.height, inheritedFontSize) : void 0 : resolveSvgDimension(rest, style, "height")
+    };
+  }
+  if (vnode.type === "img") {
+    return {
+      ...baseMetadata,
+      type: "image",
+      src: src || rest.href || "",
+      width: pickNumericDimension(rest, "width"),
+      height: pickNumericDimension(rest, "height")
+    };
+  }
+  const nodeFontSize = extractFontSize(vnode.props, style);
+  const childFontSize = nodeFontSize ?? inheritedFontSize;
+  const containerStyle = { ...style };
+  const w = pickNumericDimension(rest, "width");
+  const h = pickNumericDimension(rest, "height");
+  if (w != null && !containerStyle.width)
+    containerStyle.width = w;
+  if (h != null && !containerStyle.height)
+    containerStyle.height = h;
+  const hasStyle = Object.keys(containerStyle).length > 0;
+  const containerMetadata = {
+    tw: baseMetadata.tw,
+    style: hasStyle ? containerStyle : void 0
+  };
+  const textContent = typeof children === "string" ? children : Array.isArray(children) && children.length >= 1 && children.every((c) => typeof c === "string") ? children.join("") : void 0;
+  if (textContent !== void 0) {
+    return {
+      ...containerMetadata,
+      type: "text",
+      text: textContent
+    };
+  }
+  if (Array.isArray(children)) {
+    const takumiChildren = [];
+    for (const child of children) {
+      if (child && typeof child === "object")
+        takumiChildren.push(await vnodeToTakumiNode(child, childFontSize, nodeColor));
+      else if (typeof child === "string" && child.trim())
+        takumiChildren.push({ type: "text", text: child.trim() });
+    }
+    return {
+      ...containerMetadata,
+      type: "container",
+      children: takumiChildren.length ? takumiChildren : void 0
+    };
+  }
+  return {
+    ...containerMetadata,
+    type: "container"
+  };
+}
+function resolveCurrentColor(value, color) {
+  return color && typeof value === "string" && value.toLowerCase() === "currentcolor" ? color : value;
+}
+function vnodeToHtmlString(vnode, inheritedColor) {
+  const { style, children, ...attrs } = vnode.props;
+  const attrParts = [];
+  const nodeColor = extractColor(style) ?? inheritedColor;
+  const kebabCase = (str) => str.replace(RE_UPPERCASE, (m) => `-${m.toLowerCase()}`);
+  if (vnode.type === "svg") {
+    if (!attrs.xmlns)
+      attrParts.push('xmlns="http://www.w3.org/2000/svg"');
+    if (!attrs.width && vnode.props.width)
+      attrParts.push(`width="${vnode.props.width}"`);
+    if (!attrs.height && vnode.props.height)
+      attrParts.push(`height="${vnode.props.height}"`);
+  }
+  const resolveValue = (val) => {
+    if (typeof val === "string") {
+      if (val.includes("calc("))
+        return val;
+      if (val.endsWith("em") || val.endsWith("rem")) {
+        const num = Number.parseFloat(val);
+        return !Number.isNaN(num) ? `${num * 16}px` : val;
+      }
+    }
+    return val;
+  };
+  if (style && typeof style === "object") {
+    const styleStr = Object.entries(style).filter(([_, v]) => v !== void 0 && v !== null && v !== "").map(([k, v]) => `${kebabCase(k)}:${resolveValue(resolveCurrentColor(v, nodeColor))}`).join(";");
+    if (styleStr)
+      attrParts.push(`style="${styleStr.replace(RE_DQUOTE, "&quot;")}"`);
+  } else if (typeof style === "string") {
+    attrParts.push(`style="${style.replace(RE_DQUOTE, "&quot;")}"`);
+  }
+  for (const [key, val] of Object.entries(attrs)) {
+    if (key === "tw" || key === "class" || val == null)
+      continue;
+    const finalKey = SVG_CAMEL_ATTR_VALUES.has(key) ? key : kebabCase(key);
+    attrParts.push(`${finalKey}="${String(resolveValue(resolveCurrentColor(val, nodeColor))).replace(RE_DQUOTE, "&quot;")}"`);
+  }
+  const open = attrParts.length ? `<${vnode.type} ${attrParts.join(" ")}>` : `<${vnode.type}>`;
+  const inner = Array.isArray(children) ? children.map((c) => {
+    if (typeof c === "string")
+      return c.replace(RE_AMP, "&amp;").replace(RE_LT, "&lt;").replace(RE_GT, "&gt;");
+    if (c && typeof c === "object")
+      return vnodeToHtmlString(c, nodeColor);
+    return "";
+  }).join("") : typeof children === "string" ? children.replace(RE_AMP, "&amp;").replace(RE_LT, "&lt;").replace(RE_GT, "&gt;") : "";
+  return `${open}${inner}</${vnode.type}>`;
+}

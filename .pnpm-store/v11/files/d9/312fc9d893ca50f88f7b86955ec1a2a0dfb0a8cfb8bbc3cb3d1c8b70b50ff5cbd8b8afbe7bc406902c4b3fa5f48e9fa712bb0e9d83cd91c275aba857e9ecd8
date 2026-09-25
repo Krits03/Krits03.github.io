@@ -1,0 +1,224 @@
+import { resolve } from "#og-image-virtual/public-assets.mjs";
+import { fontRequirements, getComponentFontMap } from "#og-image/font-requirements";
+import resolvedFonts from "#og-image/fonts";
+import availableFonts from "#og-image/fonts-available";
+import { logger } from "../../logger.js";
+import { fontArrayCache, fontCache } from "./cache/lru.js";
+import { fontFormat, selectFontSource } from "./font-source.js";
+import { renameSubsetFonts } from "./font-subsets.js";
+import { codepointsIntersectRanges, parseUnicodeRange } from "./unicode-range.js";
+export { buildSubsetFamilyChain, renameSubsetFonts, resolveSubsetChain } from "./font-subsets.js";
+export { codepointsIntersectRanges, extractCodepoints, parseUnicodeRange } from "./unicode-range.js";
+async function loadFont(event, font, src) {
+  const cacheKey = `${font.family}-${font.weight}-${font.style}-${src}`;
+  const cached = fontCache.get(cacheKey);
+  if (cached)
+    return cached;
+  const data = await resolve(event, { ...font, src }).catch((err) => {
+    logger.warn(`Failed to load font ${font.family}: ${err.message}`);
+    return null;
+  });
+  if (!data)
+    return null;
+  fontCache.set(cacheKey, data);
+  return data;
+}
+function findClosestWeight(target, available) {
+  return available.reduce(
+    (closest, w) => Math.abs(w - target) < Math.abs(closest - target) ? w : closest
+  );
+}
+function selectFontsForRequirements(allFonts, requirements) {
+  if (requirements.hasDynamicBindings)
+    return [...allFonts];
+  const fallbackFonts = [];
+  const byFamily = /* @__PURE__ */ new Map();
+  const requiredFamilies = requirements.families.length > 0 ? new Set(requirements.families) : null;
+  for (const f of allFonts) {
+    if (f.fallback) {
+      fallbackFonts.push(f);
+      continue;
+    }
+    if (!requirements.styles.includes(f.style))
+      continue;
+    if (requiredFamilies && !requiredFamilies.has(f.family))
+      continue;
+    const arr = byFamily.get(f.family) || [];
+    arr.push(f);
+    byFamily.set(f.family, arr);
+  }
+  const selected = [];
+  for (const [, familyFonts] of byFamily) {
+    const availableWeights = [...new Set(familyFonts.map((f) => f.weight))].toSorted((a, b) => a - b);
+    if (availableWeights.length === 0)
+      continue;
+    const selectedWeights = /* @__PURE__ */ new Set();
+    for (const w of requirements.weights) {
+      if (availableWeights.includes(w)) {
+        selectedWeights.add(w);
+      } else {
+        selectedWeights.add(findClosestWeight(w, availableWeights));
+      }
+    }
+    selected.push(...familyFonts.filter((f) => selectedWeights.has(f.weight)));
+  }
+  selected.push(...fallbackFonts);
+  return selected;
+}
+const _warnedFontKeys = /* @__PURE__ */ new Set();
+export function loadAllFontsDebug(component) {
+  const map = getComponentFontMap();
+  const componentReqs = component ? map[component] : null;
+  return {
+    component,
+    componentReqs: componentReqs ? { families: componentReqs.families, weights: componentReqs.weights, hasDynamicBindings: componentReqs.hasDynamicBindings } : null,
+    globalReqs: { families: fontRequirements.families, weights: fontRequirements.weights },
+    componentFontMapKeys: Object.keys(map),
+    resolvedFontFamilies: [...new Set(resolvedFonts.map((f) => f.family))]
+  };
+}
+export async function loadAllFonts(event, options) {
+  const map = getComponentFontMap();
+  const componentReqs = options.component ? map[options.component] : null;
+  const usingGlobalFallback = !!(componentReqs && componentReqs.hasDynamicBindings);
+  const reqs = componentReqs && !componentReqs.hasDynamicBindings ? componentReqs : fontRequirements;
+  const fonts = selectFontsForRequirements(resolvedFonts, reqs);
+  if (options.fontFamilyOverride) {
+    const loadedFamilies = new Set(fonts.map((f) => f.family));
+    if (!loadedFamilies.has(options.fontFamilyOverride)) {
+      const overrideFonts = availableFonts.filter((f) => f.family === options.fontFamilyOverride);
+      if (overrideFonts.length > 0) {
+        fonts.push(...overrideFonts);
+      } else {
+        const resolvedOverride = resolvedFonts.filter((f) => f.family === options.fontFamilyOverride);
+        fonts.push(...resolvedOverride);
+      }
+    }
+  }
+  const resolved = [];
+  for (const f of fonts) {
+    const selection = selectFontSource(f, options.supportedFormats);
+    if (selection)
+      resolved.push({ font: f, ...selection });
+  }
+  const filtered = options.codepoints && options.codepoints.size > 0 ? resolved.filter(({ font: f, isStaticFallback }) => {
+    if (isStaticFallback || !f.unicodeRange)
+      return true;
+    const ranges = parseUnicodeRange(f.unicodeRange);
+    if (!ranges)
+      return true;
+    return codepointsIntersectRanges(options.codepoints, ranges);
+  }) : resolved;
+  const results = await Promise.all(
+    filtered.map(async ({ font: f, src: initialSrc, isStaticFallback }) => {
+      let src = initialSrc;
+      let data = await loadFont(event, f, src);
+      if (!data && src !== f.src && options.supportedFormats.has(fontFormat(f.src))) {
+        data = await loadFont(event, f, f.src);
+        if (data) {
+          src = f.src;
+          isStaticFallback = false;
+        }
+      }
+      if (!data)
+        return null;
+      return {
+        ...f,
+        src,
+        ...isStaticFallback ? { unicodeRange: void 0 } : {},
+        cacheKey: `${f.family}-${f.weight}-${f.style}-${src}`,
+        data
+      };
+    })
+  );
+  const loaded = results.filter((f) => f !== null);
+  const fingerprint = loaded.map((f) => f.cacheKey).sort().join("|");
+  const cachedArray = fontArrayCache.get(fingerprint);
+  if (cachedArray)
+    return cachedArray;
+  fontArrayCache.set(fingerprint, loaded);
+  const isCommunity = options.component && map[options.component]?.category === "community";
+  if (!options.supportedFormats.has("woff2") && loaded.length === 0 && fonts.length > 0 && !isCommunity) {
+    const variableFamilies = [...new Set(fonts.map((f) => f.family))];
+    const warnKey = `variable-fonts-${variableFamilies.join(",")}`;
+    if (!_warnedFontKeys.has(warnKey)) {
+      if (_warnedFontKeys.size >= 100)
+        _warnedFontKeys.clear();
+      _warnedFontKeys.add(warnKey);
+      logger.warn(`All fonts are variable fonts (${variableFamilies.join(", ")}). Variable fonts are not supported by Satori renderer. Falling back to bundled Inter font. Consider using the 'takumi' renderer for variable font support.`);
+    }
+  }
+  if (import.meta.dev && reqs.weights.length > 0 && !isCommunity) {
+    const families = reqs.families.length > 0 ? reqs.families : [...new Set(loaded.map((f) => f.family))];
+    const component = options.component ? ` (${options.component})` : "";
+    const fallbackNote = usingGlobalFallback ? " Note: using global font requirements because this component has dynamic font bindings." : "";
+    for (const family of families) {
+      const loadedWeights = [...new Set(loaded.filter((f) => f.family === family).map((f) => f.weight))].toSorted((a, b) => a - b);
+      if (loadedWeights.length === 0)
+        continue;
+      for (const reqWeight of reqs.weights) {
+        if (loadedWeights.includes(reqWeight))
+          continue;
+        const closest = findClosestWeight(reqWeight, loadedWeights);
+        const warnKey = `${family}-${reqWeight}-${closest}-${options.component || ""}`;
+        if (_warnedFontKeys.has(warnKey))
+          continue;
+        if (_warnedFontKeys.size >= 100)
+          _warnedFontKeys.clear();
+        _warnedFontKeys.add(warnKey);
+        logger.warn(`Font "${family}" weight ${reqWeight} not configured${component}, using ${closest} instead.${fallbackNote}`);
+      }
+    }
+  }
+  return loaded;
+}
+const MAX_DEFINED_FONTS = 10;
+const MAX_FONT_PATH_LENGTH = 2048;
+function isDataUri(path) {
+  return path.trimStart().toLowerCase().startsWith("data:");
+}
+function normalizeFontWeight(weight) {
+  const n = typeof weight === "number" ? weight : typeof weight === "string" ? Number(weight) : Number.NaN;
+  if (!Number.isFinite(n))
+    return 400;
+  return Math.min(Math.max(Math.round(n), 1), 1e3);
+}
+export async function loadDefinedFonts(event, fontDefs) {
+  const results = [];
+  const defs = Array.isArray(fontDefs) ? fontDefs : [];
+  if (import.meta.dev && defs.length > MAX_DEFINED_FONTS)
+    logger.warn(`defineOgImage fonts capped at ${MAX_DEFINED_FONTS}; ${defs.length - MAX_DEFINED_FONTS} ignored.`);
+  for (const def of defs.slice(0, MAX_DEFINED_FONTS)) {
+    if (!def || typeof def !== "object")
+      continue;
+    const name = typeof def.name === "string" ? def.name.trim() : "";
+    const path = typeof def.path === "string" ? def.path : "";
+    if (!name || !path || path.length > MAX_FONT_PATH_LENGTH && !isDataUri(path))
+      continue;
+    const weight = normalizeFontWeight(def.weight);
+    const style = def.style === "italic" ? "italic" : "normal";
+    const fontConfig = { family: name, weight, style, src: path, localPath: path };
+    const data = await resolve(event.e, fontConfig).catch(() => {
+      return null;
+    });
+    if (data) {
+      results.push({
+        ...fontConfig,
+        cacheKey: `custom-${name}-${weight}-${style}-${path}`,
+        data
+      });
+    }
+  }
+  return results;
+}
+export async function loadFontsForRenderer(event, options) {
+  const baseFonts = await loadAllFonts(event.e, options);
+  const customFonts = Array.isArray(options.fontDefs) && options.fontDefs.length > 0 ? await loadDefinedFonts(event, options.fontDefs) : [];
+  const allFonts = customFonts.length > 0 ? [...baseFonts, ...customFonts] : baseFonts;
+  return renameSubsetFonts(allFonts);
+}
+export function getDefaultFontFamily(options) {
+  const fontFamilyOverride = options.props?.fontFamily;
+  const defaultFont = resolvedFonts[0]?.family;
+  return { fontFamilyOverride, defaultFont };
+}

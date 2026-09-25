@@ -1,0 +1,112 @@
+import { parse } from "ultrahtml";
+import { querySelector } from "ultrahtml/selector";
+import { getEmojiSvg } from "#og-image/emoji-transform";
+import { defineTransformer } from "../../core/plugins.js";
+import { RE_MATCH_EMOJIS } from "../../core/transforms/emojis/emoji-utils.js";
+import { elementToVNode } from "../../core/vnodes.js";
+function svgToVNode(svg) {
+  const doc = parse(svg);
+  const svgEl = querySelector(doc, "svg");
+  if (!svgEl)
+    return null;
+  return elementToVNode(svgEl);
+}
+function isEmojiSvg(node) {
+  return node.type === "svg" && typeof node.props?.["data-emoji"] !== "undefined";
+}
+export default defineTransformer([
+  // Transform text nodes that contain emojis to replace them with SVG nodes
+  {
+    filter: (node) => {
+      if (typeof node.props?.children !== "string")
+        return false;
+      RE_MATCH_EMOJIS.lastIndex = 0;
+      return RE_MATCH_EMOJIS.test(node.props.children);
+    },
+    transform: async (node, ctx) => {
+      const text = node.props.children;
+      RE_MATCH_EMOJIS.lastIndex = 0;
+      const matches = [...text.matchAll(RE_MATCH_EMOJIS)];
+      if (!matches.length)
+        return;
+      const children = [];
+      let lastIndex = 0;
+      for (const match of matches) {
+        const emoji = match[0];
+        const emojiIndex = match.index;
+        if (emojiIndex > lastIndex) {
+          const beforeText = text.slice(lastIndex, emojiIndex);
+          if (beforeText)
+            children.push(beforeText);
+        }
+        const svg = await getEmojiSvg(ctx, emoji);
+        if (svg) {
+          const svgNode = svgToVNode(svg);
+          if (svgNode) {
+            svgNode.props["data-emoji"] = true;
+            const existingStyle = svgNode.props.style || {};
+            if (existingStyle.display === "inline-block")
+              delete existingStyle.display;
+            svgNode.props.style = {
+              ...existingStyle,
+              width: "1em",
+              height: "1em"
+            };
+            children.push(svgNode);
+          } else {
+            children.push(emoji);
+          }
+        } else {
+          children.push(emoji);
+        }
+        lastIndex = emojiIndex + emoji.length;
+      }
+      if (lastIndex < text.length) {
+        const afterText = text.slice(lastIndex);
+        if (afterText)
+          children.push(afterText);
+      }
+      if (children.length >= 1) {
+        const vnodeChildren = children.map((child) => {
+          if (typeof child === "string") {
+            return {
+              type: "div",
+              props: {
+                children: child
+              }
+            };
+          }
+          return child;
+        });
+        node.props.children = vnodeChildren;
+        node.props.style = node.props.style || {};
+        node.props.style.display = "flex";
+        node.props.style.alignItems = "center";
+      }
+    }
+  },
+  // Keep the existing logic for styling containers with emoji SVGs
+  {
+    filter: (node) => ["div", "p"].includes(node.type) && Array.isArray(node.props?.children) && node.props.children.some(
+      (child) => child.type === "svg" && child.props?.["data-emoji"] || isEmojiSvg(child)
+    ),
+    transform: (node) => {
+      node.props.style = node.props.style || {};
+      node.props.style.display = "flex";
+      node.props.style.alignItems = "center";
+      node.props.children = node.props.children.map((child) => {
+        if (typeof child === "string") {
+          return {
+            type: "div",
+            props: {
+              children: child
+            }
+          };
+        }
+        if (child.props?.class?.includes("emoji"))
+          delete child.props.class;
+        return child;
+      });
+    }
+  }
+]);

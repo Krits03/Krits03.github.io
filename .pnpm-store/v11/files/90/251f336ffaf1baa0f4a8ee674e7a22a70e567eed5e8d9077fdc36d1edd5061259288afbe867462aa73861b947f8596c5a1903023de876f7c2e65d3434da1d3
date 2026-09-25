@@ -1,0 +1,17 @@
+import { normalizeGroup } from "@nuxtjs/robots/util";
+import { useNitroApp } from "#nuxtseo/nitro";
+import { useRuntimeConfigNuxtRobots } from "./composables/useRuntimeConfigNuxtRobots.js";
+export async function resolveRobotsTxtContext(e, nitro = useNitroApp()) {
+  const { groups, sitemap: sitemaps } = useRuntimeConfigNuxtRobots(e);
+  const generateRobotsTxtCtx = {
+    event: e,
+    context: e ? "robots.txt" : "init",
+    errors: [],
+    warnings: [],
+    ...JSON.parse(JSON.stringify({ groups, sitemaps }))
+  };
+  await nitro.hooks.callHook("robots:config", generateRobotsTxtCtx);
+  generateRobotsTxtCtx.groups = generateRobotsTxtCtx.groups.map(normalizeGroup);
+  nitro._robots.ctx = generateRobotsTxtCtx;
+  return generateRobotsTxtCtx;
+}

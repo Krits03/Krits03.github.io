@@ -1,0 +1,6 @@
+import _satori, { init } from "satori/standalone";
+import { importWasm } from "../../../util/wasm.js";
+export default {
+  initWasmPromise: importWasm(import("#og-image/yoga-wasm")).then((wasm) => init(wasm)),
+  satori: _satori
+};

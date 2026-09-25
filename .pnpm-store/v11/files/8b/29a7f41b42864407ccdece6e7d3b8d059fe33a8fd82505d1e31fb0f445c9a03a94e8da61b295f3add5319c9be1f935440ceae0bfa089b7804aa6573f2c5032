@@ -1,0 +1,153 @@
+import { M as MetaInput, A as Arrayable, T as Thing, a as PostalAddress, S as SchemaOrgNodeDefinition, b as AggregateOffer, c as AggregateRating, d as AggregateRatingSimple, e as Article, B as Book, f as BookEdition, g as BreadcrumbList, C as Comment$1, h as Course, D as Dataset, i as DiscussionForumPosting, j as DiscussionForumPostingSimple, E as EmployerAggregateRating, k as EmployerAggregateRatingSimple, l as Event, F as FoodEstablishment, H as HowTo, m as HowToStep, n as HowToStepSimple, I as ImageObject, o as ImageSimple, p as ItemList, J as JobPosting, q as ListItem, r as LocalBusiness, s as MathSolver, t as Movie, u as MusicAlbum, v as MusicGroup, w as MusicPlaylist, x as MusicRecording, y as Offer, z as OfferSimple, G as OpeningHoursSpecification, K as Organization, N as Person, Q as Place, R as PodcastEpisode, U as PodcastSeason, V as PodcastSeries, W as Product, X as Question, Y as Quiz, Z as ReadAction, _ as Recipe, $ as Review, a0 as SearchAction, a1 as Service, a2 as SoftwareApp, a3 as SoftwareAppSimple, a4 as TVEpisode, a5 as TVSeason, a6 as TVSeries, a7 as VacationRental, a8 as VacationRentalSimple, a9 as VideoObject, aa as VirtualLocation, ab as WebPage, ac as WebSite, ad as ResolvedMeta, ae as SchemaOrgGraph, af as NodeRelation } from './shared/nuxt-schema-org.DVYzXv6B.cjs';
+export { ag as Accommodation, ah as Action, ai as AggregateOfferSimple, aj as AlignmentObject, ak as ArticleSimple, al as BedDetails, am as BookEditionSimple, an as BookSimple, ao as Brand, ap as BreadcrumbSimple, aq as BroadcastEvent, ar as CategoryCode, as as Certification, at as Clip, au as CommentSimple, av as ContactPoint, aw as CourseSimple, ax as CreditCard, ay as DataCatalog, az as DataDownload, aA as DatasetSimple, aB as DefinedRegion, aC as DigitalSourceType, aD as DiscussionComment, aE as EducationQuestion, aF as EducationalOccupationalCredential, aG as EventSimple, aH as FoodEstablishmentSimple, aI as GeoCoordinates, aJ as HowToDirection, aK as HowToId, aL as HowToSection, aM as HowToSimple, aN as Id, aO as IdReference, aP as Identity, aQ as InteractionCounter, aR as ItemListSimple, aS as JobLocationRequirement, aT as JobPostingSimple, aU as ListItemSimple, L as LocalBusinessSimple, aV as LocationFeatureSpecification, aW as MathSolverSimple, aX as MediaObject, aY as MemberProgram, aZ as MemberProgramTier, a_ as MerchantReturnPolicy, a$ as MerchantReturnPolicySimple, b0 as MonetaryAmount, b1 as MonetaryAmountSimple, b2 as MovieSimple, b3 as MusicAlbumSimple, b4 as MusicGroupSimple, b5 as MusicPlaylistSimple, b6 as MusicRecordingSimple, b7 as NodeRelations, b8 as NutritionInformation, b9 as OccupationalExperienceRequirements, ba as OfferShippingDetails, bb as OpeningHoursSimple, bc as OptionalSchemaOrgPrefix, O as OrganizationSimple, bd as PeopleAudience, be as PerformingGroup, P as PersonSimple, bf as PlaceSimple, bg as PodcastEpisodeSimple, bh as PodcastSeasonSimple, bi as PodcastSeriesSimple, bj as PostalAddressName, bk as PostalAddressSimple, bl as PostalAddressStrict, bm as PrimaryArticleId, bn as PrimaryBookId, bo as PrimaryBreadcrumbId, bp as PrimaryDatasetId, bq as PrimaryEventId, br as PrimaryWebPageId, bs as PrimaryWebSiteId, bt as ProductGroup, bu as ProductId, bv as ProductSimple, bw as ProductVariantReference, bx as PropertyValue, by as QuantitativeSimple, bz as QuantitativeValue, bA as QuestionSimple, bB as QuizSimple, bC as Rating, bD as RatingSimple, bE as ReadActionInput, bF as RecipeId, bG as RecipeSimple, bH as ResolvableDate, bI as ReviewSimple, bJ as SchemaOrgNode, bK as SearchActionInput, bL as SeekToAction, bM as ServiceChannel, bN as ServiceId, bO as ServicePeriod, bP as ServiceSimple, bQ as ShippingConditions, bR as ShippingDeliveryTime, bS as ShippingRateSettings, bT as ShippingSeasonalOverride, bU as ShippingService, bV as SizeSpecification, bW as SolveMathAction, bX as SpeakableSpecification, bY as TVEpisodeSimple, bZ as TVSeasonSimple, b_ as TVSeriesSimple, b$ as ThreeDModel, c0 as UnitPriceSpecification, c1 as UserConfig, c2 as VideoSimple, c3 as VirtualLocationSimple, c4 as WebPageElement, c5 as WebPageSimple, c6 as WebSiteSimple, c7 as WithResolver, c8 as addressResolver, c9 as aggregateOfferResolver, ca as aggregateRatingResolver, cb as articleResolver, cc as bookEditionResolver, cd as bookResolver, ce as brandResolver, cf as breadcrumbResolver, cg as commentResolver, ch as courseResolver, ci as createSchemaOrgGraph, cj as datasetResolver, ck as discussionCommentResolver, cl as discussionForumPostingResolver, cm as employerAggregateRatingResolver, cn as eventResolver, co as foodEstablishmentResolver, cp as geoCoordinatesResolver, cq as howToResolver, cr as howToSectionResolver, cs as howToStepDirectionResolver, ct as howToStepResolver, cu as imageResolver, cv as isImageObject, cw as itemListResolver, cx as jobPostingResolver, cy as listItemResolver, cz as localBusinessResolver, cA as mathSolverResolver, cB as memberProgramTierResolver, cC as movieResolver, cD as musicAlbumResolver, cE as musicGroupResolver, cF as musicPlaylistResolver, cG as musicRecordingResolver, cH as offerResolver, cI as openingHoursResolver, cJ as organizationResolver, cK as personResolver, cL as placeResolver, cM as podcastEpisodeResolver, cN as podcastSeasonResolver, cO as podcastSeriesResolver, cP as productResolver, cQ as questionResolver, cR as quizResolver, cS as ratingResolver, cT as readActionResolver, cU as recipeResolver, cV as reviewResolver, cW as searchActionResolver, cX as serviceResolver, cY as softwareAppResolver, cZ as speakableSpecificationResolver, c_ as tvEpisodeResolver, c$ as tvSeasonResolver, d0 as tvSeriesResolver, d1 as unitPriceSpecificationResolver, d2 as vacationRentalResolver, d3 as videoResolver, d4 as virtualLocationResolver, d5 as webPageElementResolver, d6 as webPageResolver, d7 as webSiteResolver } from './shared/nuxt-schema-org.DVYzXv6B.cjs';
+import * as unhead_types from 'unhead/types';
+import { Unhead, HeadEntryOptions, ActiveHeadEntry } from 'unhead/types';
+
+declare const schemaAutoImports: string[];
+
+interface PluginSchemaOrgOptions {
+    minify?: boolean;
+    trailingSlash?: boolean;
+}
+declare function UnheadSchemaOrg(config?: MetaInput, meta?: () => Partial<MetaInput>, options?: PluginSchemaOrgOptions): unhead_types.HeadPluginInput;
+
+type SchemaOrgDefinerInput<ResolvedInput, Input> = Input & (Input extends object ? ResolvedInput : unknown);
+type DefinedSchemaOrgNode<ResolvedInput, CastInput, Input> = ([
+    Input
+] extends [undefined] ? Partial<ResolvedInput> : ResolvedInput & Exclude<Input, undefined>) & {
+    _resolver?: SchemaOrgNodeDefinition<ResolvedInput, CastInput>;
+};
+declare function defineAddress<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<PostalAddress, Input>): DefinedSchemaOrgNode<PostalAddress, PostalAddress, SchemaOrgDefinerInput<PostalAddress, Input>>;
+declare function defineAggregateOffer<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<AggregateOffer, Input>): DefinedSchemaOrgNode<AggregateOffer, AggregateOffer, SchemaOrgDefinerInput<AggregateOffer, Input>>;
+declare function defineAggregateRating<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<AggregateRating, Input>): DefinedSchemaOrgNode<AggregateRatingSimple, AggregateRatingSimple, SchemaOrgDefinerInput<AggregateRatingSimple, Input>>;
+declare function defineArticle<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Article, Input>): DefinedSchemaOrgNode<Article, Article, SchemaOrgDefinerInput<Article, Input>>;
+declare function defineBreadcrumb<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<BreadcrumbList, Input>): DefinedSchemaOrgNode<BreadcrumbList, BreadcrumbList, SchemaOrgDefinerInput<BreadcrumbList, Input>>;
+declare function defineComment<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Comment$1, Input>): DefinedSchemaOrgNode<Comment$1, Comment$1, SchemaOrgDefinerInput<Comment$1, Input>>;
+declare function defineDiscussionForumPosting<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<DiscussionForumPosting, Input>): DefinedSchemaOrgNode<DiscussionForumPostingSimple, DiscussionForumPostingSimple, SchemaOrgDefinerInput<DiscussionForumPostingSimple, Input>>;
+declare function defineEmployerAggregateRating<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<EmployerAggregateRating, Input>): DefinedSchemaOrgNode<EmployerAggregateRatingSimple, EmployerAggregateRatingSimple, SchemaOrgDefinerInput<EmployerAggregateRatingSimple, Input>>;
+declare function defineEvent<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Event, Input>): DefinedSchemaOrgNode<Event, Event, SchemaOrgDefinerInput<Event, Input>>;
+declare function defineFoodEstablishment<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<FoodEstablishment, Input>): DefinedSchemaOrgNode<FoodEstablishment, FoodEstablishment, SchemaOrgDefinerInput<FoodEstablishment, Input>>;
+declare function defineVirtualLocation<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<VirtualLocation, Input>): DefinedSchemaOrgNode<VirtualLocation, string | VirtualLocation, SchemaOrgDefinerInput<VirtualLocation, Input>>;
+declare function definePlace<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Place, Input>): DefinedSchemaOrgNode<Place, Place, SchemaOrgDefinerInput<Place, Input>>;
+declare function defineHowTo<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<HowTo, Input>): DefinedSchemaOrgNode<HowTo, HowTo, SchemaOrgDefinerInput<HowTo, Input>>;
+declare function defineHowToStep<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<HowToStep, Input>): DefinedSchemaOrgNode<HowToStepSimple, string | HowToStepSimple, SchemaOrgDefinerInput<HowToStepSimple, Input>>;
+declare function defineImage<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<ImageObject, Input>): DefinedSchemaOrgNode<ImageSimple, string | ImageSimple, SchemaOrgDefinerInput<ImageSimple, Input>>;
+declare function defineJobPosting<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<JobPosting, Input>): DefinedSchemaOrgNode<JobPosting, JobPosting, SchemaOrgDefinerInput<JobPosting, Input>>;
+declare function defineLocalBusiness<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<LocalBusiness, Input>): DefinedSchemaOrgNode<LocalBusiness, LocalBusiness, SchemaOrgDefinerInput<LocalBusiness, Input>>;
+declare function defineMathSolver<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<MathSolver, Input>): DefinedSchemaOrgNode<MathSolver, MathSolver, SchemaOrgDefinerInput<MathSolver, Input>>;
+declare function defineOffer<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Offer, Input>): DefinedSchemaOrgNode<OfferSimple, string | number | OfferSimple, SchemaOrgDefinerInput<OfferSimple, Input>>;
+declare function defineOpeningHours<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<OpeningHoursSpecification, Input>): DefinedSchemaOrgNode<OpeningHoursSpecification, OpeningHoursSpecification, SchemaOrgDefinerInput<OpeningHoursSpecification, Input>>;
+declare function defineOrganization<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Organization, Input>): DefinedSchemaOrgNode<Organization, string | Organization, SchemaOrgDefinerInput<Organization, Input>>;
+declare function definePerson<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Person, Input>): DefinedSchemaOrgNode<Person, string | Person, SchemaOrgDefinerInput<Person, Input>>;
+declare function defineProduct<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Product, Input>): DefinedSchemaOrgNode<Product, Product, SchemaOrgDefinerInput<Product, Input>>;
+declare function defineQuestion<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Question, Input>): DefinedSchemaOrgNode<Question, Question, SchemaOrgDefinerInput<Question, Input>>;
+declare function defineQuiz<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Quiz, Input>): DefinedSchemaOrgNode<Quiz, Quiz, SchemaOrgDefinerInput<Quiz, Input>>;
+declare function defineRecipe<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Recipe, Input>): DefinedSchemaOrgNode<Recipe, Recipe, SchemaOrgDefinerInput<Recipe, Input>>;
+declare function defineReview<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Review, Input>): DefinedSchemaOrgNode<Review, Review, SchemaOrgDefinerInput<Review, Input>>;
+declare function defineVideo<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<VideoObject, Input>): DefinedSchemaOrgNode<VideoObject, string | VideoObject, SchemaOrgDefinerInput<VideoObject, Input>>;
+declare function defineVacationRental<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<VacationRental, Input>): DefinedSchemaOrgNode<VacationRentalSimple, VacationRentalSimple, SchemaOrgDefinerInput<VacationRentalSimple, Input>>;
+declare function defineWebPage<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<WebPage, Input>): DefinedSchemaOrgNode<WebPage, WebPage, SchemaOrgDefinerInput<WebPage, Input>>;
+declare function defineWebSite<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<WebSite, Input>): DefinedSchemaOrgNode<WebSite, WebSite, SchemaOrgDefinerInput<WebSite, Input>>;
+declare function defineBook<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Book, Input>): DefinedSchemaOrgNode<Book, Book, SchemaOrgDefinerInput<Book, Input>>;
+declare function defineCourse<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Course, Input>): DefinedSchemaOrgNode<Course, Course, SchemaOrgDefinerInput<Course, Input>>;
+declare function defineItemList<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<ItemList, Input>): DefinedSchemaOrgNode<ItemList, ItemList, SchemaOrgDefinerInput<ItemList, Input>>;
+declare function defineListItem<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<ListItem, Input>): DefinedSchemaOrgNode<ListItem, string | ListItem, SchemaOrgDefinerInput<ListItem, Input>>;
+declare function defineMovie<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Movie, Input>): DefinedSchemaOrgNode<Movie, Movie, SchemaOrgDefinerInput<Movie, Input>>;
+declare function defineSearchAction<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<SearchAction, Input>): DefinedSchemaOrgNode<SearchAction, SearchAction, SchemaOrgDefinerInput<SearchAction, Input>>;
+declare function defineReadAction<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<ReadAction, Input>): DefinedSchemaOrgNode<ReadAction, ReadAction, SchemaOrgDefinerInput<ReadAction, Input>>;
+declare function defineDataset<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Dataset, Input>): DefinedSchemaOrgNode<Dataset, Dataset, SchemaOrgDefinerInput<Dataset, Input>>;
+declare function defineMusicRecording<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<MusicRecording, Input>): DefinedSchemaOrgNode<MusicRecording, MusicRecording, SchemaOrgDefinerInput<MusicRecording, Input>>;
+declare function defineMusicAlbum<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<MusicAlbum, Input>): DefinedSchemaOrgNode<MusicAlbum, MusicAlbum, SchemaOrgDefinerInput<MusicAlbum, Input>>;
+declare function defineMusicGroup<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<MusicGroup, Input>): DefinedSchemaOrgNode<MusicGroup, MusicGroup, SchemaOrgDefinerInput<MusicGroup, Input>>;
+declare function defineMusicPlaylist<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<MusicPlaylist, Input>): DefinedSchemaOrgNode<MusicPlaylist, MusicPlaylist, SchemaOrgDefinerInput<MusicPlaylist, Input>>;
+declare function definePodcastSeries<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<PodcastSeries, Input>): DefinedSchemaOrgNode<PodcastSeries, PodcastSeries, SchemaOrgDefinerInput<PodcastSeries, Input>>;
+declare function definePodcastEpisode<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<PodcastEpisode, Input>): DefinedSchemaOrgNode<PodcastEpisode, PodcastEpisode, SchemaOrgDefinerInput<PodcastEpisode, Input>>;
+declare function definePodcastSeason<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<PodcastSeason, Input>): DefinedSchemaOrgNode<PodcastSeason, PodcastSeason, SchemaOrgDefinerInput<PodcastSeason, Input>>;
+declare function defineTVSeries<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<TVSeries, Input>): DefinedSchemaOrgNode<TVSeries, TVSeries, SchemaOrgDefinerInput<TVSeries, Input>>;
+declare function defineTVSeason<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<TVSeason, Input>): DefinedSchemaOrgNode<TVSeason, TVSeason, SchemaOrgDefinerInput<TVSeason, Input>>;
+declare function defineTVEpisode<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<TVEpisode, Input>): DefinedSchemaOrgNode<TVEpisode, TVEpisode, SchemaOrgDefinerInput<TVEpisode, Input>>;
+declare function defineService<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<Service, Input>): DefinedSchemaOrgNode<Service, Service, SchemaOrgDefinerInput<Service, Input>>;
+declare function defineSoftwareApp<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<SoftwareApp, Input>): DefinedSchemaOrgNode<SoftwareAppSimple, SoftwareAppSimple, SchemaOrgDefinerInput<SoftwareAppSimple, Input>>;
+declare function defineBookEdition<Input extends object | undefined = undefined>(input?: SchemaOrgDefinerInput<BookEdition, Input>): DefinedSchemaOrgNode<BookEdition, BookEdition, SchemaOrgDefinerInput<BookEdition, Input>>;
+type UseSchemaOrgInput = Arrayable<Thing | Record<string, unknown>>;
+interface SchemaOrgHeadInput<T = UseSchemaOrgInput> {
+    script: [
+        {
+            type: 'application/ld+json';
+            key: 'schema-org-graph';
+            nodes: T;
+        }
+    ];
+}
+interface ReadonlySchemaOrgHeadInput<T> {
+    readonly script: readonly [
+        {
+            readonly type: 'application/ld+json';
+            readonly key: 'schema-org-graph';
+            readonly nodes: T;
+        }
+    ];
+}
+interface PotentialSchemaOrgHeadInput {
+    readonly script: readonly {
+        readonly type: string;
+        readonly key: string;
+        readonly nodes: unknown;
+    }[];
+}
+declare function normalizeSchemaOrgInput<const Input extends ReadonlySchemaOrgHeadInput<unknown>>(input: Input): Input;
+declare function normalizeSchemaOrgInput<const Input extends PotentialSchemaOrgHeadInput>(input: Input): Input | SchemaOrgHeadInput<Input>;
+declare function normalizeSchemaOrgInput<T>(input: T): SchemaOrgHeadInput<T>;
+declare function useSchemaOrg<HeadInput, RenderResult>(unhead: Unhead<HeadInput, RenderResult>, input?: UseSchemaOrgInput, options?: HeadEntryOptions): ActiveHeadEntry<UseSchemaOrgInput>;
+
+interface ResolverOptions<ResolvedInput = Thing> {
+    /**
+     * Return single images as an object.
+     */
+    array?: boolean;
+    /**
+     * Move added nodes to the root graph.
+     */
+    root?: boolean;
+    /**
+     * Generates ids for nodes.
+     */
+    generateId?: boolean;
+    afterResolve?: (node: ResolvedInput) => void;
+}
+
+declare function defineSchemaOrgResolver<T extends Thing, CastInput = T>(schema: SchemaOrgNodeDefinition<T, CastInput>): SchemaOrgNodeDefinition<T, CastInput>;
+
+declare function resolveMeta(meta: Partial<MetaInput>): ResolvedMeta;
+declare function resolveNode<ResolvedInput extends Thing, CastInput>(node: CastInput, ctx: SchemaOrgGraph, resolver: SchemaOrgNodeDefinition<ResolvedInput, CastInput>): ResolvedInput;
+declare function resolveNode<T extends Thing>(node: T, ctx: SchemaOrgGraph, resolver?: SchemaOrgNodeDefinition<T>): T;
+declare function resolveNodeId<T extends Thing>(node: T, ctx: SchemaOrgGraph, resolver?: SchemaOrgNodeDefinition<T>, resolveAsRoot?: boolean): T;
+type FalsyRelationInput = '' | 0 | false | null | undefined;
+type RelationValue<Input> = Exclude<Input extends readonly (infer Value)[] ? Value : Input, FalsyRelationInput>;
+type ResolverInput<ResolvedInput extends Thing, CastInput> = CastInput | NodeRelation<ResolvedInput>;
+type RelationInputValue<Input> = Input extends readonly (infer Value)[] ? Value : Input;
+type PossibleFalsy<Input> = ('' extends Input ? '' : never) | (0 extends Input ? 0 : never) | (false extends Input ? false : never) | (null extends Input ? null : never) | (undefined extends Input ? undefined : never);
+type RelationItemResult<Input, ResolvedInput> = [Exclude<Input, FalsyRelationInput>] extends [never] ? Input : NodeRelation<ResolvedInput> | PossibleFalsy<Input>;
+type NaturalRelationResult<Input, ResolvedInput> = Input extends readonly [] ? [] : Input extends readonly [infer Value] ? RelationItemResult<Value, ResolvedInput> : Input extends readonly [unknown, unknown, ...unknown[]] ? RelationItemResult<RelationInputValue<Input>, ResolvedInput>[] : Input extends readonly (infer Value)[] ? RelationItemResult<Value, ResolvedInput> | RelationItemResult<Value, ResolvedInput>[] : RelationItemResult<Input, ResolvedInput>;
+type ArrayRelationResult<Input, ResolvedInput> = RelationItemResult<RelationInputValue<Input>, ResolvedInput>[];
+type ResolveRelationResult<Input, ResolvedInput, Options> = Input extends FalsyRelationInput ? Input : PossibleFalsy<Input> | (Options extends undefined ? NaturalRelationResult<Input, ResolvedInput> : 'array' extends keyof Options ? Options extends {
+    array: true;
+} ? ArrayRelationResult<Input, ResolvedInput> : Options extends {
+    array?: false | undefined;
+} ? NaturalRelationResult<Input, ResolvedInput> : NaturalRelationResult<Input, ResolvedInput> | ArrayRelationResult<Input, ResolvedInput> : NaturalRelationResult<Input, ResolvedInput>);
+type ConstrainedResolverInput<ResolvedInput extends Thing, CastInput> = ResolverInput<ResolvedInput, CastInput> | readonly (ResolverInput<ResolvedInput, CastInput> | FalsyRelationInput)[] | FalsyRelationInput;
+declare function resolveRelation<ResolvedInput extends Thing, CastInput, Input, const Options extends ResolverOptions<ResolvedInput>>(input: Input & ConstrainedResolverInput<NoInfer<ResolvedInput>, NoInfer<CastInput>>, ctx: SchemaOrgGraph, fallbackResolver: SchemaOrgNodeDefinition<ResolvedInput, CastInput>, options: Options): ResolveRelationResult<Input, ResolvedInput, Options>;
+declare function resolveRelation<ResolvedInput extends Thing, CastInput, Input>(input: Input & ConstrainedResolverInput<NoInfer<ResolvedInput>, NoInfer<CastInput>>, ctx: SchemaOrgGraph, fallbackResolver: SchemaOrgNodeDefinition<ResolvedInput, CastInput>): ResolveRelationResult<Input, ResolvedInput, undefined>;
+declare function resolveRelation<ResolvedInput extends Thing, CastInput, Input, const Options extends ResolverOptions<ResolvedInput>>(input: Input & ConstrainedResolverInput<NoInfer<ResolvedInput>, NoInfer<CastInput>>, ctx: SchemaOrgGraph, fallbackResolver: SchemaOrgNodeDefinition<ResolvedInput, CastInput> | undefined, options: Options): ResolveRelationResult<Input, ResolvedInput | RelationValue<Input>, Options>;
+declare function resolveRelation<ResolvedInput extends Thing, CastInput, Input>(input: Input & ConstrainedResolverInput<NoInfer<ResolvedInput>, NoInfer<CastInput>>, ctx: SchemaOrgGraph, fallbackResolver: SchemaOrgNodeDefinition<ResolvedInput, CastInput> | undefined): ResolveRelationResult<Input, ResolvedInput | RelationValue<Input>, undefined>;
+declare function resolveRelation<Input, const Options extends ResolverOptions>(input: Input, ctx: SchemaOrgGraph, fallbackResolver: undefined, options: Options): ResolveRelationResult<Input, RelationValue<Input>, Options>;
+declare function resolveRelation<Input>(input: Input, ctx: SchemaOrgGraph, fallbackResolver?: undefined): ResolveRelationResult<Input, RelationValue<Input>, undefined>;
+
+type MergeValue<T, U> = U extends undefined ? T : T extends readonly (infer TargetItem)[] ? U extends readonly (infer SourceItem)[] ? (TargetItem | SourceItem)[] : (TargetItem | U)[] : T extends object ? U extends object ? U extends readonly unknown[] ? U : Merge<T, U> : U : U;
+type Merge<T extends object, U extends object> = Omit<T, keyof U> & {
+    [Key in keyof U]: Key extends keyof T ? MergeValue<T[Key], U[Key]> : U[Key];
+};
+declare function merge<T extends object, U extends object>(target: T, source: U): Merge<T, U>;
+
+export { AggregateOffer, AggregateRating, AggregateRatingSimple, Arrayable, Article, Book, BookEdition, BreadcrumbList, Comment$1 as Comment, Course, Dataset, DiscussionForumPosting, DiscussionForumPostingSimple, EmployerAggregateRating, EmployerAggregateRatingSimple, Event, FoodEstablishment, HowTo, HowToStep, HowToStepSimple, ImageObject, ImageSimple, ItemList, JobPosting, ListItem, LocalBusiness, MathSolver, MetaInput, Movie, MusicAlbum, MusicGroup, MusicPlaylist, MusicRecording, NodeRelation, Offer, OfferSimple, OpeningHoursSpecification, Organization, Person, Place, PodcastEpisode, PodcastSeason, PodcastSeries, PostalAddress, Product, Question, Quiz, ReadAction, Recipe, ResolvedMeta, Review, SchemaOrgGraph, SchemaOrgNodeDefinition, SearchAction, Service, SoftwareApp, SoftwareAppSimple, TVEpisode, TVSeason, TVSeries, Thing, UnheadSchemaOrg, VacationRental, VacationRentalSimple, VideoObject, VirtualLocation, WebPage, WebSite, defineAddress, defineAggregateOffer, defineAggregateRating, defineArticle, defineBook, defineBookEdition, defineBreadcrumb, defineComment, defineCourse, defineDataset, defineDiscussionForumPosting, defineEmployerAggregateRating, defineEvent, defineFoodEstablishment, defineHowTo, defineHowToStep, defineImage, defineItemList, defineJobPosting, defineListItem, defineLocalBusiness, defineMathSolver, defineMovie, defineMusicAlbum, defineMusicGroup, defineMusicPlaylist, defineMusicRecording, defineOffer, defineOpeningHours, defineOrganization, definePerson, definePlace, definePodcastEpisode, definePodcastSeason, definePodcastSeries, defineProduct, defineQuestion, defineQuiz, defineReadAction, defineRecipe, defineReview, defineSchemaOrgResolver, defineSearchAction, defineService, defineSoftwareApp, defineTVEpisode, defineTVSeason, defineTVSeries, defineVacationRental, defineVideo, defineVirtualLocation, defineWebPage, defineWebSite, merge, normalizeSchemaOrgInput, resolveMeta, resolveNode, resolveNodeId, resolveRelation, schemaAutoImports, useSchemaOrg };
+export type { Merge, PluginSchemaOrgOptions, ResolverOptions, SchemaOrgHeadInput, UseSchemaOrgInput };

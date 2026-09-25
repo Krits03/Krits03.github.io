@@ -1,0 +1,31 @@
+import { defineNuxtModule, createResolver, addImportsSources, addComponent } from '@nuxt/kit';
+
+const name = "@bikariya/modals";
+const packageJson = {
+	name: name};
+
+const module$1 = defineNuxtModule({
+  meta: {
+    name: packageJson.name,
+    configKey: "modals"
+  },
+  moduleDependencies: {
+    "@bikariya/core": {}
+  },
+  setup(options, nuxt) {
+    const resolver = createResolver(import.meta.url);
+    nuxt.options.alias["#modals"] = resolver.resolve("runtime/types");
+    addImportsSources({
+      from: resolver.resolve("runtime/store"),
+      imports: [
+        "useModalStore"
+      ]
+    });
+    addComponent({
+      name: "BikariyaModals",
+      filePath: resolver.resolve("runtime/modals.vue")
+    });
+  }
+});
+
+export { module$1 as default };

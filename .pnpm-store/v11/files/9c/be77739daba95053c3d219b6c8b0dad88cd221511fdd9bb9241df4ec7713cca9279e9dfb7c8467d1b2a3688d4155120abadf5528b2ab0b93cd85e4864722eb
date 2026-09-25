@@ -1,0 +1,133 @@
+{
+  "name": "nuxt-seo-utils",
+  "type": "module",
+  "version": "8.5.0",
+  "description": "SEO utilities to improve your Nuxt sites discoverability and shareability",
+  "license": "MIT",
+  "funding": "https://github.com/sponsors/harlan-zw",
+  "homepage": "https://nuxtseo.com/docs/seo-utils",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harlan-zw/nuxt-seo-utils.git"
+  },
+  "bugs": {
+    "url": "https://github.com/harlan-zw/nuxt-seo-utils/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "bin": {
+    "nuxt-seo-utils": "./bin/nuxt-seo-utils.mjs"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "build": {
+    "externals": [
+      "unhead",
+      "@unhead/vue",
+      "@unhead/vue/plugins",
+      "@unhead/vue/utils",
+      "@unhead/vue/vite"
+    ]
+  },
+  "peerDependencies": {
+    "@unhead/vue": "^2.0.7 || ^3.0.0",
+    "esbuild": ">=0.17.0",
+    "lightningcss": ">=1.20.0",
+    "nuxt": "^3.0.0 || ^4.0.0 || ^5.0.0",
+    "rolldown": ">=1.0.0-beta.0",
+    "unhead": "^2.0.7 || ^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@unhead/vue": {
+      "optional": true
+    },
+    "esbuild": {
+      "optional": true
+    },
+    "lightningcss": {
+      "optional": true
+    },
+    "rolldown": {
+      "optional": true
+    },
+    "unhead": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.5.2",
+    "citty": "^0.2.2",
+    "consola": "^3.4.2",
+    "defu": "^6.1.7",
+    "escape-string-regexp": "^5.0.0",
+    "exsolve": "^1.1.1",
+    "nuxt-site-config": "^4.2.3",
+    "nuxtseo-shared": "^5.3.14",
+    "pathe": "^2.0.3",
+    "pkg-types": "^2.3.1",
+    "scule": "^1.3.0",
+    "tinyglobby": "^0.2.17",
+    "ufo": "^1.6.4"
+  },
+  "optionalDependencies": {
+    "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.3.0",
+    "@nuxt/devtools-kit": "4.0.0-alpha.9",
+    "@nuxt/module-builder": "^1.0.3",
+    "@nuxt/schema": "^4.5.2",
+    "@nuxt/test-utils": "^4.2.0",
+    "@nuxt/ui": "^4.11.0",
+    "@nuxtjs/i18n": "^10.6.0",
+    "@types/node": "^26.4.0",
+    "@unhead/vue": "3.2.3",
+    "@vue/test-utils": "^2.5.0",
+    "bumpp": "^12.2.2",
+    "case-police": "^2.2.1",
+    "cheerio": "^1.2.0",
+    "eslint": "^10.9.1",
+    "eslint-plugin-harlanzw": "^0.20.0",
+    "happy-dom": "^20.12.0",
+    "lint-staged": "^17.4.1",
+    "markdownlint-cli": "^0.49.1",
+    "nuxt": "^4.5.2",
+    "nuxt-security": "^2.6.0",
+    "nuxtseo-layer-devtools": "^5.3.14",
+    "playwright-core": "^1.62.1",
+    "sass": "^1.103.1",
+    "typescript": "6.0.3",
+    "ultrahtml": "^1.7.0",
+    "unbuild": "^3.6.1",
+    "unhead": "3.2.3",
+    "vitest": "^4.1.11",
+    "vue": "^3.5.42",
+    "vue-tsc": "^3.3.11"
+  },
+  "scripts": {
+    "client:build": "node -e \"require('fs').cpSync('devtools','dist/devtools',{recursive:true})\"",
+    "build": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt-module-build build && npm run client:build",
+    "dev": "nuxt dev playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt prepare playground && pnpm prepare:fixtures && pnpm run client:build",
+    "stub": "nuxt-module-build build --stub && nuxt-module-build prepare",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck",
+    "prepare:fixtures": "nuxt prepare test/fixtures/basic && nuxt prepare test/fixtures/i18n && nuxt prepare test/fixtures/csp",
+    "test": "vitest && pnpm test:nuxt5",
+    "test:run": "vitest run --exclude '**/\\_\\_runtime\\_\\_/**'",
+    "test:runtime": "cd test/fixtures/basic && vitest --run",
+    "test:nuxt5": "pnpm pack --out test/fixtures/nuxt5/module.tgz && node test/fixtures/nuxt5/run.mjs",
+    "release": "pnpm build && bumpp -x \"npx changelogen --output=CHANGELOG.md\"",
+    "lint:docs": "markdownlint ./docs/content && case-police 'docs/content/**/*.md' *.md",
+    "lint:docs:fix": "markdownlint ./docs/content --fix && case-police 'docs/content/**/*.md' *.md --fix",
+    "test:compat-v2": "node test/compat-v2/run.mjs"
+  }
+}

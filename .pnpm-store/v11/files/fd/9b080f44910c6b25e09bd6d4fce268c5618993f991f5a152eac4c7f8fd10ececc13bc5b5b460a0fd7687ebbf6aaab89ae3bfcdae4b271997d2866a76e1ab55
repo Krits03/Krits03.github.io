@@ -1,0 +1,367 @@
+import { statSync, readFileSync } from 'node:fs';
+import Fuse from 'fuse.js';
+import { join } from 'pathe';
+import { createRouter } from 'radix3';
+
+const MD_LINK_RE = /\[([^\]]*)\]\(([^)]+)\)/g;
+const BACKSLASH_RE = /\\/g;
+const SINGLE_QUOTE_RE = /'/g;
+function extractMarkdownLinks(text) {
+  const links = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    MD_LINK_RE.lastIndex = 0;
+    let match = MD_LINK_RE.exec(line);
+    while (match !== null) {
+      const linkText = match[1] ?? "";
+      const url = match[2] ?? "";
+      const urlStart = match.index + linkText.length + 2;
+      links.push({
+        url,
+        line: i + 1,
+        column: urlStart + 1
+      });
+      match = MD_LINK_RE.exec(line);
+    }
+  }
+  return links;
+}
+const lineMapStack = [];
+const OWN_RULES = /* @__PURE__ */ new Set(["valid-route", "valid-sitemap-link"]);
+function isOwnRule(ruleId) {
+  if (!ruleId)
+    return false;
+  const name = ruleId.includes("/") ? ruleId.slice(ruleId.lastIndexOf("/") + 1) : ruleId;
+  return OWN_RULES.has(name);
+}
+const markdownProcessor = {
+  meta: {
+    name: "link-checker/markdown",
+    version: "1.0.0"
+  },
+  preprocess(text) {
+    const links = extractMarkdownLinks(text);
+    if (!links.length) {
+      lineMapStack.push(/* @__PURE__ */ new Map());
+      return [];
+    }
+    const virtualLines = [];
+    const lineMap = /* @__PURE__ */ new Map();
+    for (let i = 0; i < links.length; i++) {
+      const link = links[i];
+      const escaped = link.url.replace(BACKSLASH_RE, "\\\\").replace(SINGLE_QUOTE_RE, "\\'");
+      virtualLines.push(`navigateTo('${escaped}')`);
+      lineMap.set(i + 1, link);
+    }
+    lineMapStack.push(lineMap);
+    return [
+      { text: virtualLines.join("\n"), filename: "0.js" }
+    ];
+  },
+  postprocess(messages) {
+    const lineMap = lineMapStack.pop();
+    const filtered = messages.flat().filter((msg) => isOwnRule(msg.ruleId));
+    if (!lineMap || !lineMap.size)
+      return filtered;
+    return filtered.map((msg) => {
+      const link = lineMap.get(msg.line);
+      if (link) {
+        return {
+          ...msg,
+          line: link.line,
+          column: link.column
+        };
+      }
+      return msg;
+    });
+  },
+  supportsAutofix: false
+};
+
+let cachedRoutes;
+let cachedMtime;
+let cachedPath;
+function loadRoutes(options) {
+  const routesFile = options?.routesFile ?? join(options?.rootDir ?? process.cwd(), ".nuxt/link-checker/routes.json");
+  let mtime;
+  try {
+    mtime = statSync(routesFile).mtimeMs;
+  } catch {
+    return { staticRoutes: [], dynamicRoutes: [] };
+  }
+  if (cachedRoutes && cachedPath === routesFile && cachedMtime === mtime)
+    return cachedRoutes;
+  try {
+    const data = JSON.parse(readFileSync(routesFile, "utf-8"));
+    cachedRoutes = data;
+    cachedMtime = mtime;
+    cachedPath = routesFile;
+    return data;
+  } catch {
+    return { staticRoutes: [], dynamicRoutes: [] };
+  }
+}
+function createSuggester(routes) {
+  const fuse = new Fuse(routes, { threshold: 0.5 });
+  return (link) => {
+    const result = fuse.search(link)?.[0]?.item;
+    return result !== link ? result : void 0;
+  };
+}
+function createRouteMatcher(dynamicRoutes) {
+  const router = createRouter();
+  for (const route of dynamicRoutes) {
+    router.insert(route, { pattern: route });
+  }
+  return (path) => {
+    const match = router.lookup(path);
+    return match ? match.pattern : null;
+  };
+}
+
+const LINK_ELEMENTS = /* @__PURE__ */ new Set(["a", "NuxtLink", "nuxt-link", "RouterLink", "router-link"]);
+const LINK_ATTRS = /* @__PURE__ */ new Set(["to", "href"]);
+const SKIP_PREFIXES = ["http://", "https://", "//", "mailto:", "tel:", "javascript:", "blob:", "data:", "ftp:"];
+const WHITESPACE_RE = /\s+/;
+const STATIC_FILE_EXTENSIONS = /* @__PURE__ */ new Set([
+  ".pdf",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".svg",
+  ".ico",
+  ".webp",
+  ".avif",
+  ".mp3",
+  ".mp4",
+  ".webm",
+  ".ogg",
+  ".wav",
+  ".zip",
+  ".gz",
+  ".tar",
+  ".rar",
+  ".xml",
+  ".txt",
+  ".json",
+  ".csv",
+  ".rss",
+  ".atom",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".eot",
+  ".js",
+  ".css",
+  ".map"
+]);
+function shouldSkipLink(link) {
+  if (!link || link === "#" || link.startsWith("#"))
+    return true;
+  if (SKIP_PREFIXES.some((prefix) => link.startsWith(prefix)))
+    return true;
+  const pathname = (link.split("?")[0] ?? "").split("#")[0] ?? "";
+  const lastDot = pathname.lastIndexOf(".");
+  if (lastDot !== -1 && STATIC_FILE_EXTENSIONS.has(pathname.slice(lastDot).toLowerCase()))
+    return true;
+  return false;
+}
+function withoutTrailingSlash(path) {
+  return path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+}
+function stripQueryAndHash(link) {
+  const hashIndex = link.indexOf("#");
+  const queryIndex = link.indexOf("?");
+  const endIndex = Math.min(
+    hashIndex === -1 ? link.length : hashIndex,
+    queryIndex === -1 ? link.length : queryIndex
+  );
+  return link.slice(0, endIndex);
+}
+function hasRelNofollow(element) {
+  const attrs = element.startTag?.attributes ?? element.attributes ?? [];
+  return attrs.some(
+    (attr) => !attr.directive && attr.key?.name === "rel" && typeof attr.value?.value === "string" && attr.value.value.split(WHITESPACE_RE).includes("nofollow")
+  );
+}
+function createTemplateVisitors(report) {
+  return {
+    "VAttribute[directive=false]": function(node) {
+      if (!LINK_ATTRS.has(node.key?.name))
+        return;
+      const parent = node.parent?.parent;
+      if (!parent || !LINK_ELEMENTS.has(parent.rawName))
+        return;
+      if (hasRelNofollow(parent))
+        return;
+      const value = node.value?.value;
+      if (typeof value === "string" && !shouldSkipLink(value))
+        report(value, node);
+    },
+    'VAttribute[directive=true][key.name.name="bind"]': function(node) {
+      if (!LINK_ATTRS.has(node.key?.argument?.name))
+        return;
+      const parent = node.parent?.parent;
+      if (!parent || !LINK_ELEMENTS.has(parent.rawName))
+        return;
+      if (hasRelNofollow(parent))
+        return;
+      const expr = node.value?.expression;
+      if (expr?.type === "Literal" && typeof expr.value === "string" && !shouldSkipLink(expr.value))
+        report(expr.value, expr);
+    }
+  };
+}
+function createScriptVisitors(report) {
+  return {
+    CallExpression(node) {
+      const callee = node.callee;
+      if (!callee)
+        return;
+      let isNavCall = false;
+      if (callee.type === "Identifier" && callee.name === "navigateTo")
+        isNavCall = true;
+      if (callee.type === "MemberExpression" && callee.object?.type === "Identifier" && callee.object.name === "router" && callee.property?.type === "Identifier" && (callee.property.name === "push" || callee.property.name === "replace")) {
+        isNavCall = true;
+      }
+      if (!isNavCall)
+        return;
+      const arg = node.arguments?.[0];
+      if (arg?.type === "Literal" && typeof arg.value === "string" && !shouldSkipLink(arg.value))
+        report(arg.value, arg);
+    }
+  };
+}
+function createCombinedVisitors(context, check) {
+  const isVue = context.filename.endsWith(".vue");
+  const scriptVisitors = createScriptVisitors(check);
+  if (isVue) {
+    const parserServices = context.sourceCode.parserServices;
+    if (parserServices?.defineTemplateBodyVisitor) {
+      return parserServices.defineTemplateBodyVisitor(
+        createTemplateVisitors(check),
+        scriptVisitors
+      );
+    }
+  }
+  return scriptVisitors;
+}
+
+const rule$1 = {
+  meta: {
+    type: "problem",
+    docs: {
+      description: "Validate that relative URLs match a known vue-router route pattern"
+    },
+    schema: [{
+      type: "object",
+      properties: {
+        routesFile: { type: "string" },
+        rootDir: { type: "string" }
+      },
+      additionalProperties: false
+    }],
+    messages: {
+      invalidRoute: 'Link "{{link}}" does not match any known route.{{suggestion}}'
+    }
+  },
+  create(context) {
+    const options = context.options[0];
+    const routes = loadRoutes({ routesFile: options?.routesFile, rootDir: options?.rootDir });
+    if (!routes.staticRoutes.length && !routes.dynamicRoutes.length)
+      return {};
+    const allStaticSet = new Set(routes.staticRoutes.map(withoutTrailingSlash));
+    const matchDynamic = createRouteMatcher(routes.dynamicRoutes);
+    const suggest = createSuggester(routes.staticRoutes);
+    const check = (link, node) => {
+      if (!link.startsWith("/"))
+        return;
+      const pathname = withoutTrailingSlash(stripQueryAndHash(link));
+      if (allStaticSet.has(pathname))
+        return;
+      if (matchDynamic(pathname))
+        return;
+      const suggested = suggest(pathname);
+      const suggestion = suggested ? ` Did you mean "${suggested}"?` : "";
+      context.report({
+        node,
+        messageId: "invalidRoute",
+        data: { link: pathname, suggestion }
+      });
+    };
+    return createCombinedVisitors(context, check);
+  }
+};
+
+const rule = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description: "Validate that relative URLs exist in the sitemap"
+    },
+    schema: [{
+      type: "object",
+      properties: {
+        routesFile: { type: "string" },
+        rootDir: { type: "string" }
+      },
+      additionalProperties: false
+    }],
+    messages: {
+      notInSitemap: 'Link "{{link}}" is not in the sitemap.{{suggestion}}'
+    }
+  },
+  create(context) {
+    const options = context.options[0];
+    const routes = loadRoutes({ routesFile: options?.routesFile, rootDir: options?.rootDir });
+    if (!routes.staticRoutes.length)
+      return {};
+    const staticSet = new Set(routes.staticRoutes.map(withoutTrailingSlash));
+    const matchDynamic = createRouteMatcher(routes.dynamicRoutes);
+    const suggest = createSuggester(routes.staticRoutes);
+    const patternsWithSitemapEntries = /* @__PURE__ */ new Set();
+    for (const url of routes.staticRoutes) {
+      const pattern = matchDynamic(url);
+      if (pattern)
+        patternsWithSitemapEntries.add(pattern);
+    }
+    const check = (link, node) => {
+      if (!link.startsWith("/"))
+        return;
+      const pathname = withoutTrailingSlash(stripQueryAndHash(link));
+      if (staticSet.has(pathname))
+        return;
+      const matchedPattern = matchDynamic(pathname);
+      if (matchedPattern) {
+        if (!patternsWithSitemapEntries.has(matchedPattern))
+          return;
+      }
+      const suggested = suggest(pathname);
+      const suggestion = suggested ? ` Did you mean "${suggested}"?` : "";
+      context.report({
+        node,
+        messageId: "notInSitemap",
+        data: { link: pathname, suggestion }
+      });
+    };
+    return createCombinedVisitors(context, check);
+  }
+};
+
+const plugin = {
+  meta: {
+    name: "nuxt-link-checker",
+    version: "1.0.0"
+  },
+  rules: {
+    "valid-route": rule$1,
+    "valid-sitemap-link": rule
+  },
+  processors: {
+    markdown: markdownProcessor
+  }
+};
+
+export { plugin as default };

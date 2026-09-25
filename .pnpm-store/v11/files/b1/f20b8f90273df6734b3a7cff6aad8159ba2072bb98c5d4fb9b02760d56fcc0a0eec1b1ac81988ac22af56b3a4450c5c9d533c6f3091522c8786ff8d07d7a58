@@ -1,0 +1,57 @@
+import { parse } from "devalue";
+import { parseURL } from "ufo";
+import { appendResponseHeader } from "#nuxtseo/h3";
+import { defineNitroPlugin } from "#nuxtseo/nitro";
+import { prerenderOptionsCache } from "#og-image-cache";
+import { createSitePathResolver } from "#site-config/server/composables/utils";
+import { isInternalRoute } from "../../shared.js";
+import { resolvePathCacheKey } from "../og-image/context.js";
+import { createNitroRouteRuleMatcher } from "../util/kit.js";
+const PAYLOAD_REGEX = /<script.+id="nuxt-og-image-options"[^>]*>(.+?)<\/script>/;
+const RE_SCRIPT_OPTIONS = /<script id="nuxt-og-image-options" type="application\/json">[\s\S]*?<\/script>/;
+const RE_SCRIPT_OVERRIDES = /<script id="nuxt-og-image-overrides" type="application\/json">[\s\S]*?<\/script>/;
+function getPayloadFromHtml(html) {
+  const match = String(html).match(PAYLOAD_REGEX);
+  return match ? String(match[1]) : null;
+}
+export default defineNitroPlugin(async (nitro) => {
+  if (!import.meta.prerender)
+    return;
+  const routeRuleMatcher = createNitroRouteRuleMatcher();
+  nitro.hooks.hook("render:html", async (html, ctx) => {
+    const { head, bodyAppend } = html;
+    const path = parseURL(ctx.event.path).pathname;
+    if (isInternalRoute(path))
+      return;
+    const routeRules = routeRuleMatcher(path);
+    if (routeRules.ogImage === false)
+      return;
+    const _payload = getPayloadFromHtml([head.join("\n"), bodyAppend.join("\n")].join("\n"));
+    if (!_payload)
+      return;
+    const parsed = parse(_payload);
+    const payloads = parsed.map((opt) => [opt.key || "og", opt]);
+    const resolvePathWithBase = createSitePathResolver(ctx.event, {
+      absolute: false,
+      withBase: true
+    });
+    const key = resolvePathCacheKey(ctx.event, resolvePathWithBase(path));
+    await prerenderOptionsCache.setItem(key, payloads);
+    for (const [_ogKey, opt] of payloads) {
+      if (opt._hash) {
+        await prerenderOptionsCache.setItem(`hash:${opt._hash}`, opt);
+      }
+    }
+    const prerenderPaths = ctx.event.context._ogImagePrerenderPaths;
+    if (prerenderPaths) {
+      for (const prerenderPath of prerenderPaths.values()) {
+        appendResponseHeader(ctx.event, "x-nitro-prerender", prerenderPath);
+      }
+    }
+    const index = html.bodyAppend.findIndex((script) => script.includes('id="nuxt-og-image-options"'));
+    if (index !== -1) {
+      html.bodyAppend[index] = String(html.bodyAppend[index]).replace(RE_SCRIPT_OPTIONS, "");
+      html.bodyAppend[index] = html.bodyAppend[index].replace(RE_SCRIPT_OVERRIDES, "");
+    }
+  });
+});

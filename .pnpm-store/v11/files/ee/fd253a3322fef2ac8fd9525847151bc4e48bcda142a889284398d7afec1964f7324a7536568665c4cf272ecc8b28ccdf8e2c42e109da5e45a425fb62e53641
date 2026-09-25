@@ -1,0 +1,13 @@
+import { Collection } from '@nuxt/content';
+export { defineRobotsSchema } from '@nuxtjs/robots/content';
+export { defineSitemapSchema } from '@nuxtjs/sitemap/content';
+export { defineOgImageSchema } from 'nuxt-og-image/content';
+export { defineSchemaOrgSchema } from 'nuxt-schema-org/content';
+
+/**
+ * @deprecated Use `defineRobotsSchema()`, `defineSitemapSchema()`, `defineOgImageSchema()`, and `defineSchemaOrgSchema()` from each module instead.
+ * See https://nuxtseo.com/docs/nuxt-seo/guides/nuxt-content
+ */
+declare function asSeoCollection<T>(collection: Collection<T>): Collection<T>;
+
+export { asSeoCollection };

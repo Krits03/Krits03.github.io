@@ -1,0 +1,113 @@
+import { defineNuxtPlugin, shallowRef, useNuxtApp } from "#imports";
+import { defu } from "defu";
+import { logger } from "./utils.js";
+import { getFeatureOptions } from "../core/features.js";
+const DEFAULT_EXTENSION_SCHEMES = ["chrome-extension", "moz-extension", "safari-extension", "ms-browser-extension"];
+function escapeRegExp(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function buildExtensionSchemesRegex(schemes) {
+  return new RegExp(`^(${schemes.map(escapeRegExp).join("|")}):`);
+}
+function isExtensionScript(src, schemesRegex) {
+  try {
+    const url = new URL(src, window.location.origin);
+    return schemesRegex.test(url.protocol);
+  } catch {
+    return false;
+  }
+}
+function isSameOriginScript(src) {
+  try {
+    const url = new URL(src, window.location.origin);
+    return url.origin === window.location.origin;
+  } catch {
+    return false;
+  }
+}
+function isIgnoredDomain(src, ignoredDomains) {
+  if (ignoredDomains.length === 0) return false;
+  try {
+    const url = new URL(src, window.location.origin);
+    return ignoredDomains.some((domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`));
+  } catch {
+    return false;
+  }
+}
+export default defineNuxtPlugin({
+  name: "nuxt-hints:third-party-scripts",
+  setup() {
+    const nuxtApp = useNuxtApp();
+    const opts = getFeatureOptions("thirdPartyScripts") ?? {};
+    const extensionSchemes = [...DEFAULT_EXTENSION_SCHEMES, ...opts.ignoredSchemes ?? []];
+    const schemesRegex = buildExtensionSchemesRegex(extensionSchemes);
+    const ignoredDomains = opts.ignoredDomains ?? [];
+    function isIgnoredScript(src) {
+      return isSameOriginScript(src) || isExtensionScript(src, schemesRegex) || isIgnoredDomain(src, ignoredDomains);
+    }
+    nuxtApp.payload.__hints = defu(nuxtApp.payload.__hints, {
+      thirdPartyScripts: shallowRef([])
+    });
+    const scripts = nuxtApp.payload.__hints.thirdPartyScripts;
+    const isUsingNuxtScripts = !!nuxtApp.$scripts;
+    nuxtApp.hook("hints:scripts:added", (script) => {
+      scripts.value.push({ element: script, loaded: false });
+    });
+    nuxtApp.hook("hints:scripts:loaded", (script) => {
+      const existingScript = scripts.value.find((s) => s.element === script);
+      if (existingScript) {
+        existingScript.loaded = true;
+      } else {
+        logger.warn(`Script loaded event received for a script not tracked: ${script.src}. Please open an issue with a minimal reproduction if you think this is a bug.`);
+        scripts.value.push({ element: script, loaded: true });
+      }
+    });
+    nuxtApp.hooks.hookOnce("app:mounted", () => {
+      let hasThirdPartyScript = false;
+      for (const script of document.scripts) {
+        if (script.src && !isIgnoredScript(script.src)) {
+          hasThirdPartyScript = true;
+          onScriptAdded(script);
+        }
+      }
+      if (hasThirdPartyScript && !isUsingNuxtScripts) {
+        logger.info("Third-party scripts detected on page load: consider using @nuxt/scripts");
+      }
+    });
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === "childList") {
+          for (const node of mutation.addedNodes) {
+            if (isScript(node) && node.src && !isIgnoredScript(node.src)) {
+              onScriptAdded(node);
+            }
+          }
+        }
+      }
+    });
+    observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
+    function onScriptAdded(script) {
+      if (!script.crossOrigin) {
+        logger.warn(`Third-party script "${script.src}" is missing crossorigin attribute. Consider adding crossorigin="anonymous" for better security and error reporting.`);
+      }
+      Promise.resolve(nuxtApp.callHook("hints:scripts:added", script)).then(() => {
+        if (!script.loaded) {
+          script.addEventListener("load", () => {
+            window.__hints_TPC_saveTime(script, script.__hints_TPC_start_time);
+            nuxtApp.callHook("hints:scripts:loaded", script);
+          });
+        } else {
+          window.__hints_TPC_saveTime(script, script.__hints_TPC_start_time);
+          nuxtApp.callHook("hints:scripts:loaded", script);
+        }
+      });
+      logger.info(`Dynamically added third-party script detected: ${script.src}`);
+    }
+  }
+});
+function isScript(node) {
+  return node.nodeName === "SCRIPT";
+}

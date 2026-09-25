@@ -1,0 +1,28 @@
+import { joinURL } from "ufo";
+import { defineEventHandler, getRequestHost, sendRedirect, setHeader } from "#nuxtseo/h3";
+import { getSiteConfig } from "#site-config/server/composables/getSiteConfig";
+export default defineEventHandler((e) => {
+  if (import.meta.prerender) {
+    return;
+  }
+  const path = e.path;
+  if (path.startsWith("/_nuxt") || path.startsWith("/api")) {
+    return;
+  }
+  if (path.split("/").pop()?.includes(".")) {
+    return;
+  }
+  const siteConfig = getSiteConfig(e);
+  if (!siteConfig.url || siteConfig.env !== "production") {
+    return;
+  }
+  const siteConfigHostName = new URL(e.path, siteConfig.url).host;
+  const host = getRequestHost(e, { xForwardedHost: true });
+  if (e.headers.get("x-nuxt-seo-redirected") || host.includes("http") || host.replace("https://", "").includes(":")) {
+    return;
+  }
+  if (host.split(":")[0] !== siteConfigHostName.split(":")[0]) {
+    setHeader(e, "x-nuxt-seo-redirected", "true");
+    return sendRedirect(e, joinURL(siteConfig.url, e.path), 301);
+  }
+});

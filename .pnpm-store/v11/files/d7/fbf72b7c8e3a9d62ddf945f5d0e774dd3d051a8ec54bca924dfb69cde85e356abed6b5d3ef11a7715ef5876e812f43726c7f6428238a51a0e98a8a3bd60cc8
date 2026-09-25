@@ -1,0 +1,50 @@
+import { $fetch } from "ofetch";
+import { emojiCache } from "#og-image-cache";
+import { getFetchTimeout } from "../../../../util/fetchTimeout.js";
+import { getEmojiCodePoint, getEmojiIconNames } from "./emoji-utils.js";
+export async function getEmojiSvg(ctx, emojiChar) {
+  const emojiSet = ctx.options.emojis;
+  const codePoint = getEmojiCodePoint(emojiChar);
+  const possibleNames = getEmojiIconNames(codePoint, emojiSet);
+  let svg = null;
+  for (const iconName of possibleNames) {
+    const key = ["1", emojiSet, iconName].join("|");
+    if (await emojiCache.hasItem(key)) {
+      svg = await emojiCache.getItem(key);
+      if (svg)
+        break;
+    }
+  }
+  if (!svg) {
+    const timeout = getFetchTimeout(ctx.runtimeConfig);
+    const deadline = AbortSignal.timeout(timeout);
+    const endTiming = ctx.timings.start("emoji-fetch");
+    try {
+      for (const iconName of possibleNames) {
+        if (deadline.aborted)
+          break;
+        try {
+          svg = await $fetch(`https://api.iconify.design/${emojiSet}/${iconName}.svg`, {
+            responseType: "text",
+            retry: 0,
+            signal: deadline,
+            timeout
+          });
+          if (svg && svg !== "404") {
+            const key = ["1", emojiSet, iconName].join("|");
+            await emojiCache.setItem(key, svg);
+            break;
+          }
+        } catch {
+          svg = null;
+        }
+      }
+    } finally {
+      endTiming();
+    }
+  }
+  if (svg) {
+    return svg.replace("<svg ", '<svg data-emoji style="margin: 0 .05em 0 .15em; vertical-align: -0.1em;" ');
+  }
+  return null;
+}

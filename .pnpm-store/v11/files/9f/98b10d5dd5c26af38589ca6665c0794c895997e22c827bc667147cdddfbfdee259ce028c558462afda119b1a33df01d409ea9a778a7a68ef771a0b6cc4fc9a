@@ -1,0 +1,24 @@
+import type { RuntimeFontConfig } from '../../types.js';
+/**
+ * Rename unicode-range subset fonts so renderers can fall back between them.
+ *
+ * Both Satori and Takumi pick the first loaded font file for a given family
+ * name and don't fall back to other font files for missing glyphs. When CJK
+ * fonts like "Noto Sans SC" are split into 100+ unicode-range subsets by
+ * fontsource, each covering ~200 characters, this means only one subset's
+ * glyphs render while the rest show as .notdef boxes.
+ *
+ * Fix: rename each subset to "Family__N" and use font-family fallback chains
+ * so renderers try each subset in order per character.
+ */
+export declare function renameSubsetFonts(fonts: RuntimeFontConfig[]): RuntimeFontConfig[];
+/**
+ * Build a mapping from original family names to their renamed subset chain.
+ * E.g., "Noto Sans SC" → ["Noto Sans SC__0", "Noto Sans SC__1", ...]
+ */
+export declare function buildSubsetFamilyChain(fonts: RuntimeFontConfig[]): Map<string, string[]>;
+/**
+ * Resolve a font family name through subset chains (case-insensitive).
+ * Returns the chain of renamed subset names, or undefined if not a subset font.
+ */
+export declare function resolveSubsetChain(family: string, chains: Map<string, string[]>): string[] | undefined;

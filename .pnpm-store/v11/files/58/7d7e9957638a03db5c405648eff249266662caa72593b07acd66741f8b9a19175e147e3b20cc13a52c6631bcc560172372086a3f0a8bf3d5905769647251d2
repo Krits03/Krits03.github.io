@@ -1,0 +1,8 @@
+{
+  "name": "@vueuse/nuxt",
+  "configKey": "vueuse",
+  "version": "14.4.0",
+  "builder": {
+    "tsdown": "0.22.14"
+  }
+}

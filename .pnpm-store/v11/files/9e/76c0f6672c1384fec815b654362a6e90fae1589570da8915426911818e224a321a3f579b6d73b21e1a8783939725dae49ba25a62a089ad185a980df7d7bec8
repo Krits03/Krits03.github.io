@@ -1,0 +1,16 @@
+import { asRobotsCollection } from '@nuxtjs/robots/content';
+export { defineRobotsSchema } from '@nuxtjs/robots/content';
+import { asSitemapCollection } from '@nuxtjs/sitemap/content';
+export { defineSitemapSchema } from '@nuxtjs/sitemap/content';
+import { asOgImageCollection } from 'nuxt-og-image/content';
+export { defineOgImageSchema } from 'nuxt-og-image/content';
+import { asSchemaOrgCollection } from 'nuxt-schema-org/content';
+export { defineSchemaOrgSchema } from 'nuxt-schema-org/content';
+
+function asSeoCollection(collection) {
+  console.warn("[nuxt-seo] `asSeoCollection()` is deprecated. Import `defineXxxSchema()` from each module and compose them in your collection schema instead. See https://nuxtseo.com/docs/nuxt-seo/guides/nuxt-content");
+  const fns = [asOgImageCollection, asSchemaOrgCollection, asRobotsCollection, asSitemapCollection];
+  return fns.reduce((collection2, fn) => fn(collection2), collection);
+}
+
+export { asSeoCollection };

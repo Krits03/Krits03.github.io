@@ -1,0 +1,4 @@
+import type _satori from 'satori';
+export declare function getResvg(): Promise<any>;
+export declare function getSatori(): Promise<typeof _satori>;
+export declare function getSharp(): Promise<import("sharp").SharpConstructor>;

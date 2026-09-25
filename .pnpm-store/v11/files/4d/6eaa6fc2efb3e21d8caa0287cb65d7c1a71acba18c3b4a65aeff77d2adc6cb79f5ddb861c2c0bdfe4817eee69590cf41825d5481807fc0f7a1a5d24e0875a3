@@ -1,0 +1,115 @@
+{
+  "name": "nuxt-link-checker",
+  "type": "module",
+  "version": "5.3.0",
+  "description": "Find and magically fix links that may be negatively effecting your Nuxt sites SEO.",
+  "author": {
+    "name": "Harlan Wilton",
+    "email": "harlan@harlanzw.com",
+    "url": "https://harlanzw.com/"
+  },
+  "license": "MIT",
+  "funding": "https://github.com/sponsors/harlan-zw",
+  "homepage": "https://github.com/harlan-zw/nuxt-link-checker#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harlan-zw/nuxt-link-checker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/harlan-zw/nuxt-link-checker/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./eslint": {
+      "types": "./dist/eslint.d.mts",
+      "import": "./dist/eslint.mjs"
+    }
+  },
+  "build": {
+    "externals": [
+      "unstorage/drivers/fs"
+    ]
+  },
+  "main": "./dist/module.mjs",
+  "types": "./dist/types.d.mts",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "nuxt": "^3.9.0 || ^4.0.0 || ^5.0.0"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.5.2",
+    "@vueuse/core": "^14.4.0",
+    "consola": "^3.4.2",
+    "defu": "^6.1.7",
+    "diff": "^9.0.0",
+    "fuse.js": "^7.5.0",
+    "h3": "^1.15.11",
+    "magic-string": "^1.2.1",
+    "nuxt-site-config": "^4.2.3",
+    "nuxtseo-shared": "^5.3.14",
+    "ofetch": "^1.5.1",
+    "pathe": "^2.0.3",
+    "pkg-types": "^2.3.1",
+    "radix3": "^1.1.2",
+    "site-config-stack": "^4.2.3",
+    "ufo": "^1.6.4",
+    "ultrahtml": "^1.7.0",
+    "unstorage": "^1.17.5"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.3.0",
+    "@harlan-zw/comark-content": "^0.1.4",
+    "@nuxt/content": "^3.15.2",
+    "@nuxt/devtools": "4.0.0-alpha.11",
+    "@nuxt/devtools-kit": "4.0.0-alpha.11",
+    "@nuxt/eslint": "^1.17.0",
+    "@nuxt/module-builder": "^1.0.3",
+    "@nuxt/test-utils": "^4.1.0",
+    "@nuxtjs/sitemap": "^8.4.0",
+    "@types/node": "^26.2.0",
+    "better-sqlite3": "^13.0.3",
+    "bumpp": "^12.2.1",
+    "eslint": "^10.8.1",
+    "eslint-plugin-harlanzw": "^0.20.0",
+    "execa": "^10.0.1",
+    "nuxt": "^4.5.2",
+    "nuxtseo-layer-devtools": "^5.3.14",
+    "sirv": "^3.0.2",
+    "std-env": "^4.2.0",
+    "typescript": "6.0.3",
+    "unbuild": "^3.6.1",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.11",
+    "vue-eslint-parser": "^10.4.1",
+    "vue-tsc": "^3.3.10"
+  },
+  "resolutions": {
+    "nuxt-link-checker": "workspace:*"
+  },
+  "scripts": {
+    "client:build": "node -e \"require('fs').cpSync('devtools','dist/devtools',{recursive:true})\"",
+    "build": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxt-module-build build && npm run client:build",
+    "dev": "nuxi dev playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground && pnpm run client:build",
+    "release": "pnpm build && bumpp --output=CHANGELOG.md",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "nuxt typecheck",
+    "prepare:fixtures": "nuxt prepare test/fixtures/basic",
+    "test": "pnpm prepare:fixtures && vitest",
+    "test:run": "pnpm prepare:fixtures && vitest run && pnpm test:nuxt5",
+    "test:nuxt5": "pnpm --dir test/fixtures/nuxt5 install --frozen-lockfile && pnpm --dir test/fixtures/nuxt5 test"
+  }
+}

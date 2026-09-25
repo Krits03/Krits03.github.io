@@ -1,0 +1,27 @@
+import { defineNuxtPlugin, useHead, useRequestEvent, useRuntimeConfig, useSeoMeta, useState } from "#imports";
+function parseRouteRuleState(context) {
+  const rules = context._nitro?.routeRules;
+  return {
+    head: rules?.head,
+    seoMeta: rules?.seoMeta
+  };
+}
+export default defineNuxtPlugin({
+  enforce: "post",
+  env: { islands: false },
+  setup() {
+    const { tagPriority } = useRuntimeConfig().public["seo-utils"];
+    const routeRuleState = useState("nuxt-seo-utils:routeRules", () => null);
+    if (import.meta.server) {
+      const event = useRequestEvent();
+      routeRuleState.value = parseRouteRuleState(event?.context);
+    }
+    if (routeRuleState.value) {
+      const { head: headInput, seoMeta } = routeRuleState.value;
+      if (headInput)
+        useHead(headInput);
+      if (seoMeta)
+        useSeoMeta(seoMeta, { tagPriority });
+    }
+  }
+});

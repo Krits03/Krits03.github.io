@@ -1,0 +1,196 @@
+import { defu } from "defu";
+import { fixSlashes } from "nuxt-site-config/urls";
+import { useNuxtApp, useRoute, useRouter, useState } from "nuxt/app";
+import { withoutTrailingSlash } from "ufo";
+import {
+  computed,
+  getCurrentInstance,
+  inject,
+  onScopeDispose,
+  onUnmounted,
+  provide,
+  ref,
+  toRaw,
+  toValue,
+  watch
+} from "vue";
+import { defineBreadcrumb, useI18n, useSchemaOrg } from "#imports";
+import { useSiteConfig } from "#site-config/app/composables/useSiteConfig";
+import { createSitePathResolver } from "#site-config/app/composables/utils";
+import { pathBreadcrumbSegments, resolveBreadcrumbRoot } from "../../shared/breadcrumbs.js";
+function withoutQuery(path) {
+  return path.split("?")[0] || "";
+}
+const TITLE_CASE_RE = /\w\S*/g;
+function titleCase(s) {
+  return s.replaceAll("-", " ").replace(TITLE_CASE_RE, (w) => w.charAt(0).toUpperCase() + w.substr(1).toLowerCase());
+}
+const BreadcrumbCtx = Symbol("BreadcrumbCtx");
+export function useBreadcrumbItems(_options = {}) {
+  const nuxtApp = useNuxtApp();
+  const vm = getCurrentInstance();
+  const id = `${_options.id || "breadcrumb"}`;
+  const uid = `${vm?.uid || 0}`;
+  const parentChain = [];
+  let parent = vm?.parent;
+  while (parent) {
+    parentChain.push(parent.uid || 0);
+    parent = parent.parent;
+  }
+  const pauseUpdates = ref(import.meta.client && nuxtApp.isHydrating);
+  let stateRef = null;
+  if (vm) {
+    stateRef = inject(BreadcrumbCtx, null);
+    if (!stateRef) {
+      stateRef = ref({});
+      provide(BreadcrumbCtx, stateRef);
+    }
+    const state = stateRef.value;
+    state[uid] = _options;
+    stateRef.value = state;
+    onUnmounted(() => {
+      const state2 = toRaw(stateRef.value);
+      delete state2[uid];
+      stateRef.value = state2;
+    });
+    if (import.meta.client) {
+      const _ = [];
+      _.push(nuxtApp.hooks.hook("page:start", () => {
+        pauseUpdates.value = true;
+      }));
+      _.push(nuxtApp.hooks.hook("page:finish", () => {
+        if (!nuxtApp.isHydrating) {
+          pauseUpdates.value = false;
+        }
+      }));
+      _.push(nuxtApp.hooks.hook("app:error", () => {
+        pauseUpdates.value = false;
+      }));
+      _.push(nuxtApp.hooks.hook("app:suspense:resolve", () => {
+        pauseUpdates.value = false;
+      }));
+      onScopeDispose(() => {
+        _.forEach((hook) => hook?.());
+        _.length = 0;
+      });
+    }
+  }
+  const route = useRoute();
+  const router = useRouter();
+  const i18n = useI18n();
+  const siteResolver = createSitePathResolver({
+    canonical: true,
+    absolute: true
+  });
+  const lastBreadcrumbs = useState(`nuxt-seo:breadcrumb:${id}`, () => []);
+  const siteConfig = useSiteConfig();
+  const items = computed(() => {
+    if (import.meta.client && pauseUpdates.value) {
+      return lastBreadcrumbs.value;
+    }
+    const state = toValue(stateRef) || {};
+    const optionStack = [...parentChain, uid].map((parentId) => state[parentId]).filter(Boolean);
+    const flatOptions = optionStack.reduce((acc, _cur) => {
+      const cur = {};
+      Object.entries(_cur).forEach(([key, value]) => {
+        cur[key] = toValue(value);
+      });
+      acc.hideRoot = typeof cur.hideRoot === "undefined" ? acc.hideRoot : cur.hideRoot;
+      acc.hideCurrent = typeof cur.hideCurrent === "undefined" ? acc.hideCurrent : cur.hideCurrent;
+      acc.hideNonExisting = typeof cur.hideNonExisting === "undefined" ? acc.hideNonExisting : cur.hideNonExisting;
+      acc.rootSegment = acc.rootSegment || cur.rootSegment;
+      acc.path = acc.path || cur.path;
+      acc.overrides = acc.overrides || [];
+      const overrides = toRaw(toValue(cur.overrides));
+      if (overrides) {
+        overrides.forEach((item, index) => {
+          if (item !== void 0) {
+            acc.overrides[index] = toRaw(toValue(item));
+          }
+        });
+      }
+      const prepend = toRaw(toValue(cur.prepend));
+      const append = toRaw(toValue(cur.append));
+      if (prepend && prepend.length) {
+        acc.prepend = [...acc.prepend || [], ...prepend.map((m) => toRaw(toValue(m)))].filter(Boolean);
+      }
+      if (append && append.length)
+        acc.append = [...acc.append || [], ...append.map((m) => toRaw(toValue(m)))].filter(Boolean);
+      return acc;
+    }, {});
+    let rootNode = flatOptions.rootSegment || "/";
+    if (i18n) {
+      rootNode = resolveBreadcrumbRoot(rootNode, {
+        locale: toValue(i18n.locale),
+        defaultLocale: toValue(i18n.defaultLocale),
+        strategy: i18n.strategy
+      });
+    }
+    const current = withoutQuery(withoutTrailingSlash(flatOptions.path || toRaw(route)?.path || rootNode)) || "";
+    const segments = pathBreadcrumbSegments(current, rootNode).map((path, index) => {
+      let item = {
+        to: path
+      };
+      const override = flatOptions.overrides?.[index];
+      if (typeof override !== "undefined") {
+        if (override === false)
+          return false;
+        item = defu(override, item);
+      }
+      return item;
+    });
+    segments.unshift(...flatOptions.prepend || []);
+    segments.push(...flatOptions.append || []);
+    return segments.filter(Boolean).map((item) => {
+      let fallbackLabel = titleCase(String((item.to || "").split("/").pop()));
+      let fallbackAriaLabel = "";
+      const route2 = item.to ? router.resolve(item.to)?.matched?.at(-1) : null;
+      if (route2) {
+        const routeMeta = route2?.meta || {};
+        if (routeMeta.breadcrumb) {
+          item = defu(item, routeMeta.breadcrumb);
+        }
+        const routeName = String(route2.name).split("___")?.[0];
+        if (routeName === "index") {
+          fallbackLabel = "Home";
+        }
+        fallbackLabel = routeMeta.breadcrumbLabel || routeMeta.breadcrumbTitle || routeMeta.title || fallbackLabel;
+        fallbackLabel = i18n.t(`breadcrumb.items.${routeName}.label`, fallbackLabel, { missingWarn: false });
+        fallbackAriaLabel = i18n.t(`breadcrumb.items.${routeName}.ariaLabel`, fallbackAriaLabel, { missingWarn: false });
+      } else if (flatOptions.hideNonExisting) {
+        return false;
+      }
+      item.label = item.label || fallbackLabel;
+      item.ariaLabel = item.ariaLabel || fallbackAriaLabel || item.label;
+      item.current = item.current || item.to === current;
+      if (flatOptions.hideCurrent && item.current)
+        return false;
+      return item;
+    }).map((m) => {
+      if (m && m.to) {
+        m.to = fixSlashes(siteConfig.trailingSlash, m.to);
+        if (m.to === rootNode && flatOptions.hideRoot)
+          return false;
+      }
+      return m;
+    }).filter(Boolean);
+  });
+  watch(() => items.value, (newItems) => {
+    if (!pauseUpdates.value) {
+      lastBreadcrumbs.value = newItems;
+    }
+  }, { immediate: true, flush: "sync" });
+  const schemaOrgEnabled = typeof _options.schemaOrg === "undefined" ? true : _options.schemaOrg;
+  if ((import.meta.server || import.meta.env?.NODE_ENV === "test") && schemaOrgEnabled) {
+    useSchemaOrg([
+      defineBreadcrumb({
+        "@id": `#${id}`,
+        "itemListElement": computed(() => items.value.map((item) => ({
+          name: item.label || item.ariaLabel,
+          item: item.to ? siteResolver(item.to) : void 0
+        })))
+      })
+    ]);
+  }
+  return items;
+}

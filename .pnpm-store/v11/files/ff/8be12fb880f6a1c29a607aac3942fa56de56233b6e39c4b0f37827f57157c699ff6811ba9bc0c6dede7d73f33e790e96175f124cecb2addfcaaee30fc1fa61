@@ -1,0 +1,67 @@
+{
+  "name": "nuxt-llms",
+  "version": "0.2.0",
+  "description": "Generate llms.txt documentation for your Nuxt application",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nuxtlabs/nuxt-llms.git"
+  },
+  "keywords": [
+    "nuxt",
+    "llms",
+    "documentation",
+    "generator",
+    "nuxt-module"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.mts",
+      "import": "./dist/module.mjs"
+    },
+    "./runtime": {
+      "types": "./dist/runtime/index.d.ts",
+      "import": "./dist/runtime/index.js",
+      "require": "./dist/runtime/index.js"
+    }
+  },
+  "main": "./dist/module.mjs",
+  "types": "./dist/module.d.mts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "prepack": "nuxt-module-build build",
+    "dev": "nuxi dev playground",
+    "dev:build": "nuxi build playground",
+    "dev:prepare": "nuxt-module-build build --stub && nuxt-module-build prepare && nuxi prepare playground",
+    "release": "npm run lint && npm run test && npm run prepack && release-it",
+    "lint": "eslint .",
+    "typecheck": "nuxi typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "test:types": "vue-tsc --noEmit && cd playground && vue-tsc --noEmit",
+    "verify": "npm run dev:prepare && npm run prepack && npm run lint && npm run test && npm run typecheck"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.2.2"
+  },
+  "devDependencies": {
+    "@nuxt/content": "^3.10.0",
+    "@nuxt/devtools": "^3.1.1",
+    "@nuxt/eslint-config": "^1.12.1",
+    "@nuxt/module-builder": "^1.0.2",
+    "@nuxt/schema": "^4.2.2",
+    "@nuxt/test-utils": "^3.23.0",
+    "@types/node": "^25.0.7",
+    "eslint": "^9.39.2",
+    "nuxt": "^4.2.2",
+    "nuxt-llms": "link:",
+    "release-it": "^19.2.3",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.17",
+    "vue-tsc": "^3.2.2"
+  },
+  "packageManager": "pnpm@10.28.0"
+}

@@ -1,0 +1,14 @@
+import type { BundledLanguage, HighlighterCore } from "shiki";
+export declare const useShikiStore: import("pinia").StoreDefinition<"shiki", Pick<{
+    options: import("shiki").CodeToHastOptionsCommon<BundledLanguage> & import("shiki").CodeOptionsMultipleThemes<any> & import("shiki").CodeOptionsMeta;
+    load: () => Promise<HighlighterCore>;
+    loadLang: (...langs: string[]) => Promise<void>;
+}, "options">, Pick<{
+    options: import("shiki").CodeToHastOptionsCommon<BundledLanguage> & import("shiki").CodeOptionsMultipleThemes<any> & import("shiki").CodeOptionsMeta;
+    load: () => Promise<HighlighterCore>;
+    loadLang: (...langs: string[]) => Promise<void>;
+}, never>, Pick<{
+    options: import("shiki").CodeToHastOptionsCommon<BundledLanguage> & import("shiki").CodeOptionsMultipleThemes<any> & import("shiki").CodeOptionsMeta;
+    load: () => Promise<HighlighterCore>;
+    loadLang: (...langs: string[]) => Promise<void>;
+}, "load" | "loadLang">>;

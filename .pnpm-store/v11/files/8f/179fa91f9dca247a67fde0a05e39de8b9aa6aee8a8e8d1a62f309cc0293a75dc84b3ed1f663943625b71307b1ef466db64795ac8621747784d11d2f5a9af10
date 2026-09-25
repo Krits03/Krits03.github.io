@@ -1,0 +1,27 @@
+import { defineRule } from "./util.js";
+const doubleSlashRe = /^\/{2,}|\/{2,}/g;
+const doubleSlashTestRe = /^\/{2,}|\/{2,}/;
+export default function RuleNoDoubleSlashes() {
+  return defineRule({
+    id: "no-double-slashes",
+    test({ url, link, report }) {
+      if (link.startsWith("//") && !link.includes(".")) {
+        report({
+          name: "no-double-slashes",
+          scope: "warning",
+          message: "Links should not contain double slashes.",
+          fix: link.replaceAll(doubleSlashRe, "/"),
+          fixDescription: "Remove double slashes."
+        });
+      } else if (doubleSlashTestRe.test(url.pathname)) {
+        report({
+          name: "no-double-slashes",
+          scope: "warning",
+          message: "Links should not contain double slashes.",
+          fix: link.replace(url.pathname, url.pathname.replaceAll(doubleSlashRe, "/")),
+          fixDescription: "Remove double slashes."
+        });
+      }
+    }
+  });
+}

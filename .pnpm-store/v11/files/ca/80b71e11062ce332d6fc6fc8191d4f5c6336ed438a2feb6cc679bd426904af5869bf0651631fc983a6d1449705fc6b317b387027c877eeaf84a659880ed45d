@@ -1,0 +1,35 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "pathe";
+import { logger } from "./logger.js";
+const RE_OG_IMAGE_PREFIX = /^OgImage/;
+const RE_RENDERER_SUFFIX = /(Satori|Browser|Takumi)$/;
+const ejectedTemplates = /* @__PURE__ */ new Set();
+export function autoEjectCommunityTemplate(component, runtimeConfig, options) {
+  if (!import.meta.dev)
+    return;
+  if (options?.requestPath?.includes("/_og/")) {
+    return;
+  }
+  const { srcDir, communityTemplatesDir } = runtimeConfig;
+  if (!srcDir || !communityTemplatesDir)
+    return;
+  if (ejectedTemplates.has(component.pascalName))
+    return;
+  ejectedTemplates.add(component.pascalName);
+  const baseName = component.pascalName.replace(RE_OG_IMAGE_PREFIX, "").replace(RE_RENDERER_SUFFIX, "");
+  const filename = `${baseName}.${component.renderer}.vue`;
+  const outputDir = join(srcDir, "components", "OgImage");
+  const outputPath = join(outputDir, filename);
+  if (existsSync(outputPath))
+    return;
+  const templatePath = join(communityTemplatesDir, filename);
+  if (!existsSync(templatePath)) {
+    logger.warn(`[nuxt-og-image] Community template not found: ${templatePath}`);
+    return;
+  }
+  if (!existsSync(outputDir))
+    mkdirSync(outputDir, { recursive: true });
+  const content = readFileSync(templatePath, "utf-8");
+  writeFileSync(outputPath, content, "utf-8");
+  logger.info(`Auto-ejected community template "${baseName}" to ${outputPath}`);
+}

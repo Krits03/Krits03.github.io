@@ -1,0 +1,99 @@
+{
+  "name": "@nuxtjs/seo",
+  "type": "module",
+  "version": "5.3.14",
+  "description": "Fully equipped Technical SEO for busy Nuxters.",
+  "author": {
+    "name": "Harlan Wilton",
+    "email": "harlan@harlanzw.com",
+    "url": "https://harlanzw.com/"
+  },
+  "license": "MIT",
+  "funding": "https://github.com/sponsors/harlan-zw",
+  "homepage": "https://nuxtseo.com/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harlan-zw/nuxt-seo.git",
+    "directory": "packages/nuxt-seo"
+  },
+  "bugs": {
+    "url": "https://github.com/harlan-zw/nuxt-seo/issues"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/types.d.mts",
+      "default": "./dist/module.mjs"
+    },
+    "./const": "./dist/const.mjs",
+    "./content": "./dist/content.mjs"
+  },
+  "main": "./dist/module.mjs",
+  "typesVersions": {
+    "*": {
+      ".": [
+        "./dist/types.d.mts"
+      ],
+      "const": [
+        "./dist/const.d.mts"
+      ],
+      "content": [
+        "./dist/content.d.mts"
+      ]
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "nuxt": "^3.16.0 || ^4.0.0 || ^5.0.0"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.5.2",
+    "@nuxtjs/robots": "^6.1.5",
+    "@nuxtjs/sitemap": "^8.3.4",
+    "nuxt-link-checker": "^5.2.0",
+    "nuxt-og-image": "^6.7.8",
+    "nuxt-schema-org": "^6.2.9",
+    "nuxt-seo-utils": "^8.4.2",
+    "nuxt-site-config": "^4.2.3",
+    "nuxtseo-shared": "5.3.14"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@nuxt/content": "^3.15.2",
+    "@nuxt/module-builder": "^1.0.3",
+    "@nuxt/schema": "^4.5.2",
+    "@nuxt/test-utils": "^4.1.0",
+    "@nuxtjs/i18n": "^10.6.0",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/jest-image-snapshot": "^6.4.1",
+    "@vue/test-utils": "^2.4.11",
+    "better-sqlite3": "^13.0.3",
+    "execa": "^10.0.1",
+    "happy-dom": "^20.11.2",
+    "jest-image-snapshot": "^6.5.2",
+    "nitropack": "^2.13.4",
+    "nuxt": "^4.5.2",
+    "nuxt-ai-ready": "^2.0.0",
+    "nuxt-skew-protection": "^1.5.1",
+    "satori": "^0.29.0",
+    "typescript": "6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "publishConfig": {
+    "resolutions": {},
+    "scripts": {},
+    "devDependencies": {}
+  },
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "dev": "nuxt dev playground",
+    "dev:prepare": "nuxt-module-build prepare && nuxt prepare playground",
+    "typecheck": "nuxt typecheck playground",
+    "prepare:fixtures": "pnpm --dir ../shared build && nuxt prepare test/fixtures/basic && nuxt prepare test/fixtures/i18n && nuxt prepare test/fixtures/content",
+    "test": "pnpm prepare:fixtures && vitest",
+    "test:run": "pnpm prepare:fixtures && vitest run && pnpm test:nitro-parity",
+    "test:nitro-parity": "pnpm --dir ../shared build && pnpm --dir ../shared pack --out ../nuxt-seo/test/fixtures/nitro-parity/nuxtseo-shared.tgz && pnpm pack --out test/fixtures/nitro-parity/nuxtjs-seo.tgz && pnpm install --dir test/fixtures/nitro2 --no-frozen-lockfile --force --update-checksums && pnpm install --dir test/fixtures/nuxt5 --no-frozen-lockfile --force --update-checksums && node test/fixtures/nitro-parity/test.mjs",
+    "test:attw": "attw --pack --profile esm-only"
+  }
+}

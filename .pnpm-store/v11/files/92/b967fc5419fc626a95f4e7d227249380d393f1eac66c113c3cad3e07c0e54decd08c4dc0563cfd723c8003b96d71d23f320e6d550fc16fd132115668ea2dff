@@ -1,0 +1,484 @@
+import { readFile } from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
+import { resolveModulePath } from 'exsolve';
+import { dirname, join } from 'pathe';
+import { e as extractVariantBaseClasses, r as resolveVariantPrefixes, h as resolveExtractedVars, l as resolveVarsDeep, s as simplifyCss, p as postProcessStyles, m as loadLightningCss, a as extractCssVars, c as extractUniversalVars, d as extractPerClassVars, g as extractVarsFromCss, f as extractClassStyles } from '../shared/nuxt-og-image.BMHzg1Vz.mjs';
+import 'node:crypto';
+import 'node:fs';
+import '@nuxt/kit';
+import 'defu';
+import 'fnv1a-64';
+import 'nuxt-site-config/kit';
+import 'nuxtseo-shared/kit';
+import 'pkg-types';
+import 'std-env';
+import 'oxc-walker';
+import '../../dist/runtime/logger.js';
+import 'chrome-launcher';
+import 'nypm';
+import 'nuxtseo-shared/devtools';
+import 'unstorage';
+import 'unstorage/drivers/fs-lite';
+import '../../dist/runtime/server/og-image/utils/css.js';
+import 'magic-string';
+import 'strip-literal';
+import 'ufo';
+import 'unplugin';
+import '@vue/compiler-sfc';
+import 'ofetch';
+import 'ultrahtml';
+import '../../dist/runtime/server/og-image/core/transforms/emojis/emoji-utils.js';
+import '../shared/nuxt-og-image.CJa2KCie.mjs';
+import 'magicast';
+import 'magicast/helpers';
+
+const RE_GRADIENT_STOP_PREFIX = /^(from|via|to)-/;
+const RE_COLOR_SHADE = /^(.+)-(\d+)$/;
+const RE_CSS_COLOR_VALUE = /color:([^;}]+)/;
+const RE_TO_DIRECTION = /^to-(?:[tblr]|tl|tr|bl|br)$/;
+const RE_FONT_VAR = /--font-([\w-]+)\s*:/g;
+let compile;
+let twColors;
+async function loadTw4Deps() {
+  if (!compile) {
+    const [, tailwindModule, colorsModule] = await Promise.all([
+      loadLightningCss(),
+      import('tailwindcss'),
+      import('tailwindcss/colors')
+    ]);
+    compile = tailwindModule.compile;
+    twColors = colorsModule.default || colorsModule;
+  }
+}
+function createModuleLoader(baseDir) {
+  return async (id, base) => {
+    const resolved = resolveModulePath(id, {
+      from: base || baseDir,
+      try: true,
+      suffixes: ["", "/index"],
+      extensions: [".js", ".mjs", ".cjs"]
+    });
+    if (resolved) {
+      const module2 = await import(pathToFileURL(resolved).href).then((m) => m.default || m);
+      return { path: resolved, base: dirname(resolved), module: module2 };
+    }
+    const relativePath = join(base || baseDir, id);
+    const module = await import(pathToFileURL(relativePath).href).then((m) => m.default || m).catch(() => ({}));
+    return { path: relativePath, base: dirname(relativePath), module };
+  };
+}
+function createStylesheetLoader(baseDir) {
+  return async (id, base) => {
+    if (id === "tailwindcss") {
+      const twPath = resolveModulePath("tailwindcss/index.css", { from: baseDir, try: true });
+      if (twPath) {
+        const content = await readFile(twPath, "utf-8").catch(() => "");
+        if (content)
+          return { path: twPath, base: dirname(twPath), content };
+      }
+      return {
+        path: "virtual:tailwindcss",
+        base,
+        content: "@layer theme, base, components, utilities;\n@layer utilities { @tailwind utilities; }"
+      };
+    }
+    if (id.startsWith("./") || id.startsWith("../")) {
+      const resolved2 = join(base || baseDir, id);
+      const content = await readFile(resolved2, "utf-8").catch(() => "");
+      return { path: resolved2, base: dirname(resolved2), content };
+    }
+    const resolved = resolveModulePath(id, {
+      from: base || baseDir,
+      conditions: ["style"],
+      try: true,
+      suffixes: ["", "/index"],
+      extensions: [".css", ".js", ".mjs"]
+    });
+    if (resolved) {
+      const content = await readFile(resolved, "utf-8").catch(() => "");
+      return { path: resolved, base: dirname(resolved), content };
+    }
+    return { path: id, base, content: "" };
+  };
+}
+function buildNuxtUiVars(vars, nuxtUiColors, theme) {
+  const colors = twColors;
+  const shades = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+  for (const [semantic, colorName] of Object.entries(nuxtUiColors)) {
+    for (const shade of shades) {
+      const varName = `--ui-color-${semantic}-${shade}`;
+      const value = colors[colorName]?.[shade];
+      if (value && !vars.has(varName))
+        vars.set(varName, value);
+    }
+    if (!vars.has(`--ui-${semantic}`))
+      vars.set(`--ui-${semantic}`, colors[colorName]?.[500] || "");
+  }
+  const neutral = nuxtUiColors.neutral || "slate";
+  const neutralColors = colors[neutral];
+  const semanticVars = theme === "light" ? {
+    "--ui-text-dimmed": neutralColors?.[400] || "",
+    "--ui-text-muted": neutralColors?.[500] || "",
+    "--ui-text-toned": neutralColors?.[600] || "",
+    "--ui-text": neutralColors?.[700] || "",
+    "--ui-text-highlighted": neutralColors?.[900] || "",
+    "--ui-text-inverted": "#ffffff",
+    "--ui-bg": "#ffffff",
+    "--ui-bg-muted": neutralColors?.[50] || "",
+    "--ui-bg-elevated": neutralColors?.[100] || "",
+    "--ui-bg-accented": neutralColors?.[200] || "",
+    "--ui-bg-inverted": neutralColors?.[900] || "",
+    "--ui-border": neutralColors?.[200] || "",
+    "--ui-border-muted": neutralColors?.[200] || "",
+    "--ui-border-accented": neutralColors?.[300] || "",
+    "--ui-border-inverted": neutralColors?.[900] || ""
+  } : {
+    // Dark mode (default for OG images, also explicit theme === 'dark')
+    "--ui-text-dimmed": neutralColors?.[500] || "",
+    "--ui-text-muted": neutralColors?.[400] || "",
+    "--ui-text-toned": neutralColors?.[300] || "",
+    "--ui-text": neutralColors?.[200] || "",
+    "--ui-text-highlighted": "#ffffff",
+    "--ui-text-inverted": neutralColors?.[900] || "",
+    "--ui-bg": neutralColors?.[900] || "",
+    "--ui-bg-muted": neutralColors?.[800] || "",
+    "--ui-bg-elevated": neutralColors?.[800] || "",
+    "--ui-bg-accented": neutralColors?.[700] || "",
+    "--ui-bg-inverted": "#ffffff",
+    "--ui-border": neutralColors?.[800] || "",
+    "--ui-border-muted": neutralColors?.[700] || "",
+    "--ui-border-accented": neutralColors?.[700] || "",
+    "--ui-border-inverted": "#ffffff"
+  };
+  for (const [name, value] of Object.entries(semanticVars)) {
+    if (value)
+      vars.set(name, value);
+  }
+}
+let cachedCompiler = null;
+let cachedCssPath = null;
+let cachedVars = null;
+let cachedExtractedVars = null;
+let pendingCompiler = null;
+const resolvedStyleCache = /* @__PURE__ */ new Map();
+function clearTw4UserVarsCache() {
+  cachedVars = null;
+  cachedExtractedVars = null;
+  resolvedStyleCache.clear();
+}
+function clearTw4Cache() {
+  cachedCompiler = null;
+  cachedCssPath = null;
+  cachedVars = null;
+  cachedExtractedVars = null;
+  pendingCompiler = null;
+  resolvedStyleCache.clear();
+}
+async function getCompiler(cssPath, nuxtUiColors) {
+  if (cachedCompiler && cachedCssPath === cssPath)
+    return { compiler: cachedCompiler, vars: cachedVars };
+  if (pendingCompiler)
+    return pendingCompiler;
+  pendingCompiler = (async () => {
+    await loadTw4Deps();
+    const userCss = await readFile(cssPath, "utf-8");
+    const baseDir = dirname(cssPath);
+    const compiler = await compile(userCss, {
+      loadStylesheet: createStylesheetLoader(baseDir),
+      loadModule: createModuleLoader(baseDir)
+    });
+    const vars = /* @__PURE__ */ new Map();
+    if (nuxtUiColors)
+      buildNuxtUiVars(vars, nuxtUiColors);
+    cachedCompiler = compiler;
+    cachedCssPath = cssPath;
+    cachedVars = vars;
+    cachedExtractedVars = {
+      rootVars: /* @__PURE__ */ new Map(),
+      qualifiedRules: [],
+      universalVars: /* @__PURE__ */ new Map(),
+      propertyInitials: /* @__PURE__ */ new Map(),
+      perClassVars: /* @__PURE__ */ new Map()
+    };
+    resolvedStyleCache.clear();
+    return { compiler, vars };
+  })();
+  const p = pendingCompiler;
+  p.finally(() => {
+    pendingCompiler = null;
+  });
+  return p;
+}
+async function parseCssOutput(rawCss, vars, extractedAccum) {
+  const css = await simplifyCss(rawCss);
+  for (const [name, value] of extractCssVars(css)) {
+    if (!vars.has(name))
+      vars.set(name, value);
+  }
+  for (const [name, value] of extractUniversalVars(css)) {
+    if (!vars.has(name))
+      vars.set(name, value);
+  }
+  const perClassVars = extractPerClassVars(css);
+  if (extractedAccum) {
+    const fresh = await extractVarsFromCss(css);
+    for (const [n, v] of fresh.rootVars) {
+      if (!extractedAccum.rootVars.has(n))
+        extractedAccum.rootVars.set(n, v);
+    }
+    extractedAccum.qualifiedRules.push(...fresh.qualifiedRules);
+    for (const [n, v] of fresh.universalVars) {
+      if (!extractedAccum.universalVars.has(n))
+        extractedAccum.universalVars.set(n, v);
+    }
+    for (const [n, v] of fresh.propertyInitials) {
+      if (!extractedAccum.propertyInitials.has(n))
+        extractedAccum.propertyInitials.set(n, v);
+    }
+    for (const [name, classVars] of fresh.perClassVars) {
+      const existing = extractedAccum.perClassVars.get(name);
+      if (existing) {
+        for (const [k, v] of classVars) existing.set(k, v);
+      } else {
+        extractedAccum.perClassVars.set(name, new Map(classVars));
+      }
+    }
+  }
+  const classes = extractClassStyles(css, { skipPrefixes: ["--"], merge: true });
+  return { classes, perClassVars };
+}
+const LINEAR_GRADIENT_DIRECTIONS = {
+  "bg-gradient-to-t": "to top",
+  "bg-gradient-to-tr": "to top right",
+  "bg-gradient-to-r": "to right",
+  "bg-gradient-to-br": "to bottom right",
+  "bg-gradient-to-b": "to bottom",
+  "bg-gradient-to-bl": "to bottom left",
+  "bg-gradient-to-l": "to left",
+  "bg-gradient-to-tl": "to top left"
+};
+const RADIAL_GRADIENT_SHAPES = {
+  "bg-radial": "circle at center",
+  "bg-radial-at-t": "circle at top",
+  "bg-radial-at-tr": "circle at top right",
+  "bg-radial-at-r": "circle at right",
+  "bg-radial-at-br": "circle at bottom right",
+  "bg-radial-at-b": "circle at bottom",
+  "bg-radial-at-bl": "circle at bottom left",
+  "bg-radial-at-l": "circle at left",
+  "bg-radial-at-tl": "circle at top left",
+  "bg-radial-at-c": "circle at center"
+};
+async function resolveGradientColor(cls, vars) {
+  const colorName = cls.replace(RE_GRADIENT_STOP_PREFIX, "");
+  const shadeMatch = colorName.match(RE_COLOR_SHADE);
+  if (shadeMatch?.[1] && shadeMatch?.[2]) {
+    const varName2 = `--color-${shadeMatch[1]}-${shadeMatch[2]}`;
+    const value2 = vars.get(varName2);
+    if (value2) {
+      const resolved = await resolveVarsDeep(value2, vars);
+      if (!resolved.includes("var(")) {
+        const simplified = await simplifyCss(`.x{color:${resolved}}`);
+        return simplified.match(RE_CSS_COLOR_VALUE)?.[1]?.trim() ?? resolved;
+      }
+    }
+  }
+  const varName = `--color-${colorName}`;
+  const value = vars.get(varName);
+  if (value) {
+    const resolved = await resolveVarsDeep(value, vars);
+    if (!resolved.includes("var(")) {
+      const simplified = await simplifyCss(`.x{color:${resolved}}`);
+      return simplified.match(RE_CSS_COLOR_VALUE)?.[1]?.trim() ?? resolved;
+    }
+  }
+  return null;
+}
+async function buildGradient(classes, vars) {
+  const linearDir = classes.find((c) => LINEAR_GRADIENT_DIRECTIONS[c]);
+  const radialShape = classes.find((c) => RADIAL_GRADIENT_SHAPES[c]);
+  const fromClass = classes.find((c) => c.startsWith("from-"));
+  const viaClass = classes.find((c) => c.startsWith("via-"));
+  const toClass = classes.find((c) => c.startsWith("to-") && !RE_TO_DIRECTION.test(c));
+  if (!linearDir && !radialShape)
+    return null;
+  if (!fromClass && !toClass)
+    return null;
+  const fromColor = fromClass ? await resolveGradientColor(fromClass, vars) : null;
+  const viaColor = viaClass ? await resolveGradientColor(viaClass, vars) : null;
+  const toColor = toClass ? await resolveGradientColor(toClass, vars) : null;
+  if (!fromColor && !toColor)
+    return null;
+  const stops = [fromColor, viaColor, toColor].filter(Boolean).join(", ");
+  const colorClasses = [fromClass, viaClass, toClass].filter((c) => !!c);
+  if (linearDir) {
+    const direction = LINEAR_GRADIENT_DIRECTIONS[linearDir];
+    return {
+      gradientClass: linearDir,
+      value: `linear-gradient(${direction}, ${stops})`,
+      colorClasses
+    };
+  }
+  if (radialShape) {
+    const shape = RADIAL_GRADIENT_SHAPES[radialShape];
+    return {
+      gradientClass: radialShape,
+      value: `radial-gradient(${shape}, ${stops})`,
+      colorClasses
+    };
+  }
+  return null;
+}
+function buildThemeVars(baseVars, extracted, theme, nuxtUiColors) {
+  const vars = new Map(baseVars);
+  if (nuxtUiColors)
+    buildNuxtUiVars(vars, nuxtUiColors, theme);
+  if (extracted) {
+    const themeRootAttrs = { "data-theme": theme };
+    const themeVars = resolveExtractedVars(extracted, themeRootAttrs);
+    for (const [n, v] of themeVars)
+      vars.set(n, v);
+  }
+  return vars;
+}
+async function resolveClassesToStyles(classes, options, context, theme) {
+  const { compiler, vars } = await getCompiler(options.cssPath, options.nuxtUiColors);
+  const cacheKeyFor = (cls) => theme ? `${cls}|${theme}` : cls;
+  const uncached = classes.filter((c) => !resolvedStyleCache.has(cacheKeyFor(c)));
+  if (uncached.length > 0) {
+    const outputCss = compiler.build(uncached);
+    const { classes: parsedClasses, perClassVars } = await parseCssOutput(outputCss, vars, cachedExtractedVars || void 0);
+    const resolveVarsForClass = theme ? buildThemeVars(vars, cachedExtractedVars, theme, options.nuxtUiColors) : vars;
+    for (const [className, rawStyles] of parsedClasses) {
+      const classVars = perClassVars.get(className);
+      const mergedVars = classVars ? new Map([...resolveVarsForClass, ...classVars]) : resolveVarsForClass;
+      const styles = await postProcessStyles(rawStyles, mergedVars, void 0, context);
+      const cacheKey = cacheKeyFor(className);
+      if (!styles && className.startsWith("bg-gradient-")) {
+        resolvedStyleCache.set(cacheKey, rawStyles);
+      } else {
+        resolvedStyleCache.set(cacheKey, styles);
+      }
+    }
+    for (const c of uncached) {
+      const key = cacheKeyFor(c);
+      if (!resolvedStyleCache.has(key))
+        resolvedStyleCache.set(key, null);
+    }
+  }
+  const result = {};
+  for (const cls of classes) {
+    const resolved = resolvedStyleCache.get(cacheKeyFor(cls));
+    if (resolved)
+      result[cls] = resolved;
+  }
+  const gradientVars = theme ? buildThemeVars(vars, cachedExtractedVars, theme, options.nuxtUiColors) : vars;
+  const gradient = await buildGradient(classes, gradientVars);
+  if (gradient) {
+    result[gradient.gradientClass] = { "background-image": gradient.value };
+    for (const colorClass of gradient.colorClasses) {
+      result[colorClass] = {};
+    }
+  }
+  return result;
+}
+async function extractTw4Metadata(options) {
+  const { compiler, vars } = await getCompiler(options.cssPath, options.nuxtUiColors);
+  const userCss = await readFile(options.cssPath, "utf-8");
+  const fontCandidates = Array.from(userCss.matchAll(RE_FONT_VAR), (m) => `font-${m[1]}`);
+  const themeCss = compiler.build(fontCandidates);
+  await parseCssOutput(themeCss, vars);
+  const fontVars = {};
+  const breakpoints = {};
+  const colors = {};
+  for (const [name, value] of vars) {
+    const resolvedValue = await resolveVarsDeep(value, vars);
+    if (name.startsWith("--font-")) {
+      fontVars[name.slice(2)] = resolvedValue;
+    } else if (name.startsWith("--breakpoint-")) {
+      const px = Number.parseInt(resolvedValue.replace("px", ""), 10);
+      if (!Number.isNaN(px))
+        breakpoints[name.slice(13)] = px;
+    } else if (name.startsWith("--color-") && !resolvedValue.includes("var(")) {
+      const colorPath = name.slice(8);
+      const shadeMatch = colorPath.match(RE_COLOR_SHADE);
+      const simplified = await simplifyCss(`.x{color:${resolvedValue}}`);
+      const hexValue = simplified.match(RE_CSS_COLOR_VALUE)?.[1]?.trim() ?? resolvedValue;
+      if (shadeMatch) {
+        const [, colorName, shade] = shadeMatch;
+        if (colorName) {
+          if (!colors[colorName])
+            colors[colorName] = {};
+          if (typeof colors[colorName] === "object")
+            colors[colorName][shade] = hexValue;
+        }
+      } else {
+        colors[colorPath] = hexValue;
+      }
+    }
+  }
+  return { fontVars, breakpoints, colors };
+}
+function createTw4Provider(options) {
+  let cssPath;
+  let initPromise;
+  let initialized = false;
+  async function init() {
+    if (initialized)
+      return;
+    if (initPromise)
+      return initPromise;
+    initPromise = (async () => {
+      cssPath = await options.resolveCssPath();
+      if (!cssPath) {
+        initialized = true;
+        return;
+      }
+      const content = await readFile(cssPath, "utf-8");
+      if (!content.includes("@theme") && !content.includes('@import "tailwindcss"'))
+        cssPath = void 0;
+      initialized = true;
+    })();
+    return initPromise;
+  }
+  return {
+    name: "tailwind",
+    async resolveClassesToStyles(classes, context, rootAttrs) {
+      await init();
+      if (!cssPath)
+        return {};
+      const baseClasses = extractVariantBaseClasses(classes);
+      const classesToResolve = [.../* @__PURE__ */ new Set([...classes, ...baseClasses])];
+      const nuxtUiColors = await options.loadNuxtUiColors();
+      const theme = rootAttrs?.["data-theme"] === "light" || rootAttrs?.["data-theme"] === "dark" ? rootAttrs["data-theme"] : void 0;
+      const tw4Resolved = await resolveClassesToStyles(classesToResolve, {
+        cssPath,
+        nuxtUiColors
+      }, context, theme);
+      const resolvedMap = new Map(Object.entries(tw4Resolved));
+      return resolveVariantPrefixes(classes, resolvedMap);
+    },
+    async extractMetadata() {
+      await init();
+      if (!cssPath)
+        return { fontVars: {}, breakpoints: {}, colors: {} };
+      const nuxtUiColors = await options.loadNuxtUiColors();
+      return extractTw4Metadata({ cssPath, nuxtUiColors });
+    },
+    async getVars(rootAttrs) {
+      await init();
+      if (!cssPath)
+        return /* @__PURE__ */ new Map();
+      const nuxtUiColors = await options.loadNuxtUiColors();
+      const { vars } = await getCompiler(cssPath, nuxtUiColors);
+      const theme = rootAttrs?.["data-theme"] === "light" || rootAttrs?.["data-theme"] === "dark" ? rootAttrs["data-theme"] : void 0;
+      if (!theme)
+        return vars;
+      return buildThemeVars(vars, cachedExtractedVars, theme, nuxtUiColors);
+    },
+    clearUserVarsCache: clearTw4UserVarsCache,
+    clearCache: clearTw4Cache
+  };
+}
+
+export { buildNuxtUiVars, clearTw4Cache, clearTw4UserVarsCache, createModuleLoader, createStylesheetLoader, createTw4Provider, extractTw4Metadata, resolveClassesToStyles };

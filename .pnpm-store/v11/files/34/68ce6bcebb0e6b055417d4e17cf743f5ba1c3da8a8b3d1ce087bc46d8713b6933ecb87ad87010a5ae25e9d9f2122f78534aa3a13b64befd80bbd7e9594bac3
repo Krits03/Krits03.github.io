@@ -1,0 +1,242 @@
+import { defu } from "defu";
+import { stringify } from "devalue";
+import { useHead, useRequestEvent, useRuntimeConfig } from "nuxt/app";
+import { joinURL, withQuery } from "ufo";
+import { isRef, toValue } from "vue";
+import { componentNames } from "#build/nuxt-og-image/components.mjs";
+import { buildOgImageUrl, generateMeta, separateProps } from "../shared.js";
+function resolveUnrefHeadInput(input) {
+  if (input == null)
+    return input;
+  if (isRef(input) || typeof input === "function")
+    return resolveUnrefHeadInput(toValue(input));
+  if (Array.isArray(input))
+    return input.map(resolveUnrefHeadInput);
+  if (typeof input === "object") {
+    const result = {};
+    for (const k in input)
+      result[k] = resolveUnrefHeadInput(input[k]);
+    return result;
+  }
+  return input;
+}
+const RE_RENDERER_SUFFIX = /(Satori|Browser|Takumi)$/;
+function extractHeadSeoProps(head) {
+  const result = {};
+  try {
+    for (const entry of head.entries.values()) {
+      const input = toValue(entry.input);
+      if (!input || typeof input !== "object")
+        continue;
+      const flatMeta = input._flatMeta;
+      if (!flatMeta || typeof flatMeta !== "object")
+        continue;
+      if ("title" in input) {
+        const t = toValue(input.title);
+        if (typeof t === "string")
+          result.title = t;
+      }
+      const desc = toValue(flatMeta.description) || toValue(flatMeta.ogDescription);
+      if (typeof desc === "string")
+        result.description = desc;
+    }
+  } catch (e) {
+    if (import.meta.dev)
+      console.warn("[nuxt-og-image] Failed to extract SEO props from head entries", e);
+  }
+  return result;
+}
+export function setHeadOgImagePrebuilt(input) {
+  if (import.meta.client) {
+    return;
+  }
+  const url = input.url;
+  if (!url)
+    return;
+  const meta = generateMeta(url, input);
+  useHead({ meta }, { tagPriority: "high" });
+}
+export function createOgImageMeta(src, input, ssrContext, pagePath, head) {
+  if (import.meta.client) {
+    return;
+  }
+  const ogImageConfig = useOgImageRuntimeConfig();
+  const { defaults } = ogImageConfig;
+  const resolvedOptions = separateProps(defu(input, defaults));
+  resolvedOptions.key = resolvedOptions.key || "og";
+  const payloads = ssrContext._ogImagePayloads || [];
+  const currentPayloadIdx = payloads.findIndex(([k]) => k === resolvedOptions.key);
+  const _input = separateProps(defu(input, currentPayloadIdx >= 0 ? payloads[currentPayloadIdx][1] : {}));
+  if (!src && !input.url && !resolvedOptions.url)
+    return;
+  const basePath = pagePath || "/";
+  if (currentPayloadIdx === -1) {
+    payloads.push([resolvedOptions.key, _input, basePath]);
+  } else {
+    payloads[currentPayloadIdx] = [resolvedOptions.key, _input, basePath];
+  }
+  const baseURL = useRuntimeConfig().app.baseURL;
+  ssrContext._ogImageInstance?.dispose();
+  ssrContext._ogImageInstance = useHead({
+    // Meta is generated lazily so that title/description from useSeoMeta / useHead
+    // are available regardless of call ordering (all component setups have completed
+    // by the time Unhead resolves tags).
+    meta() {
+      const finalPayload = ssrContext._ogImagePayloads || [];
+      const seo = head ? extractHeadSeoProps(head) : void 0;
+      return finalPayload.flatMap(([_, options, payloadBasePath]) => {
+        const opts = { ...options, props: { ...options.props } };
+        const rawComponentName = opts.component || componentNames?.[0]?.pascalName;
+        const resolvedComponentName = rawComponentName ? resolveComponentName(rawComponentName) : void 0;
+        const resolvedComponent = resolvedComponentName ? componentNames?.find((c) => c.pascalName === resolvedComponentName || c.kebabName === resolvedComponentName) : void 0;
+        const declaredProps = resolvedComponent?.propNames;
+        if (seo) {
+          if (seo.title && typeof opts.props.title === "undefined" && (!declaredProps || declaredProps.includes("title")))
+            opts.props.title = seo.title;
+          if (seo.description && typeof opts.props.description === "undefined" && (!declaredProps || declaredProps.includes("description")))
+            opts.props.description = seo.description;
+        }
+        const extension = opts.extension || defaults?.extension || "png";
+        const isStatic = import.meta.prerender && !(ogImageConfig.security?.secret && ogImageConfig.security?.strict);
+        const urlOpts = { ...opts, _path: payloadBasePath };
+        const componentName = opts.component || componentNames?.[0]?.pascalName;
+        const component = componentNames?.find((c) => c.pascalName === componentName || c.kebabName === componentName);
+        if (component?.hash)
+          urlOpts._componentHash = component.hash;
+        const result = buildOgImageUrl(urlOpts, extension, isStatic, defaults, ogImageConfig.security?.secret || void 0);
+        if (result.hash) {
+          opts._hash = result.hash;
+          options._hash = result.hash;
+        }
+        const resolvedUrl = joinURL("/", baseURL, result.url);
+        const finalUrl = opts._query && Object.keys(opts._query).length ? withQuery(resolvedUrl, { _query: opts._query }) : resolvedUrl;
+        if (isStatic && import.meta.prerender && ssrContext.event) {
+          const prerenderPaths = ssrContext.event.context._ogImagePrerenderPaths;
+          if (prerenderPaths) {
+            const ogKey = opts.key || "og";
+            prerenderPaths.set(ogKey, (finalUrl.split("?")[0] || finalUrl).replace(/,/g, "%2C"));
+          }
+        }
+        return generateMeta(finalUrl, opts);
+      });
+    }
+  }, {
+    processTemplateParams: true,
+    tagPriority: 35
+  });
+  if (import.meta.dev || import.meta.prerender) {
+    ssrContext._ogImageDevtoolsInstance?.dispose();
+    ssrContext._ogImageDevtoolsInstance = useHead({
+      script: [{
+        id: "nuxt-og-image-options",
+        type: "application/json",
+        processTemplateParams: true,
+        innerHTML: () => {
+          const seo = head ? extractHeadSeoProps(head) : void 0;
+          const devtoolsPayload = (ssrContext._ogImagePayloads || []).map(([key, options]) => {
+            const payload = resolveUnrefHeadInput(options);
+            const rawComponentName = payload.component || componentNames?.[0]?.pascalName;
+            const resolvedComponentName = rawComponentName ? resolveComponentName(rawComponentName) : void 0;
+            const component = resolvedComponentName ? componentNames?.find((c) => c.pascalName === resolvedComponentName || c.kebabName === resolvedComponentName) : void 0;
+            const declaredProps = component?.propNames;
+            if (payload.props && typeof payload.props.title === "undefined" && (!declaredProps || declaredProps.includes("title")))
+              payload.props.title = "%s";
+            if (seo?.description && payload.props && typeof payload.props.description === "undefined" && (!declaredProps || declaredProps.includes("description")))
+              payload.props.description = seo.description;
+            if (typeof payload.component === "string") {
+              payload.component = resolveComponentName(payload.component);
+            } else if (payload.component) {
+              if (import.meta.dev)
+                console.warn(`[nuxt-og-image] defineOgImage() received a non-string component value (${typeof payload.component}). Pass the component name as a plain string.`);
+              delete payload.component;
+            }
+            payload.key = key;
+            delete payload.url;
+            if (payload._query && Object.keys(payload._query).length === 0) {
+              delete payload._query;
+            }
+            if (payload.props && typeof payload.props === "object" && Object.keys(payload.props).length === 0) {
+              delete payload.props;
+            }
+            const ALWAYS_INCLUDE = /* @__PURE__ */ new Set(["component", "_hash", "key", "fonts"]);
+            const final = {};
+            for (const k in payload) {
+              if (payload[k] === "")
+                continue;
+              if (ALWAYS_INCLUDE.has(k) || payload[k] !== defaults[k]) {
+                final[k] = payload[k];
+              }
+            }
+            return final;
+          });
+          return stringify(devtoolsPayload);
+        },
+        tagPosition: "bodyClose"
+      }]
+    });
+  }
+  ssrContext._ogImagePayloads = payloads;
+}
+export function resolveComponentName(component) {
+  component = component || componentNames?.[0]?.pascalName;
+  if (component && componentNames) {
+    const originalName = component;
+    const normalizedName = originalName.split(".").map((s, i) => i === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1)).join("");
+    const inputBase = normalizedName.replace(RE_RENDERER_SUFFIX, "");
+    for (const component2 of componentNames) {
+      if (component2.pascalName === normalizedName)
+        return component2.pascalName;
+      const basePascalName = component2.pascalName.replace(RE_RENDERER_SUFFIX, "");
+      if (basePascalName === originalName || basePascalName === inputBase)
+        return component2.pascalName;
+      const prefixes = [
+        { prefix: "OgImageCommunity", overlapWord: "Community" },
+        { prefix: "OgImageTemplate", overlapWord: "Template" },
+        { prefix: "OgImage", overlapWord: "Image" }
+      ];
+      for (const { prefix, overlapWord } of prefixes) {
+        if (!basePascalName.startsWith(prefix))
+          continue;
+        const withoutPrefix = basePascalName.slice(prefix.length);
+        if (withoutPrefix === originalName || withoutPrefix === inputBase)
+          return component2.pascalName;
+        if (withoutPrefix && withoutPrefix !== overlapWord) {
+          const withOverlap = overlapWord + withoutPrefix;
+          if (withOverlap === originalName || withOverlap === inputBase)
+            return component2.pascalName;
+        }
+        break;
+      }
+    }
+  }
+  return component;
+}
+export function getOgImagePath(_pagePath, _options) {
+  const { app, defaults, security } = useOgImageRuntimeConfig();
+  const baseURL = app.baseURL;
+  const extension = _options?.extension || defaults?.extension || "png";
+  const isStatic = import.meta.prerender && !(security?.secret && security?.strict);
+  const options = { ..._options, _path: _pagePath };
+  const componentName = _options?.component || componentNames?.[0]?.pascalName;
+  const component = componentNames?.find((c) => c.pascalName === componentName || c.kebabName === componentName);
+  if (component?.hash)
+    options._componentHash = component.hash;
+  const result = buildOgImageUrl(options, extension, isStatic, defaults, security?.secret || void 0);
+  const path = joinURL("/", baseURL, result.url);
+  return {
+    path,
+    hash: result.hash
+  };
+}
+export function useOgImageRuntimeConfig() {
+  const event = import.meta.server ? useRequestEvent() : void 0;
+  const c = event ? useRuntimeConfig(event) : useRuntimeConfig();
+  const serverCfg = c["nuxt-og-image"] || {};
+  const publicCfg = c.public?.["nuxt-og-image"] || {};
+  const merged = { defaults: {}, ...publicCfg, ...serverCfg };
+  const overrideSecret = c.ogImage?.secret;
+  if (overrideSecret)
+    merged.security = { ...merged.security || {}, secret: overrideSecret };
+  merged.app = { baseURL: c.app.baseURL };
+  return merged;
+}

@@ -1,0 +1,3793 @@
+import ValueParser from "postcss-value-parser";
+//#region package.json
+var name = "eslint-plugin-css-stylistic";
+var version = "0.0.2";
+//#endregion
+//#region src/core/rule.ts
+function createRule({ description, fixable = true, meta, name, type = "layout", url = `https://github.com/stylelint-stylistic/stylelint-stylistic/tree/main/lib/rules/${name}`, ...rule }) {
+	return {
+		...rule,
+		meta: {
+			...meta,
+			type,
+			docs: {
+				description,
+				url
+			},
+			fixable: fixable ? "code" : void 0,
+			messages: { expected: "{{detail}}" }
+		}
+	};
+}
+function reportFinding(context, problem) {
+	const { sourceCode } = context;
+	const { replacement } = problem;
+	context.report({
+		loc: {
+			start: sourceCode.getLocFromIndex(problem.reportStart ?? problem.start),
+			end: sourceCode.getLocFromIndex(problem.reportEnd ?? problem.end)
+		},
+		messageId: "expected",
+		data: { detail: problem.detail },
+		fix: replacement === void 0 ? void 0 : (fixer) => fixer.replaceTextRange([problem.start, problem.end], replacement)
+	});
+}
+function finding(start, end, replacement, detail, reportStart, reportEnd) {
+	return {
+		detail,
+		end,
+		replacement,
+		reportEnd,
+		reportStart,
+		start
+	};
+}
+//#endregion
+//#region src/rules/at-rule-name-case/index.ts
+const ruleName$76 = "at-rule-name-case";
+const IDENTIFIER_RE$2 = /^[-\w]+$/u;
+var at_rule_name_case_default = createRule({
+	name: ruleName$76,
+	description: "Specify lowercase or uppercase for at-rule names",
+	meta: {
+		defaultOptions: ["lower"],
+		schema: [{ enum: ["lower", "upper"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		return { Atrule(node) {
+			if (!IDENTIFIER_RE$2.test(node.name)) return;
+			const actual = node.name;
+			const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+			if (actual === expected) return;
+			const start = sourceCode.getRange(node)[0] + 1;
+			const end = start + actual.length;
+			context.report({
+				data: { detail: `Expected at-rule name "${actual}" to be "${expected}".` },
+				fix: (fixer) => fixer.replaceTextRange([start, end], expected),
+				loc: {
+					end: sourceCode.getLocFromIndex(end),
+					start: sourceCode.getLocFromIndex(start)
+				},
+				messageId: "expected"
+			});
+		} };
+	}
+});
+//#endregion
+//#region src/core/text.ts
+const LINEBREAK_RE$13 = /[\n\r\f]/u;
+const WHITESPACE_RE$4 = /[ \t\n\r\f]/u;
+function newlineFor(text) {
+	return text.includes("\r\n") ? "\r\n" : "\n";
+}
+function isEscaped(text, index) {
+	let backslashes = 0;
+	for (let cursor = index - 1; cursor >= 0 && text[cursor] === "\\"; cursor -= 1) backslashes += 1;
+	return backslashes % 2 === 1;
+}
+function maskCommentsAndStrings(text) {
+	const characters = text.split("");
+	let quote = "";
+	for (let index = 0; index < characters.length; index += 1) {
+		const character = characters[index];
+		if (quote) {
+			if (character === "\\") {
+				characters[index] = " ";
+				if (index + 1 < characters.length) {
+					index += 1;
+					if (!LINEBREAK_RE$13.test(characters[index])) characters[index] = " ";
+				}
+			} else if (character === quote) {
+				characters[index] = " ";
+				quote = "";
+			} else if (!LINEBREAK_RE$13.test(character)) characters[index] = " ";
+			continue;
+		}
+		if ((character === "\"" || character === "'") && !isEscaped(text, index)) {
+			quote = character;
+			characters[index] = " ";
+			continue;
+		}
+		if (character === "/" && characters[index + 1] === "*" && !isEscaped(text, index)) {
+			characters[index] = " ";
+			characters[index + 1] = " ";
+			index += 2;
+			while (index < characters.length) {
+				if (characters[index] === "*" && characters[index + 1] === "/") {
+					characters[index] = " ";
+					characters[index + 1] = " ";
+					index += 1;
+					break;
+				}
+				if (!LINEBREAK_RE$13.test(characters[index])) characters[index] = " ";
+				index += 1;
+			}
+		}
+	}
+	return characters.join("");
+}
+function maskComments(text) {
+	const characters = text.split("");
+	for (let index = 0; index < characters.length; index += 1) {
+		if (characters[index] !== "/" || characters[index + 1] !== "*" || isEscaped(text, index)) continue;
+		characters[index] = " ";
+		characters[index + 1] = " ";
+		index += 2;
+		while (index < characters.length) {
+			if (characters[index] === "*" && characters[index + 1] === "/") {
+				characters[index] = " ";
+				characters[index + 1] = " ";
+				index += 1;
+				break;
+			}
+			if (!LINEBREAK_RE$13.test(characters[index])) characters[index] = " ";
+			index += 1;
+		}
+	}
+	return characters.join("");
+}
+function whitespaceBefore(text, index, minimum = 0) {
+	let start = index;
+	while (start > minimum && WHITESPACE_RE$4.test(text[start - 1])) start -= 1;
+	return {
+		end: index,
+		start
+	};
+}
+function whitespaceAfter(text, index, maximum = text.length) {
+	let end = index;
+	while (end < maximum && WHITESPACE_RE$4.test(text[end])) end += 1;
+	return {
+		end,
+		start: index
+	};
+}
+function isMultiline(text, range) {
+	return LINEBREAK_RE$13.test(text.slice(range.start, range.end));
+}
+function strings(text) {
+	const results = [];
+	for (let index = 0; index < text.length; index += 1) {
+		if (text[index] === "/" && text[index + 1] === "*" && !isEscaped(text, index)) {
+			const end = text.indexOf("*/", index + 2);
+			index = end === -1 ? text.length : end + 1;
+			continue;
+		}
+		const quote = text[index];
+		if (quote !== "\"" && quote !== "'" || isEscaped(text, index)) continue;
+		const start = index;
+		index += 1;
+		while (index < text.length) {
+			if (text[index] === "\\") {
+				index += 2;
+				continue;
+			}
+			if (text[index] === quote) {
+				results.push({
+					end: index + 1,
+					quote,
+					start
+				});
+				break;
+			}
+			index += 1;
+		}
+	}
+	return results;
+}
+//#endregion
+//#region src/core/comments.ts
+const commentIndexes = /* @__PURE__ */ new WeakMap();
+function commentIndex(sourceCode) {
+	const cached = commentIndexes.get(sourceCode);
+	if (cached) return cached;
+	const ranges = (sourceCode.comments ?? []).flatMap((comment) => comment.loc ? [{
+		end: comment.loc.end.offset,
+		start: comment.loc.start.offset
+	}] : []).sort((left, right) => left.start - right.start);
+	const index = {
+		byEnd: new Map(ranges.map((range) => [range.end, range.start])),
+		byStart: new Map(ranges.map((range) => [range.start, range.end])),
+		ranges
+	};
+	commentIndexes.set(sourceCode, index);
+	return index;
+}
+function firstCommentEndingAfter(sourceCode, index) {
+	const { ranges } = commentIndex(sourceCode);
+	let low = 0;
+	let high = ranges.length;
+	while (low < high) {
+		const middle = Math.floor((low + high) / 2);
+		if (ranges[middle].end <= index) low = middle + 1;
+		else high = middle;
+	}
+	return low;
+}
+function commentIntersects(sourceCode, range) {
+	const { ranges } = commentIndex(sourceCode);
+	const comment = ranges[firstCommentEndingAfter(sourceCode, range.start)];
+	return comment !== void 0 && comment.start < range.end;
+}
+function commentContains(sourceCode, range) {
+	const { ranges } = commentIndex(sourceCode);
+	const comment = ranges[firstCommentEndingAfter(sourceCode, range.start)];
+	return comment !== void 0 && comment.start <= range.start && comment.end >= range.end;
+}
+function commentsWithin(sourceCode, range) {
+	const { ranges } = commentIndex(sourceCode);
+	const comments = [];
+	for (let index = firstCommentEndingAfter(sourceCode, range.start); index < ranges.length; index += 1) {
+		const comment = ranges[index];
+		if (comment.start >= range.end) break;
+		if (comment.start >= range.start && comment.end <= range.end) comments.push(comment);
+	}
+	return comments;
+}
+function triviaAfter(sourceCode, index, maximum = sourceCode.text.length) {
+	const { byStart } = commentIndex(sourceCode);
+	let end = index;
+	while (end < maximum) {
+		end = whitespaceAfter(sourceCode.text, end, maximum).end;
+		const commentEnd = byStart.get(end);
+		if (commentEnd === void 0 || commentEnd > maximum) break;
+		end = commentEnd;
+	}
+	return {
+		end,
+		start: index
+	};
+}
+//#endregion
+//#region src/core/options.ts
+function optionValues(value) {
+	if (value === void 0) return [];
+	return Array.isArray(value) ? value : [value];
+}
+function optionMatches(value, patterns) {
+	return optionValues(patterns).some((pattern) => {
+		if (pattern instanceof RegExp) return new RegExp(pattern.source, pattern.flags).test(value);
+		if (typeof pattern !== "string") return false;
+		const delimiter = pattern.lastIndexOf("/");
+		if (pattern.startsWith("/") && delimiter > 0) return new RegExp(pattern.slice(1, delimiter), pattern.slice(delimiter + 1)).test(value);
+		return pattern === value;
+	});
+}
+function optionApplies(option, multiline) {
+	if (option.endsWith("-single-line")) return !multiline;
+	if (option.endsWith("-multi-line")) return multiline;
+	return true;
+}
+//#endregion
+//#region src/core/spacing.ts
+const COMMENT_RE = /\/\*[\s\S]*?\*\//gu;
+const COMMENT_SEPARATOR_RE$1 = /(\/\*[\s\S]*?\*\/)/gu;
+const LEADING_INDENT_RE$4 = /^[ \t]+(?=\r\n|\n\r|[\n\r\f])/u;
+const LINEBREAK_RE$12 = /[\n\r\f]/u;
+const NEWLINE_AT_START_RE$5 = /^(?:\r\n|\n\r|[\n\r\f])/u;
+const WHITESPACE_RUN_RE$3 = /[ \t\n\r\f]+/gu;
+function spacingFinding(text, punctuationIndex, side, kind, option, scope, options = {}) {
+	const { commentsAreTransparent = false, maskedComments, removeAllTransparentWhitespace = false } = options;
+	let whitespace = side === "before" ? whitespaceBefore(text, punctuationIndex) : whitespaceAfter(text, punctuationIndex + 1);
+	let actual = text.slice(whitespace.start, whitespace.end);
+	let transparentWhitespace = void 0;
+	let newlineBeforeComment = false;
+	let dirtyWhitespaceBeforeComment = false;
+	if (commentsAreTransparent) {
+		const masked = maskedComments ?? maskComments(text);
+		const fullWhitespace = side === "after" ? whitespaceAfter(masked, punctuationIndex + 1) : whitespaceBefore(masked, punctuationIndex);
+		if (fullWhitespace.end > whitespace.end || fullWhitespace.start < whitespace.start) {
+			transparentWhitespace = fullWhitespace;
+			actual = masked.slice(fullWhitespace.start, fullWhitespace.end);
+			const comments = [...text.slice(fullWhitespace.start, fullWhitespace.end).matchAll(COMMENT_RE)];
+			const lastComment = comments.at(-1);
+			const firstComment = comments[0];
+			if (firstComment && side === "after") {
+				const beforeComment = text.slice(fullWhitespace.start, fullWhitespace.start + (firstComment.index ?? 0));
+				newlineBeforeComment = NEWLINE_AT_START_RE$5.test(beforeComment);
+				dirtyWhitespaceBeforeComment = LINEBREAK_RE$12.test(beforeComment) && !newlineBeforeComment;
+			} else if (side === "before") newlineBeforeComment = LINEBREAK_RE$12.test(actual);
+			if (lastComment && side === "after" && !dirtyWhitespaceBeforeComment) whitespace = whitespaceAfter(text, fullWhitespace.start + (lastComment.index ?? 0) + lastComment[0].length);
+		}
+	}
+	if (!optionApplies(option, options.multiline ?? isMultiline(text, scope))) return;
+	const always = option.startsWith("always");
+	const fixWhitespace = text.slice(whitespace.start, whitespace.end);
+	let replacement = " ";
+	if (kind === "newline" && always) {
+		const newline = options.newline ?? newlineFor(text);
+		if (transparentWhitespace ? newlineBeforeComment || LINEBREAK_RE$12.test(fixWhitespace) : LINEBREAK_RE$12.test(actual)) replacement = fixWhitespace.replace(LEADING_INDENT_RE$4, "");
+		else replacement = newline + fixWhitespace;
+	}
+	if (always) {
+		if (kind === "newline" ? !dirtyWhitespaceBeforeComment && (newlineBeforeComment || NEWLINE_AT_START_RE$5.test(fixWhitespace)) : actual === " ") return;
+		return finding(whitespace.start, whitespace.end, replacement, `Expected ${kind} ${side} "${text[punctuationIndex]}".`, punctuationIndex, punctuationIndex + 1);
+	}
+	if (!(kind === "newline" ? transparentWhitespace && removeAllTransparentWhitespace ? text.slice(transparentWhitespace.start, transparentWhitespace.end).replace(COMMENT_RE, "").length > 0 : transparentWhitespace ? fixWhitespace.length > 0 : actual.length > 0 : actual.length > 0)) return;
+	const removalRange = kind === "newline" && transparentWhitespace && removeAllTransparentWhitespace ? transparentWhitespace : whitespace;
+	const removal = kind === "newline" && transparentWhitespace && removeAllTransparentWhitespace ? text.slice(removalRange.start, removalRange.end).split(COMMENT_SEPARATOR_RE$1).map((part) => part.startsWith("/*") ? part : part.replace(WHITESPACE_RUN_RE$3, "")).join("") : "";
+	return finding(removalRange.start, removalRange.end, removal, `Unexpected ${kind} ${side} "${text[punctuationIndex]}".`, punctuationIndex, punctuationIndex + 1);
+}
+//#endregion
+//#region src/visit/at-rule.ts
+const LEADING_INDENT_RE$3 = /^[ \t]+(?=\r\n|\n\r|[\n\r\f])/u;
+const LINEBREAK_RE$11 = /[\n\r\f]/u;
+const NEWLINE_AT_START_RE$4 = /^(?:\r\n|\n\r|[\n\r\f])/u;
+function visitAtRuleName(context, kind) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	const { text } = sourceCode;
+	const newline = kind === "newline" ? newlineFor(text) : void 0;
+	return { Atrule(node) {
+		const [atRuleStart, atRuleEnd] = sourceCode.getRange(node);
+		const nameEnd = atRuleStart + 1 + node.name.length;
+		const blockStart = node.block ? sourceCode.getRange(node.block)[0] : void 0;
+		let boundary = blockStart ?? (text[atRuleEnd - 1] === ";" ? atRuleEnd - 1 : atRuleEnd);
+		if (text[nameEnd] === ";" || text[nameEnd] === "{") return;
+		if (blockStart !== void 0 && text.slice(nameEnd, blockStart).trim() === "") return;
+		if (kind === "newline" && expectation === "always-multi-line") boundary = whitespaceBefore(text, boundary).start;
+		const scope = {
+			end: boundary,
+			start: atRuleStart
+		};
+		const problem = spacingFinding(text, nameEnd - 1, "after", kind, expectation, scope, {
+			multiline: isMultiline(text, scope),
+			newline
+		});
+		if (problem) reportFinding(context, problem);
+	} };
+}
+function visitAtRuleSemicolon(context, mode) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	const { text } = sourceCode;
+	const newline = newlineFor(text);
+	return { Atrule(node) {
+		if (node.block) return;
+		const [atRuleStart, atRuleEnd] = sourceCode.getRange(node);
+		const semicolon = atRuleEnd - 1;
+		if (text[semicolon] !== ";") return;
+		if (mode === "space-before") {
+			const problem = spacingFinding(text, semicolon, "before", "space", expectation, {
+				end: atRuleEnd,
+				start: atRuleStart
+			});
+			if (problem) reportFinding(context, problem);
+			return;
+		}
+		const gapStart = semicolon + 1;
+		const trivia = triviaAfter(sourceCode, gapStart);
+		const comments = commentsWithin(sourceCode, trivia);
+		const firstComment = comments[0];
+		const lastComment = comments.at(-1);
+		if (trivia.end === text.length) return;
+		const beforeFirstComment = firstComment ? text.slice(gapStart, firstComment.start) : "";
+		const newlineBeforeComment = NEWLINE_AT_START_RE$4.test(beforeFirstComment);
+		const dirtyWhitespaceBeforeComment = LINEBREAK_RE$11.test(beforeFirstComment) && !newlineBeforeComment;
+		const fixStart = lastComment && !dirtyWhitespaceBeforeComment ? lastComment.end : gapStart;
+		const fixEnd = whitespaceAfter(text, fixStart).end;
+		const fixWhitespace = text.slice(fixStart, fixEnd);
+		if (!dirtyWhitespaceBeforeComment && (newlineBeforeComment || NEWLINE_AT_START_RE$4.test(fixWhitespace))) return;
+		reportFinding(context, finding(fixStart, fixEnd, LINEBREAK_RE$11.test(fixWhitespace) ? fixWhitespace.replace(LEADING_INDENT_RE$3, "") : newline + fixWhitespace, "Expected newline after \";\".", semicolon, semicolon + 1));
+	} };
+}
+var at_rule_name_newline_after_default = createRule({
+	name: "at-rule-name-newline-after",
+	description: "Require a newline after at-rule names",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "always-multi-line"] }]
+	},
+	create(context) {
+		return visitAtRuleName(context, "newline");
+	}
+});
+var at_rule_name_space_after_default = createRule({
+	name: "at-rule-name-space-after",
+	description: "Require a single space after at-rule names",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "always-single-line"] }]
+	},
+	create(context) {
+		return visitAtRuleName(context, "space");
+	}
+});
+var at_rule_semicolon_newline_after_default = createRule({
+	name: "at-rule-semicolon-newline-after",
+	description: "Require a newline after at-rule semicolons",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always"] }]
+	},
+	create(context) {
+		return visitAtRuleSemicolon(context, "newline-after");
+	}
+});
+var at_rule_semicolon_space_before_default = createRule({
+	name: "at-rule-semicolon-space-before",
+	description: "Require or disallow whitespace before at-rule semicolons",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitAtRuleSemicolon(context, "space-before");
+	}
+});
+//#endregion
+//#region src/visit/block-brace.ts
+const BLOCK_EMPTY_RE = /^[ \t\n\r\f;]*$/u;
+const FOLLOWING_PUNCTUATION_RE$1 = /[}),;\]]/u;
+const LEADING_INDENT_RE$2 = /^[ \t]+(?=\r\n|\n\r|[\n\r\f])/u;
+const LINEBREAK_RE$10 = /\r\n|\n\r|[\n\r\f]/u;
+const LINEBREAK_RUN_RE$3 = /[\n\r\f]+/gu;
+const NEWLINE_AT_START_RE$3 = /^(?:\r\n|\n\r|[\n\r\f])/u;
+const TRAILING_SEMICOLONS_RE = /;(?:[ \t\n\r\f]*;)+[ \t\n\r\f]*$/u;
+const WHITESPACE_RE$3 = /[ \t\n\r\f]/u;
+const WHITESPACE_RUN_RE$2 = /[ \t\n\r\f]+/gu;
+function triviaBefore(sourceCode, index, minimum) {
+	const { text } = sourceCode;
+	const { byEnd } = commentIndex(sourceCode);
+	let start = index;
+	while (start > minimum) {
+		if (WHITESPACE_RE$3.test(text[start - 1])) {
+			start -= 1;
+			continue;
+		}
+		const commentStart = byEnd.get(start);
+		if (commentStart !== void 0 && commentStart >= minimum) {
+			start = commentStart;
+			continue;
+		}
+		break;
+	}
+	return {
+		end: index,
+		start
+	};
+}
+function trailingSemicolonFinding(text, block) {
+	const trailingSemicolons = text.slice(block.start + 1, block.end).match(TRAILING_SEMICOLONS_RE);
+	if (!trailingSemicolons || !WHITESPACE_RE$3.test(trailingSemicolons[0])) return;
+	const start = block.start + 1 + (trailingSemicolons.index ?? 0);
+	return {
+		detail: "Unexpected newline before \"}\".",
+		end: block.end,
+		replacement: trailingSemicolons[0].replace(WHITESPACE_RUN_RE$2, ""),
+		reportEnd: block.end + 1,
+		reportStart: block.end,
+		start
+	};
+}
+function openingBraceNewlineRemovalFinding(sourceCode, block) {
+	const { text } = sourceCode;
+	const fullTrivia = triviaAfter(sourceCode, block.start + 1, block.end);
+	const comments = commentsWithin(sourceCode, fullTrivia);
+	let cursor = fullTrivia.start;
+	let hasOutsideLinebreak = false;
+	let replacement = "";
+	for (const comment of comments) {
+		const whitespace = text.slice(cursor, comment.start);
+		hasOutsideLinebreak ||= LINEBREAK_RE$10.test(whitespace);
+		replacement += whitespace.replace(LINEBREAK_RUN_RE$3, "");
+		replacement += text.slice(comment.start, comment.end);
+		cursor = comment.end;
+	}
+	const trailingWhitespace = text.slice(cursor, fullTrivia.end);
+	hasOutsideLinebreak ||= LINEBREAK_RE$10.test(trailingWhitespace);
+	replacement += trailingWhitespace.replace(LINEBREAK_RUN_RE$3, "");
+	if (!hasOutsideLinebreak) return;
+	return {
+		detail: "Unexpected newline after \"{\".",
+		end: fullTrivia.end,
+		replacement,
+		reportEnd: block.start + 1,
+		reportStart: block.start,
+		start: fullTrivia.start
+	};
+}
+function blockIsEmpty(text, block) {
+	return BLOCK_EMPTY_RE.test(text.slice(block.start + 1, block.end));
+}
+function blockIsMultiline(text, block) {
+	return LINEBREAK_RE$10.test(text.slice(block.start, block.end));
+}
+function nextNonTriviaIndex(sourceCode, index) {
+	return triviaAfter(sourceCode, index, sourceCode.text.length).end;
+}
+function braceSpacingFinding(sourceCode, block, punctuationIndex, side, kind, option, commentsAreTransparent, newline) {
+	const { text } = sourceCode;
+	if (!optionApplies(option, blockIsMultiline(text, block))) return;
+	if (punctuationIndex === block.end && side === "before" && kind === "newline" && !option.startsWith("always")) {
+		const problem = trailingSemicolonFinding(text, block);
+		if (problem) return problem;
+	}
+	if (punctuationIndex === block.start && side === "after" && kind === "newline" && !option.startsWith("always")) {
+		const problem = openingBraceNewlineRemovalFinding(sourceCode, block);
+		if (problem) return problem;
+	}
+	const minimum = punctuationIndex === block.end ? block.start + 1 : 0;
+	const maximum = punctuationIndex === block.start ? block.end : text.length;
+	let whitespace = side === "before" ? whitespaceBefore(text, punctuationIndex, minimum) : whitespaceAfter(text, punctuationIndex + 1, maximum);
+	let actual = text.slice(whitespace.start, whitespace.end);
+	let transparentTrivia = void 0;
+	let newlineBeforeComment = false;
+	let dirtyWhitespaceBeforeComment = false;
+	if (commentsAreTransparent) {
+		const fullTrivia = side === "after" ? triviaAfter(sourceCode, punctuationIndex + 1, maximum) : triviaBefore(sourceCode, punctuationIndex, minimum);
+		if (fullTrivia.end > whitespace.end || fullTrivia.start < whitespace.start) {
+			transparentTrivia = fullTrivia;
+			const comments = commentsWithin(sourceCode, fullTrivia);
+			const firstComment = comments[0];
+			const lastComment = comments.at(-1);
+			if (firstComment && side === "after") {
+				const beforeComment = text.slice(fullTrivia.start, firstComment.start);
+				newlineBeforeComment = NEWLINE_AT_START_RE$3.test(beforeComment);
+				dirtyWhitespaceBeforeComment = LINEBREAK_RE$10.test(beforeComment) && !newlineBeforeComment;
+			} else if (side === "before") newlineBeforeComment = LINEBREAK_RE$10.test(text.slice(fullTrivia.start, fullTrivia.end));
+			if (lastComment && side === "after" && !dirtyWhitespaceBeforeComment) whitespace = whitespaceAfter(text, lastComment.end, maximum);
+			actual = text.slice(fullTrivia.start, fullTrivia.end);
+		}
+	}
+	const always = option.startsWith("always");
+	const fixWhitespace = text.slice(whitespace.start, whitespace.end);
+	let replacement = " ";
+	if (kind === "newline" && always) replacement = (transparentTrivia ? newlineBeforeComment || LINEBREAK_RE$10.test(fixWhitespace) : LINEBREAK_RE$10.test(actual)) ? fixWhitespace.replace(LEADING_INDENT_RE$2, "") : newline + fixWhitespace;
+	if (always) {
+		if (kind === "newline" ? !dirtyWhitespaceBeforeComment && (newlineBeforeComment || NEWLINE_AT_START_RE$3.test(fixWhitespace)) : actual === " ") return;
+		return {
+			detail: `Expected ${kind} ${side} "${text[punctuationIndex]}".`,
+			end: whitespace.end,
+			replacement,
+			reportEnd: punctuationIndex + 1,
+			reportStart: punctuationIndex,
+			start: whitespace.start
+		};
+	}
+	if (!(transparentTrivia ? fixWhitespace.length > 0 : actual.length > 0)) return;
+	return {
+		detail: `Unexpected ${kind} ${side} "${text[punctuationIndex]}".`,
+		end: whitespace.end,
+		replacement: "",
+		reportEnd: punctuationIndex + 1,
+		reportStart: punctuationIndex,
+		start: whitespace.start
+	};
+}
+function visitBlockBrace(context, option, brace, side, kind, commentsAreTransparent, shouldIgnore) {
+	const { sourceCode } = context;
+	const newline = newlineFor(sourceCode.text);
+	return { "Atrule > Block, Rule > Block": (node, parent) => {
+		if (shouldIgnore?.(parent)) return;
+		const [start, end] = sourceCode.getRange(node);
+		const block = {
+			end: end - 1,
+			start
+		};
+		if (!(brace === "}" && side === "after") && blockIsEmpty(sourceCode.text, block)) return;
+		if (brace === "}" && side === "after") {
+			const next = nextNonTriviaIndex(sourceCode, block.end + 1);
+			if (next === sourceCode.text.length || FOLLOWING_PUNCTUATION_RE$1.test(sourceCode.text[next])) return;
+		}
+		const punctuationIndex = brace === "{" ? block.start : block.end;
+		const problem = braceSpacingFinding(sourceCode, block, punctuationIndex, side, kind, option, commentsAreTransparent, newline);
+		if (!problem) return;
+		reportFinding(context, problem);
+	} };
+}
+//#endregion
+//#region src/rules/block-closing-brace-empty-line-before/index.ts
+const ruleName$71 = "block-closing-brace-empty-line-before";
+const LINEBREAK_RE$9 = /\r\n|\n\r|[\n\r\f]/gu;
+const TRAILING_INDENT_RE = /[ \t]*$/u;
+var block_closing_brace_empty_line_before_default = createRule({
+	name: ruleName$71,
+	description: "Require or disallow an empty line before closing braces",
+	meta: {
+		defaultOptions: ["never", { except: [] }],
+		schema: [{ enum: ["always-multi-line", "never"] }, {
+			additionalProperties: false,
+			properties: { except: { anyOf: [{ enum: ["after-closing-brace"] }, {
+				items: { enum: ["after-closing-brace"] },
+				type: "array"
+			}] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const { text } = sourceCode;
+		const [option, secondary] = context.options;
+		const exceptAfterClosingBrace = optionValues(secondary.except).includes("after-closing-brace");
+		const newline = newlineFor(text);
+		return { "Atrule > Block, Rule > Block": (node) => {
+			const [start, end] = sourceCode.getRange(node);
+			const block = {
+				end: end - 1,
+				start
+			};
+			if (blockIsEmpty(text, block)) return;
+			let whitespace = whitespaceBefore(text, block.end, block.start + 1);
+			let actual = text.slice(whitespace.start, whitespace.end);
+			let breaks = actual.match(LINEBREAK_RE$9)?.length ?? 0;
+			if (breaks === 0 && text[whitespace.start - 1] === ";") {
+				const beforeExtraSemicolon = whitespaceBefore(text, whitespace.start - 1, block.start + 1);
+				const earlierBreaks = text.slice(beforeExtraSemicolon.start, beforeExtraSemicolon.end).match(LINEBREAK_RE$9)?.length ?? 0;
+				if (earlierBreaks > 1) {
+					whitespace = beforeExtraSemicolon;
+					actual = text.slice(whitespace.start, whitespace.end);
+					breaks = earlierBreaks;
+				}
+			}
+			const afterClosingBrace = text[whitespace.start - 1] === "}";
+			const baseAlways = option === "always-multi-line" && blockIsMultiline(text, block);
+			const always = exceptAfterClosingBrace && afterClosingBrace ? !baseAlways : baseAlways;
+			const indentation = actual.match(TRAILING_INDENT_RE)?.[0] ?? "";
+			let replacement = void 0;
+			let detail = "";
+			if (always && breaks < 2) {
+				replacement = newline + actual;
+				detail = "Expected an empty line before closing brace.";
+			} else if (!always && breaks > 1) {
+				replacement = newline + indentation;
+				detail = "Unexpected empty line before closing brace.";
+			}
+			if (replacement === void 0) return;
+			context.report({
+				data: { detail },
+				fix: (fixer) => fixer.replaceTextRange([whitespace.start, whitespace.end], replacement),
+				loc: {
+					end: sourceCode.getLocFromIndex(whitespace.end),
+					start: sourceCode.getLocFromIndex(whitespace.start)
+				},
+				messageId: "expected"
+			});
+		} };
+	}
+});
+var block_closing_brace_newline_after_default = createRule({
+	name: "block-closing-brace-newline-after",
+	description: "Require or disallow a newline after closing braces",
+	meta: {
+		defaultOptions: ["always", { ignoreAtRules: [] }],
+		schema: [{ enum: [
+			"always",
+			"always-single-line",
+			"never-single-line",
+			"always-multi-line",
+			"never-multi-line"
+		] }, {
+			additionalProperties: false,
+			properties: { ignoreAtRules: { anyOf: [
+				{ type: "string" },
+				{
+					additionalProperties: false,
+					type: "object"
+				},
+				{
+					items: { anyOf: [{ type: "string" }, {
+						additionalProperties: false,
+						type: "object"
+					}] },
+					type: "array"
+				}
+			] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const [option, secondary] = context.options;
+		return visitBlockBrace(context, option, "}", "after", "newline", true, (parent) => parent.type === "Atrule" && optionMatches(parent.name, secondary.ignoreAtRules));
+	}
+});
+var block_closing_brace_newline_before_default = createRule({
+	name: "block-closing-brace-newline-before",
+	description: "Require or disallow a newline before closing braces",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		const [option] = context.options;
+		return visitBlockBrace(context, option, "}", "before", "newline", true);
+	}
+});
+var block_closing_brace_space_after_default = createRule({
+	name: "block-closing-brace-space-after",
+	description: "Require or disallow a space after closing braces",
+	meta: {
+		defaultOptions: ["always-single-line"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		const [option] = context.options;
+		return visitBlockBrace(context, option, "}", "after", "space", false);
+	}
+});
+var block_closing_brace_space_before_default = createRule({
+	name: "block-closing-brace-space-before",
+	description: "Require or disallow a space before closing braces",
+	meta: {
+		defaultOptions: ["always-single-line"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		const [option] = context.options;
+		return visitBlockBrace(context, option, "}", "before", "space", false);
+	}
+});
+var block_opening_brace_newline_after_default = createRule({
+	name: "block-opening-brace-newline-after",
+	description: "Require or disallow a newline after opening braces",
+	meta: {
+		defaultOptions: ["always", { ignore: [] }],
+		schema: [{ enum: [
+			"always",
+			"rules",
+			"always-multi-line",
+			"never-multi-line"
+		] }, {
+			additionalProperties: false,
+			properties: { ignore: { anyOf: [{ enum: ["rules"] }, {
+				items: { enum: ["rules"] },
+				type: "array"
+			}] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const [option, secondary] = context.options;
+		const ignored = optionValues(secondary.ignore);
+		return visitBlockBrace(context, option, "{", "after", "newline", true, (parent) => parent.type === "Rule" && ignored.includes("rules"));
+	}
+});
+var block_opening_brace_newline_before_default = createRule({
+	name: "block-opening-brace-newline-before",
+	description: "Require or disallow a newline before opening braces",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"always-single-line",
+			"never-single-line",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		const [option] = context.options;
+		return visitBlockBrace(context, option, "{", "before", "newline", false);
+	}
+});
+var block_opening_brace_space_after_default = createRule({
+	name: "block-opening-brace-space-after",
+	description: "Require or disallow a space after opening braces",
+	meta: {
+		defaultOptions: ["always-single-line", { ignore: [] }],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line",
+			"always-multi-line",
+			"never-multi-line"
+		] }, {
+			additionalProperties: false,
+			properties: { ignore: { anyOf: [{ enum: ["at-rules"] }, {
+				items: { enum: ["at-rules"] },
+				type: "array"
+			}] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const [option, secondary] = context.options;
+		const ignored = optionValues(secondary.ignore);
+		return visitBlockBrace(context, option, "{", "after", "space", false, (parent) => parent.type === "Atrule" && ignored.includes("at-rules"));
+	}
+});
+var block_opening_brace_space_before_default = createRule({
+	name: "block-opening-brace-space-before",
+	description: "Require or disallow a space before opening braces",
+	meta: {
+		defaultOptions: ["always", {
+			ignoreAtRules: [],
+			ignoreSelectors: []
+		}],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line",
+			"always-multi-line",
+			"never-multi-line"
+		] }, {
+			additionalProperties: false,
+			properties: {
+				ignoreAtRules: { anyOf: [
+					{ type: "string" },
+					{
+						additionalProperties: false,
+						type: "object"
+					},
+					{
+						items: { anyOf: [{ type: "string" }, {
+							additionalProperties: false,
+							type: "object"
+						}] },
+						type: "array"
+					}
+				] },
+				ignoreSelectors: { anyOf: [
+					{ type: "string" },
+					{
+						additionalProperties: false,
+						type: "object"
+					},
+					{
+						items: { anyOf: [{ type: "string" }, {
+							additionalProperties: false,
+							type: "object"
+						}] },
+						type: "array"
+					}
+				] }
+			},
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [option, secondary] = context.options;
+		return visitBlockBrace(context, option, "{", "before", "space", false, (parent) => {
+			if (parent.type === "Atrule" && optionMatches(parent.name, secondary.ignoreAtRules)) return true;
+			if (parent.type === "Rule") {
+				const [selectorStart, selectorEnd] = sourceCode.getRange(parent.prelude);
+				if (optionMatches(sourceCode.text.slice(selectorStart, selectorEnd), secondary.ignoreSelectors)) return true;
+			}
+			return false;
+		});
+	}
+});
+//#endregion
+//#region src/rules/color-hex-case/index.ts
+const ruleName$62 = "color-hex-case";
+const HASH_WORD_RE = /^#[\da-z]+/iu;
+const IDENTIFIER_CHARACTER_RE = /[-\w]/u;
+var color_hex_case_default = createRule({
+	name: ruleName$62,
+	description: "Specify lowercase or uppercase for hexadecimal colors",
+	meta: {
+		defaultOptions: ["lower"],
+		schema: [{ enum: ["lower", "upper"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		function check(actual, start, end) {
+			const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+			if (actual === expected) return;
+			context.report({
+				data: { detail: `Expected hexadecimal color "${actual}" to be "${expected}".` },
+				fix: (fixer) => fixer.replaceTextRange([start, end], expected),
+				loc: {
+					end: sourceCode.getLocFromIndex(end),
+					start: sourceCode.getLocFromIndex(start)
+				},
+				messageId: "expected"
+			});
+		}
+		return {
+			"Block > Declaration Hash": (node) => {
+				const [start, end] = sourceCode.getRange(node);
+				if (IDENTIFIER_CHARACTER_RE.test(sourceCode.text[start - 1] ?? "") || sourceCode.text[end] === "(") return;
+				check(sourceCode.getText(node), start, end);
+			},
+			"Block > Declaration Raw": (node) => {
+				const [valueStart] = sourceCode.getRange(node);
+				const value = sourceCode.getText(node);
+				new ValueParser(value).walk((parsedNode) => {
+					if (parsedNode.type === "function" && parsedNode.value.toLowerCase() === "url") return false;
+					if (parsedNode.type !== "word" || !HASH_WORD_RE.test(parsedNode.value)) return;
+					const start = valueStart + parsedNode.sourceIndex;
+					check(parsedNode.value, start, start + parsedNode.value.length);
+				});
+			}
+		};
+	}
+});
+//#endregion
+//#region src/visit/declaration.ts
+const LINEBREAK_RE$8 = /[\n\r\f]/u;
+const WHITESPACE_RE$2 = /[ \t\n\r\f]/u;
+function declarationColonIndex(sourceCode, declarationStart, valueStart) {
+	const { text } = sourceCode;
+	let index = text.indexOf(":", declarationStart);
+	while (index !== -1 && index < valueStart) {
+		const candidate = index;
+		if (!commentIntersects(sourceCode, {
+			end: candidate + 1,
+			start: candidate
+		}) && !isEscaped(text, candidate)) return candidate;
+		index = text.indexOf(":", candidate + 1);
+	}
+	return -1;
+}
+function declarationBangIndex(sourceCode, valueEnd, declarationEnd) {
+	const { text } = sourceCode;
+	let index = text.indexOf("!", valueEnd);
+	while (index !== -1 && index < declarationEnd) {
+		const candidate = index;
+		if (!commentIntersects(sourceCode, {
+			end: candidate + 1,
+			start: candidate
+		})) return candidate;
+		index = text.indexOf("!", candidate + 1);
+	}
+	return -1;
+}
+function semicolonBoundaries(sourceCode, block) {
+	const boundaries = [];
+	for (const child of block.children) if (child.type === "Declaration") {
+		const [, declarationEnd] = sourceCode.getRange(child);
+		if (sourceCode.text[declarationEnd] === ";") boundaries.push({
+			declaration: child,
+			index: declarationEnd
+		});
+	} else if (child.type === "Raw" && child.value === ";") {
+		const [semicolon] = sourceCode.getRange(child);
+		boundaries.push({ index: semicolon });
+	}
+	return boundaries;
+}
+function visitDeclarationBang(context, side) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	return { [`Block > Declaration[important=true],\
+      Block > Declaration[important=type(string)]`]: (node) => {
+		const [declarationStart, declarationEnd] = sourceCode.getRange(node);
+		const [, valueEnd] = sourceCode.getRange(node.value);
+		const bang = declarationBangIndex(sourceCode, valueEnd, declarationEnd);
+		if (bang === -1) return;
+		const problem = spacingFinding(sourceCode.text, bang, side, "space", option, side === "after" ? {
+			end: declarationEnd,
+			start: bang
+		} : {
+			end: bang + 1,
+			start: declarationStart
+		});
+		if (problem) reportFinding(context, problem);
+	} };
+}
+function visitDeclarationColon(context, side, kind) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	const maskedComments = kind === "newline" ? maskComments(text) : void 0;
+	const newline = kind === "newline" ? newlineFor(text) : void 0;
+	return { "Block > Declaration": (node) => {
+		const [declarationStart, declarationEnd] = sourceCode.getRange(node);
+		const [valueStart, rawValueEnd] = sourceCode.getRange(node.value);
+		const colon = declarationColonIndex(sourceCode, declarationStart, valueStart);
+		if (colon < declarationStart) return;
+		let valueEnd = rawValueEnd;
+		if (kind === "newline") {
+			valueEnd = Math.min(valueEnd, declarationEnd);
+			while (valueEnd > valueStart && WHITESPACE_RE$2.test(text[valueEnd - 1])) valueEnd -= 1;
+		}
+		const scope = side === "before" ? {
+			end: valueEnd,
+			start: declarationStart
+		} : {
+			end: kind === "newline" ? valueEnd : declarationEnd,
+			start: valueStart
+		};
+		const problem = spacingFinding(text, colon, side, kind, option, scope, kind === "newline" ? {
+			commentsAreTransparent: true,
+			maskedComments,
+			multiline: isMultiline(text, scope),
+			newline
+		} : void 0);
+		if (problem) reportFinding(context, problem);
+	} };
+}
+function visitDeclarationSemicolon(context, side, kind) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	const maskedComments = side === "after" && kind === "newline" ? maskComments(text) : void 0;
+	const newline = kind === "newline" ? newlineFor(text) : void 0;
+	return { Block(node) {
+		const [blockStart, rawBlockEnd] = sourceCode.getRange(node);
+		const blockEnd = rawBlockEnd - 1;
+		const scope = {
+			end: blockEnd,
+			start: blockStart
+		};
+		const multiline = isMultiline(text, scope);
+		const lastChild = node.children.at(-1);
+		const lastChildStart = lastChild ? sourceCode.getRange(lastChild)[0] : blockEnd;
+		for (const { declaration, index } of semicolonBoundaries(sourceCode, node)) {
+			if (side === "after" && lastChildStart <= index) continue;
+			let problem;
+			if (side === "before" && declaration) {
+				const whitespace = whitespaceBefore(text, index);
+				const actual = text.slice(whitespace.start, whitespace.end);
+				if (declaration.property.startsWith("--") && sourceCode.getText(declaration.value).trim() === "" && (kind === "space" && option.startsWith("never") || kind === "newline" && !option.startsWith("always") && !LINEBREAK_RE$8.test(actual))) {
+					if (actual.length <= 1) continue;
+					problem = finding(whitespace.start, whitespace.end, " ", `Unexpected ${kind} before ";".`, index, index + 1);
+				}
+			}
+			problem ??= spacingFinding(text, index, side, kind, option, scope, {
+				commentsAreTransparent: side === "after" && kind === "newline",
+				maskedComments,
+				multiline,
+				newline
+			});
+			if (!problem) continue;
+			if (side === "before" && kind === "newline" && option.startsWith("always") && problem.replacement) problem.replacement = newline;
+			reportFinding(context, problem);
+		}
+	} };
+}
+function visitDeclarationTrailingSemicolon(context) {
+	const { sourceCode } = context;
+	const [option, secondary] = context.options;
+	const ignoreSingleDeclaration = optionValues(secondary.ignore).includes("single-declaration");
+	return { Block(node) {
+		const declarations = node.children.filter((child) => child.type === "Declaration");
+		let lastChildIndex = node.children.length - 1;
+		while (lastChildIndex >= 0) {
+			const child = node.children[lastChildIndex];
+			if (child?.type !== "Raw" || child.value !== ";") break;
+			lastChildIndex -= 1;
+		}
+		const lastChild = node.children[lastChildIndex];
+		if (!lastChild || lastChild.type !== "Declaration" || ignoreSingleDeclaration && declarations.length === 1) return;
+		const text = sourceCode.text;
+		const [, declarationEnd] = sourceCode.getRange(lastChild);
+		const trailingSemicolons = semicolonBoundaries(sourceCode, node).filter(({ index }) => index >= declarationEnd);
+		const hasSemicolon = trailingSemicolons.length > 0;
+		if (option === "always" && !hasSemicolon) {
+			let insertion = declarationEnd;
+			while (insertion > 0 && WHITESPACE_RE$2.test(text[insertion - 1])) insertion -= 1;
+			reportFinding(context, finding(insertion, insertion, ";", "Expected a trailing semicolon."));
+		} else if (option === "never" && hasSemicolon) {
+			const firstSemicolon = trailingSemicolons[0];
+			const lastSemicolon = trailingSemicolons.at(-1);
+			if (!firstSemicolon || !lastSemicolon) return;
+			const start = firstSemicolon.index;
+			const end = lastSemicolon.index + 1;
+			let replacement = "";
+			let unchangedStart = start;
+			for (const { index } of trailingSemicolons) {
+				replacement += text.slice(unchangedStart, index);
+				unchangedStart = index + 1;
+			}
+			replacement += text.slice(unchangedStart, end);
+			reportFinding(context, finding(start, end, replacement, "Unexpected trailing semicolon."));
+		}
+	} };
+}
+var declaration_bang_space_after_default = createRule({
+	name: "declaration-bang-space-after",
+	description: "Require or disallow whitespace after declaration bangs",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitDeclarationBang(context, "after");
+	}
+});
+var declaration_bang_space_before_default = createRule({
+	name: "declaration-bang-space-before",
+	description: "Require or disallow whitespace before declaration bangs",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitDeclarationBang(context, "before");
+	}
+});
+var declaration_block_semicolon_newline_after_default = createRule({
+	name: "declaration-block-semicolon-newline-after",
+	description: "Require or disallow a newline after declaration semicolons",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitDeclarationSemicolon(context, "after", "newline");
+	}
+});
+var declaration_block_semicolon_newline_before_default = createRule({
+	name: "declaration-block-semicolon-newline-before",
+	description: "Require or disallow a newline before declaration semicolons",
+	meta: {
+		defaultOptions: ["never-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitDeclarationSemicolon(context, "before", "newline");
+	}
+});
+var declaration_block_semicolon_space_after_default = createRule({
+	name: "declaration-block-semicolon-space-after",
+	description: "Require or disallow a space after declaration semicolons",
+	meta: {
+		defaultOptions: ["always-single-line"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitDeclarationSemicolon(context, "after", "space");
+	}
+});
+var declaration_block_semicolon_space_before_default = createRule({
+	name: "declaration-block-semicolon-space-before",
+	description: "Require or disallow a space before declaration semicolons",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitDeclarationSemicolon(context, "before", "space");
+	}
+});
+var declaration_block_trailing_semicolon_default = createRule({
+	name: "declaration-block-trailing-semicolon",
+	description: "Require or disallow a trailing semicolon in declaration blocks",
+	meta: {
+		defaultOptions: ["always", { ignore: [] }],
+		schema: [{ enum: ["always", "never"] }, {
+			additionalProperties: false,
+			properties: { ignore: { anyOf: [{ enum: ["single-declaration"] }, {
+				items: { enum: ["single-declaration"] },
+				type: "array"
+			}] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		return visitDeclarationTrailingSemicolon(context);
+	}
+});
+var declaration_colon_newline_after_default = createRule({
+	name: "declaration-colon-newline-after",
+	description: "Require a newline after declaration colons",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "always-multi-line"] }]
+	},
+	create(context) {
+		return visitDeclarationColon(context, "after", "newline");
+	}
+});
+var declaration_colon_space_after_default = createRule({
+	name: "declaration-colon-space-after",
+	description: "Require or disallow whitespace after declaration colons",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line"
+		] }]
+	},
+	create(context) {
+		return visitDeclarationColon(context, "after", "space");
+	}
+});
+var declaration_colon_space_before_default = createRule({
+	name: "declaration-colon-space-before",
+	description: "Require or disallow whitespace before declaration colons",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitDeclarationColon(context, "before", "space");
+	}
+});
+//#endregion
+//#region src/visit/function.ts
+const COMMENT_SEPARATOR_RE = /(\/\*[\s\S]*?\*\/)/gu;
+const FOLLOWING_PUNCTUATION_RE = /[,:/)};]/u;
+const LINEBREAK_RE$7 = /[\n\r\f]/u;
+const LINEBREAK_MATCH_RE$1 = /\r\n|\n\r|[\n\r\f]/gu;
+const LINEBREAK_RUN_RE$2 = /(?:\r\n|\n\r|[\n\r\f])+/gu;
+const WHITESPACE_RE$1 = /[ \t\n\r\f]/u;
+const WHITESPACE_RUN_RE$1 = /[ \t\n\r\f]+/gu;
+function visitFunctionsInDeclarations(context, checkFunction) {
+	const { sourceCode } = context;
+	return {
+		"Block > Declaration > Raw": (node) => {
+			const [valueStart] = sourceCode.getRange(node);
+			new ValueParser(sourceCode.getText(node)).walk((parsedNode) => {
+				if (parsedNode.type === "function") checkFunction(valueStart + parsedNode.sourceIndex, valueStart + parsedNode.sourceEndIndex);
+			});
+		},
+		"Block > Declaration Function, Block > Declaration Url": (node) => {
+			checkFunction(...sourceCode.getRange(node));
+		}
+	};
+}
+function visitFunctionComma(context, side, kind) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	const newline = kind === "newline" ? newlineFor(text) : void 0;
+	const functionScopes = /* @__PURE__ */ new WeakMap();
+	function checkComma(index, scope, multiline) {
+		if (!optionApplies(option, multiline)) return;
+		if (kind === "newline" && option.startsWith("always")) {
+			const whitespace = side === "after" ? whitespaceAfter(text, index + 1) : whitespaceBefore(text, index);
+			const actual = text.slice(whitespace.start, whitespace.end);
+			if (LINEBREAK_RE$7.test(actual)) return;
+			if (side === "after" && actual === " " && text.startsWith("/*", whitespace.end)) {
+				const commentEnd = text.indexOf("*/", whitespace.end + 2);
+				if (commentEnd !== -1 && LINEBREAK_RE$7.test(text.slice(commentEnd + 2, whitespaceAfter(text, commentEnd + 2).end))) return;
+			}
+		}
+		if (kind === "space" && side === "after" && option.startsWith("never")) {
+			const start = index + 1;
+			let end = start;
+			while (end < scope.end) {
+				while (end < scope.end && WHITESPACE_RE$1.test(text[end] ?? "")) end += 1;
+				if (!text.startsWith("/*", end)) break;
+				const commentEnd = text.indexOf("*/", end + 2);
+				if (commentEnd === -1 || commentEnd + 2 > scope.end) break;
+				end = commentEnd + 2;
+			}
+			const actual = text.slice(start, end);
+			const replacement = actual.split(COMMENT_SEPARATOR_RE).map((part) => part.startsWith("/*") ? part : part.replace(WHITESPACE_RUN_RE$1, "")).join("");
+			if (actual !== replacement) reportFinding(context, finding(start, end, replacement, "Unexpected space after \",\".", index, index + 1));
+			return;
+		}
+		const problem = spacingFinding(text, index, side, kind, option, scope, {
+			multiline,
+			newline
+		});
+		if (!problem) return;
+		if (kind === "newline" && problem.replacement) problem.replacement = newline;
+		reportFinding(context, problem);
+	}
+	function checkRawValue(value, valueStart) {
+		const parsed = new ValueParser(value);
+		function visit(nodes) {
+			for (const parsedNode of nodes) {
+				if (parsedNode.type !== "function" || parsedNode.value.toLowerCase() === "url") continue;
+				const scope = {
+					start: valueStart + parsedNode.sourceIndex,
+					end: valueStart + parsedNode.sourceEndIndex - 1
+				};
+				const multiline = isMultiline(text, scope);
+				for (const child of parsedNode.nodes) if (child.type === "div" && child.value === ",") checkComma(valueStart + child.sourceIndex + child.before.length, scope, multiline);
+				visit(parsedNode.nodes);
+			}
+		}
+		visit(parsed.nodes);
+	}
+	return {
+		"Block > Declaration > Raw": (node) => {
+			const [valueStart] = sourceCode.getRange(node);
+			checkRawValue(sourceCode.getText(node), valueStart);
+		},
+		"Block > Declaration Function > Operator[value=',']": (node, parent) => {
+			const [index] = sourceCode.getRange(node);
+			let scope = functionScopes.get(parent);
+			if (!scope) {
+				const [start, end] = sourceCode.getRange(parent);
+				const range = {
+					end: end - 1,
+					start
+				};
+				scope = {
+					multiline: isMultiline(text, range),
+					range
+				};
+				functionScopes.set(parent, scope);
+			}
+			checkComma(index, scope.range, scope.multiline);
+		}
+	};
+}
+function visitFunctionParentheses(context, kind) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	const newline = kind === "newline" ? newlineFor(text) : void 0;
+	const maskedComments = kind === "newline" ? maskComments(text) : void 0;
+	function checkFunction(start, end) {
+		const open = text.indexOf("(", start);
+		const close = end - 1;
+		if (open === -1 || open >= close || kind === "space" && text.slice(open + 1, close).trim() === "") return;
+		const scope = {
+			end: close,
+			start
+		};
+		const multiline = isMultiline(text, scope);
+		const options = kind === "newline" ? {
+			commentsAreTransparent: true,
+			maskedComments,
+			multiline,
+			newline,
+			removeAllTransparentWhitespace: true
+		} : { multiline };
+		for (const [punctuation, side] of [[open, "after"], [close, "before"]]) {
+			const problem = spacingFinding(text, punctuation, side, kind, option, scope, options);
+			if (problem) reportFinding(context, problem);
+		}
+	}
+	return visitFunctionsInDeclarations(context, checkFunction);
+}
+function visitFunctionMaxEmptyLines(context) {
+	const { sourceCode } = context;
+	const [maximum] = context.options;
+	const text = sourceCode.text;
+	const newline = newlineFor(text);
+	function checkFunction(start, end) {
+		const open = text.indexOf("(", start);
+		const close = end - 1;
+		if (open === -1 || open >= close) return;
+		const innerStart = open + 1;
+		const source = text.slice(innerStart, close);
+		const permittedLineBreaks = maximum + 1;
+		let replacement = "";
+		let cursor = 0;
+		let changed = false;
+		for (const match of source.matchAll(LINEBREAK_RUN_RE$2)) {
+			replacement += source.slice(cursor, match.index);
+			cursor = match.index + match[0].length;
+			if ((match[0].match(LINEBREAK_MATCH_RE$1)?.length ?? 0) <= permittedLineBreaks) {
+				replacement += match[0];
+				continue;
+			}
+			changed = true;
+			replacement += newline.repeat(permittedLineBreaks);
+		}
+		if (!changed) return;
+		replacement += source.slice(cursor);
+		reportFinding(context, finding(innerStart, close, replacement, `Expected no more than ${maximum} empty line(s) within functions.`));
+	}
+	return visitFunctionsInDeclarations(context, checkFunction);
+}
+function visitFunctionWhitespaceAfter(context) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	let declarationEnd = -1;
+	let importPreludeEnd = -1;
+	function checkFunction(end, checkedEnd) {
+		if (end >= checkedEnd) return;
+		const next = text[end];
+		if (!next || FOLLOWING_PUNCTUATION_RE.test(next)) return;
+		const whitespace = whitespaceAfter(text, end);
+		const actual = text.slice(whitespace.start, whitespace.end);
+		if (option === "always") {
+			if (next === " " || next === "\n" || next === "\r" && text[end + 1] === "\n") return;
+		} else if (actual.length === 0) return;
+		reportFinding(context, finding(whitespace.start, whitespace.end, option === "always" ? " " : "", option === "always" ? "Expected whitespace after function." : "Unexpected whitespace after function.", end - 1, end));
+	}
+	return {
+		"Atrule[name=/^import$/i] > AtrulePrelude": (node) => {
+			const [, end] = sourceCode.getRange(node);
+			importPreludeEnd = whitespaceBefore(text, end).start;
+		},
+		"Atrule[name=/^import$/i] > AtrulePrelude:exit": () => {
+			importPreludeEnd = -1;
+		},
+		"Block > Declaration": (node) => {
+			const [, end] = sourceCode.getRange(node);
+			declarationEnd = whitespaceBefore(text, end).start;
+		},
+		"Block > Declaration:exit": () => {
+			declarationEnd = -1;
+		},
+		"Block > Declaration > Raw": (node) => {
+			const [valueStart] = sourceCode.getRange(node);
+			new ValueParser(sourceCode.getText(node)).walk((parsedNode) => {
+				if (parsedNode.type === "function") checkFunction(valueStart + parsedNode.sourceEndIndex, declarationEnd);
+			});
+		},
+		"Block > Declaration Function, Block > Declaration Url": (node) => {
+			checkFunction(sourceCode.getRange(node)[1], declarationEnd);
+		},
+		[`Atrule[name=/^import$/i] > AtrulePrelude Function,\
+      Atrule[name=/^import$/i] > AtrulePrelude Url`]: (node) => {
+			checkFunction(sourceCode.getRange(node)[1], importPreludeEnd);
+		}
+	};
+}
+var function_comma_newline_after_default = createRule({
+	name: "function-comma-newline-after",
+	description: "Require or disallow a newline after function commas",
+	meta: {
+		defaultOptions: ["always-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitFunctionComma(context, "after", "newline");
+	}
+});
+var function_comma_newline_before_default = createRule({
+	name: "function-comma-newline-before",
+	description: "Require or disallow a newline before function commas",
+	meta: {
+		defaultOptions: ["never-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitFunctionComma(context, "before", "newline");
+	}
+});
+var function_comma_space_after_default = createRule({
+	name: "function-comma-space-after",
+	description: "Require or disallow a space after function commas",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitFunctionComma(context, "after", "space");
+	}
+});
+var function_comma_space_before_default = createRule({
+	name: "function-comma-space-before",
+	description: "Require or disallow a space before function commas",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitFunctionComma(context, "before", "space");
+	}
+});
+var function_max_empty_lines_default = createRule({
+	name: "function-max-empty-lines",
+	description: "Limit the number of adjacent empty lines within functions",
+	meta: {
+		defaultOptions: [0],
+		schema: [{ type: "number" }]
+	},
+	create(context) {
+		return visitFunctionMaxEmptyLines(context);
+	}
+});
+var function_parentheses_newline_inside_default = createRule({
+	name: "function-parentheses-newline-inside",
+	description: "Require or disallow newlines inside function parentheses",
+	meta: {
+		defaultOptions: ["always-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitFunctionParentheses(context, "newline");
+	}
+});
+var function_parentheses_space_inside_default = createRule({
+	name: "function-parentheses-space-inside",
+	description: "Require or disallow spaces inside function parentheses",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitFunctionParentheses(context, "space");
+	}
+});
+var function_whitespace_after_default = createRule({
+	name: "function-whitespace-after",
+	description: "Require or disallow whitespace after functions",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitFunctionWhitespaceAfter(context);
+	}
+});
+//#endregion
+//#region src/rules/indentation/index.ts
+const ruleName$43 = "indentation";
+const LINE_SPLIT_RE$1 = /\r\n|[\n\r\f]/u;
+const NEWLINE_AT_START_RE$2 = /^(?:\r\n|[\n\r\f])/u;
+const NON_WHITESPACE_RE$1 = /\S/u;
+const parenthesizedNodeTypes = /* @__PURE__ */ new Set([
+	"Feature",
+	"FeatureFunction",
+	"FeatureRange",
+	"Function",
+	"MediaFeature",
+	"Parentheses",
+	"PseudoClassSelector",
+	"PseudoElementSelector",
+	"SupportsDeclaration",
+	"Url"
+]);
+function includesOption(value, option) {
+	return value !== void 0 && (Array.isArray(value) ? value.includes(option) : value === option);
+}
+function inferBaseIndentation(checks, indentationUnit) {
+	const counts = /* @__PURE__ */ new Map();
+	let minimumDepth = Number.POSITIVE_INFINITY;
+	for (let index = 1; index < checks.length; index += 1) {
+		const check = checks[index];
+		if (!check || check.ignored) continue;
+		const expected = indentationUnit.repeat(check.expectedDepth);
+		if (!check.actual.endsWith(expected)) continue;
+		if (check.expectedDepth < minimumDepth) {
+			minimumDepth = check.expectedDepth;
+			counts.clear();
+		}
+		if (check.expectedDepth === minimumDepth) {
+			const prefix = expected.length === 0 ? check.actual : check.actual.slice(0, -expected.length);
+			counts.set(prefix, (counts.get(prefix) ?? 0) + 1);
+		}
+	}
+	let inferred = "";
+	let highestCount = 0;
+	for (const [prefix, count] of counts) if (count > highestCount || count === highestCount && prefix.length < inferred.length) {
+		inferred = prefix;
+		highestCount = count;
+	}
+	return inferred;
+}
+function openingParenthesisRange(sourceCode, node) {
+	if (!node.loc || !parenthesizedNodeTypes.has(node.type)) return;
+	const [start, end] = sourceCode.getRange(node);
+	const close = end - 1;
+	if (sourceCode.text[close] !== ")") return;
+	const open = sourceCode.text.indexOf("(", start);
+	return open !== -1 && open < close ? {
+		close,
+		open
+	} : void 0;
+}
+function rawParenthesisRanges(text, start, end) {
+	const source = text.slice(start, end);
+	const masked = maskCommentsAndStrings(source);
+	const openOffsets = [];
+	const ranges = [];
+	for (let offset = 0; offset < masked.length; offset += 1) {
+		const character = masked[offset];
+		if (character !== "(" && character !== ")" || isEscaped(source, offset)) continue;
+		if (character === "(") openOffsets.push(offset);
+		else if (character === ")") {
+			const open = openOffsets.pop();
+			if (open !== void 0) ranges.push({
+				close: start + offset,
+				open: start + open
+			});
+		}
+	}
+	return ranges;
+}
+function lineEndOffset(text, start) {
+	let end = text.length;
+	for (const lineBreak of [
+		"\n",
+		"\r",
+		"\f"
+	]) {
+		const index = text.indexOf(lineBreak, start);
+		if (index !== -1 && index < end) end = index;
+	}
+	return end;
+}
+function containingRange(ranges, index) {
+	let low = 0;
+	let high = ranges.length - 1;
+	let candidate;
+	while (low <= high) {
+		const middle = Math.floor((low + high) / 2);
+		const range = ranges[middle];
+		if (!range) break;
+		if (range.start <= index) {
+			candidate = range;
+			low = middle + 1;
+		} else high = middle - 1;
+	}
+	return candidate && index < candidate.end ? candidate : void 0;
+}
+function hasCheckableContent(text, start, end, opaqueRanges) {
+	for (let index = start; index < end;) {
+		if (text[index] === " " || text[index] === "	") {
+			index += 1;
+			continue;
+		}
+		const opaque = containingRange(opaqueRanges, index);
+		if (!opaque || index === opaque.start) return true;
+		index = Math.min(opaque.end, end);
+	}
+	return false;
+}
+function leadingClosures(start, closePositions) {
+	const closures = /* @__PURE__ */ new Set();
+	let index = start;
+	while (closePositions.has(index)) {
+		closures.add(index);
+		index += 1;
+	}
+	return closures;
+}
+function hasParenthesisAcross(ranges, start, end) {
+	let low = 0;
+	let high = ranges.length;
+	while (low < high) {
+		const middle = Math.floor((low + high) / 2);
+		const range = ranges[middle];
+		if (range && range.open < start) low = middle + 1;
+		else high = middle;
+	}
+	for (let index = low; index < ranges.length; index += 1) {
+		const range = ranges[index];
+		if (!range || range.open >= end) return false;
+		if (range.close >= end) return true;
+	}
+	return false;
+}
+function addLayoutEvent(events, offset, changes) {
+	const event = events.get(offset);
+	if (event) {
+		event.blockCount += changes.blockCount;
+		event.blockDepth += changes.blockDepth;
+		event.parenthesisDepth += changes.parenthesisDepth;
+		return;
+	}
+	events.set(offset, {
+		...changes,
+		offset
+	});
+}
+var indentation_default = createRule({
+	name: ruleName$43,
+	description: "Specify indentation",
+	meta: {
+		defaultOptions: [2, {
+			baseIndentLevel: 0,
+			except: [],
+			ignore: [],
+			indentClosingBrace: false
+		}],
+		schema: [{ anyOf: [{ type: "number" }, { enum: ["tab"] }] }, {
+			additionalProperties: false,
+			properties: {
+				baseIndentLevel: { anyOf: [{ type: "number" }, { enum: ["auto"] }] },
+				except: { anyOf: [{ enum: [
+					"block",
+					"param",
+					"value"
+				] }, {
+					items: { enum: [
+						"block",
+						"param",
+						"value"
+					] },
+					type: "array"
+				}] },
+				ignore: { anyOf: [{ enum: [
+					"inside-parens",
+					"param",
+					"value"
+				] }, {
+					items: { enum: [
+						"inside-parens",
+						"param",
+						"value"
+					] },
+					type: "array"
+				}] },
+				indentClosingBrace: { type: "boolean" },
+				indentInsideParens: { enum: ["once-at-root-twice-in-block", "twice"] }
+			},
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [primary, secondary] = context.options;
+		const indentationUnit = primary === "tab" ? "	" : " ".repeat(primary);
+		const baseIndentLevel = secondary.baseIndentLevel ?? 0;
+		const base = baseIndentLevel === "auto" ? 0 : baseIndentLevel;
+		const exceptBlock = includesOption(secondary.except, "block");
+		const exceptParam = includesOption(secondary.except, "param");
+		const exceptValue = includesOption(secondary.except, "value");
+		const ignoreInsideParens = includesOption(secondary.ignore, "inside-parens");
+		const ignoreParam = includesOption(secondary.ignore, "param");
+		const ignoreValue = includesOption(secondary.ignore, "value");
+		const indentClosingBrace = secondary.indentClosingBrace ?? false;
+		const indentInsideParens = secondary.indentInsideParens;
+		const inferBase = baseIndentLevel === "auto";
+		return { "StyleSheet:exit": () => {
+			const { text } = sourceCode;
+			const blocks = [];
+			const parenthesisRanges = [];
+			const parameterRanges = [];
+			const pendingValueRanges = [];
+			const opaqueRanges = (sourceCode.comments ?? []).flatMap((comment) => comment.loc ? [{
+				end: comment.loc.end.offset,
+				start: comment.loc.start.offset
+			}] : []);
+			const parenthesisKeys = /* @__PURE__ */ new Set();
+			function addParenthesisRange(parenthesis) {
+				const key = `${parenthesis.open}:${parenthesis.close}`;
+				if (!parenthesisKeys.has(key)) {
+					parenthesisKeys.add(key);
+					parenthesisRanges.push(parenthesis);
+				}
+			}
+			for (const step of sourceCode.traverse()) {
+				if (step.phase !== 1 || !step.target.loc) continue;
+				const node = step.target;
+				const startLine = step.target.loc.start.line;
+				const parent = sourceCode.getParent(node);
+				const parenthesis = openingParenthesisRange(sourceCode, node);
+				if (parenthesis) addParenthesisRange(parenthesis);
+				if (node.type === "Block") {
+					const [start, end] = sourceCode.getRange(node);
+					blocks.push({
+						close: end - 1,
+						end,
+						increment: exceptBlock && parent?.type === "Atrule" ? 0 : 1,
+						start
+					});
+				} else if (node.type === "Declaration" && parent?.type === "Block") {
+					const [start, end] = sourceCode.getRange(node);
+					pendingValueRanges.push({
+						end,
+						start,
+						startLine
+					});
+					if (node.value.type === "Raw") {
+						const [valueStart, valueEnd] = sourceCode.getRange(node.value);
+						for (const range of rawParenthesisRanges(text, valueStart, valueEnd)) addParenthesisRange(range);
+					}
+				} else if (node.type === "Atrule" && node.prelude?.loc && node.name !== "at-root" && node.name !== "nest") {
+					const [start, end] = sourceCode.getRange(node.prelude);
+					parameterRanges.push({
+						end,
+						extraDepth: exceptParam ? 0 : 1,
+						start,
+						startLine
+					});
+				} else if (node.type === "String") {
+					const [start, end] = sourceCode.getRange(node);
+					opaqueRanges.push({
+						end,
+						start
+					});
+				}
+			}
+			blocks.sort((left, right) => left.start - right.start);
+			parenthesisRanges.sort((left, right) => left.open - right.open);
+			parameterRanges.sort((left, right) => left.start - right.start);
+			opaqueRanges.sort((left, right) => left.start - right.start);
+			const valueRanges = pendingValueRanges.map((range) => {
+				const firstLineEnd = lineEndOffset(text, range.start);
+				const startsInsideParentheses = hasParenthesisAcross(parenthesisRanges, range.start, firstLineEnd);
+				return {
+					...range,
+					extraDepth: exceptValue || startsInsideParentheses ? 0 : 1
+				};
+			}).sort((left, right) => left.start - right.start);
+			const blockClosePositions = new Set(blocks.map((block) => block.close));
+			const parenthesisClosePositions = new Set(parenthesisRanges.map((parenthesis) => parenthesis.close));
+			const blockDepthByClose = new Map(blocks.map((block) => [block.close, block.increment]));
+			const layoutEvents = /* @__PURE__ */ new Map();
+			for (const block of blocks) {
+				addLayoutEvent(layoutEvents, block.start + 1, {
+					blockCount: 1,
+					blockDepth: block.increment,
+					parenthesisDepth: 0
+				});
+				addLayoutEvent(layoutEvents, block.close + 1, {
+					blockCount: -1,
+					blockDepth: -block.increment,
+					parenthesisDepth: 0
+				});
+			}
+			for (const parenthesis of parenthesisRanges) {
+				addLayoutEvent(layoutEvents, parenthesis.open + 1, {
+					blockCount: 0,
+					blockDepth: 0,
+					parenthesisDepth: 1
+				});
+				addLayoutEvent(layoutEvents, parenthesis.close + 1, {
+					blockCount: 0,
+					blockDepth: 0,
+					parenthesisDepth: -1
+				});
+			}
+			const orderedLayoutEvents = [...layoutEvents.values()].sort((left, right) => left.offset - right.offset);
+			const checks = [];
+			let activeBlockCount = 0;
+			let activeBlockDepth = 0;
+			let activeParenthesisDepth = 0;
+			let eventIndex = 0;
+			let offset = 0;
+			let lineNumber = 1;
+			for (const line of text.split(LINE_SPLIT_RE$1)) {
+				const lineEnd = offset + line.length;
+				const firstNonWhitespace = line.search(NON_WHITESPACE_RE$1);
+				if (firstNonWhitespace !== -1 && hasCheckableContent(text, offset + firstNonWhitespace, lineEnd, opaqueRanges)) {
+					const contentStart = offset + firstNonWhitespace;
+					while (orderedLayoutEvents[eventIndex] && orderedLayoutEvents[eventIndex].offset <= contentStart) {
+						const event = orderedLayoutEvents[eventIndex];
+						activeBlockCount += event.blockCount;
+						activeBlockDepth += event.blockDepth;
+						activeParenthesisDepth += event.parenthesisDepth;
+						eventIndex += 1;
+					}
+					const leadingBlockCloses = indentClosingBrace ? /* @__PURE__ */ new Set() : leadingClosures(contentStart, blockClosePositions);
+					const leadingParenthesisCloses = indentClosingBrace ? /* @__PURE__ */ new Set() : leadingClosures(contentStart, parenthesisClosePositions);
+					const braceDepth = activeBlockDepth - [...leadingBlockCloses].reduce((depth, close) => depth + (blockDepthByClose.get(close) ?? 0), 0);
+					const parenthesisDepth = activeParenthesisDepth;
+					const effectiveParenthesisDepth = activeParenthesisDepth - leadingParenthesisCloses.size;
+					const parameter = containingRange(parameterRanges, contentStart);
+					const value = containingRange(valueRanges, contentStart);
+					const parameterContinuation = parameter !== void 0 && lineNumber > parameter.startLine;
+					const valueContinuation = value !== void 0 && lineNumber > value.startLine;
+					const extraParenthesisIndent = parenthesisDepth > 0 && (indentInsideParens === "twice" || indentInsideParens === "once-at-root-twice-in-block" && activeBlockCount > 0) ? 1 : 0;
+					const expectedDepth = Math.max(0, base + braceDepth + effectiveParenthesisDepth + extraParenthesisIndent + (parameterContinuation ? parameter.extraDepth : 0) + (valueContinuation ? value.extraDepth : 0));
+					const ignored = ignoreInsideParens && parenthesisDepth > 0 || ignoreParam && parameterContinuation || ignoreValue && valueContinuation;
+					const actual = line.slice(0, firstNonWhitespace);
+					const check = {
+						actual,
+						expectedDepth,
+						firstNonWhitespace,
+						ignored,
+						offset
+					};
+					if (inferBase) checks.push(check);
+					else {
+						const expected = indentationUnit.repeat(expectedDepth);
+						if (!ignored && actual !== expected) {
+							const range = [offset, offset + firstNonWhitespace];
+							context.report({
+								data: { detail: `Expected indentation of ${expected.length} character(s).` },
+								fix: (fixer) => fixer.replaceTextRange(range, expected),
+								loc: {
+									end: sourceCode.getLocFromIndex(range[1]),
+									start: sourceCode.getLocFromIndex(range[0])
+								},
+								messageId: "expected"
+							});
+						}
+					}
+				}
+				offset = lineEnd;
+				const breakMatch = text.slice(offset).match(NEWLINE_AT_START_RE$2);
+				offset += breakMatch?.[0].length ?? 0;
+				lineNumber += 1;
+			}
+			if (!inferBase) return;
+			const baseIndentation = inferBaseIndentation(checks, indentationUnit);
+			for (const [index, check] of checks.entries()) {
+				const expected = index === 0 ? check.actual : baseIndentation + indentationUnit.repeat(check.expectedDepth);
+				if (check.ignored || check.actual === expected) continue;
+				const range = [check.offset, check.offset + check.firstNonWhitespace];
+				context.report({
+					data: { detail: `Expected indentation of ${expected.length} character(s).` },
+					fix: (fixer) => fixer.replaceTextRange(range, expected),
+					loc: {
+						end: sourceCode.getLocFromIndex(range[1]),
+						start: sourceCode.getLocFromIndex(range[0])
+					},
+					messageId: "expected"
+				});
+			}
+		} };
+	}
+});
+var linebreaks_default = createRule({
+	name: "linebreaks",
+	description: "Specify Unix or Windows linebreaks",
+	meta: {
+		defaultOptions: ["unix"],
+		schema: [{ enum: ["unix", "windows"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		return { StyleSheet() {
+			const expression = /\r\n|[\n\r\f]/gu;
+			const expected = expectation === "windows" ? "\r\n" : "\n";
+			for (const match of sourceCode.text.matchAll(expression)) {
+				if (match[0] === expected) continue;
+				const range = [match.index, match.index + match[0].length];
+				context.report({
+					loc: {
+						start: sourceCode.getLocFromIndex(range[0]),
+						end: sourceCode.getLocFromIndex(range[1])
+					},
+					messageId: "expected",
+					data: { detail: `Expected ${expectation} linebreaks.` },
+					fix: (fixer) => fixer.replaceTextRange(range, expected)
+				});
+			}
+		} };
+	}
+});
+var max_empty_lines_default = createRule({
+	name: "max-empty-lines",
+	description: "Limit the number of adjacent empty lines",
+	meta: {
+		defaultOptions: [0, { ignore: [] }],
+		schema: [{ type: "number" }, {
+			additionalProperties: false,
+			properties: { ignore: { anyOf: [{ enum: ["comments"] }, {
+				items: { enum: ["comments"] },
+				type: "array"
+			}] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [maximum, secondary] = context.options;
+		const ignoreComments = optionValues(secondary.ignore).includes("comments");
+		return { StyleSheet() {
+			const { text } = sourceCode;
+			const expression = /(?:\r\n|\n\r|[\n\r\f])+/gu;
+			const newline = newlineFor(text);
+			let replacement = "";
+			let cursor = 0;
+			let changed = false;
+			for (const match of text.matchAll(expression)) {
+				const start = match.index;
+				replacement += text.slice(cursor, start);
+				cursor = start + match[0].length;
+				const end = start + match[0].length;
+				if (ignoreComments && commentContains(sourceCode, {
+					end,
+					start
+				})) {
+					replacement += match[0];
+					continue;
+				}
+				const lineBreaks = match[0].match(/\r\n|\n\r|[\n\r\f]/gu)?.length ?? 0;
+				const leading = start === 0;
+				const trailing = end === text.length;
+				const permittedLineBreaks = leading ? maximum : trailing ? Math.max(1, maximum) : maximum + 1;
+				if (lineBreaks <= permittedLineBreaks) {
+					replacement += match[0];
+					continue;
+				}
+				changed = true;
+				replacement += newline.repeat(permittedLineBreaks);
+			}
+			if (!changed) return;
+			replacement += text.slice(cursor);
+			const range = [0, text.length];
+			context.report({
+				loc: {
+					start: sourceCode.getLocFromIndex(range[0]),
+					end: sourceCode.getLocFromIndex(range[1])
+				},
+				messageId: "expected",
+				data: { detail: `Expected no more than ${maximum} empty line(s) in source.` },
+				fix: (fixer) => fixer.replaceTextRange(range, replacement)
+			});
+		} };
+	}
+});
+//#endregion
+//#region src/rules/max-line-length/index.ts
+const ruleName$40 = "max-line-length";
+const LINE_SPLIT_RE = /\r\n|[\n\r\f]/u;
+const LINEBREAK_RE$6 = /[\n\r\f]/u;
+const NON_WHITESPACE_RE = /\S/u;
+const PROPERTY_ONLY_RE = /^\s*[-\w]+:\s*$/u;
+const REGEXP_LITERAL_RE = /^\/(?<body>.*)\/(?<flags>[a-z]*)$/u;
+const STRING_RE = /(["'])(?:\\.|(?!\1).)*\1/gu;
+function regexpFor(pattern) {
+	if (pattern instanceof RegExp) return new RegExp(pattern.source, pattern.flags);
+	if (typeof pattern !== "string") return;
+	const match = pattern.match(REGEXP_LITERAL_RE);
+	return match?.groups ? new RegExp(match.groups.body, match.groups.flags) : new RegExp(pattern, "u");
+}
+var max_line_length_default = createRule({
+	name: ruleName$40,
+	description: "Limit line length",
+	fixable: false,
+	meta: {
+		defaultOptions: [80, {
+			ignore: [],
+			ignorePattern: []
+		}],
+		schema: [{ type: "number" }, {
+			additionalProperties: false,
+			properties: {
+				ignore: { anyOf: [{ enum: ["comments", "non-comments"] }, {
+					items: { enum: ["comments", "non-comments"] },
+					type: "array"
+				}] },
+				ignorePattern: { anyOf: [
+					{ type: "string" },
+					{
+						additionalProperties: false,
+						type: "object"
+					},
+					{
+						items: { anyOf: [{ type: "string" }, {
+							additionalProperties: false,
+							type: "object"
+						}] },
+						type: "array"
+					}
+				] }
+			},
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [maximum, secondary] = context.options;
+		const ignored = new Set(optionValues(secondary.ignore));
+		const ignoredPatterns = optionValues(secondary.ignorePattern).map(regexpFor).filter((pattern) => pattern !== void 0);
+		return { StyleSheet() {
+			const { text } = sourceCode;
+			const comments = commentIndex(sourceCode).ranges;
+			let commentOffset = 0;
+			let offset = 0;
+			for (const line of text.split(LINE_SPLIT_RE)) {
+				const lineOffset = offset;
+				const firstNonWhitespace = line.search(NON_WHITESPACE_RE);
+				const contentOffset = lineOffset + Math.max(0, firstNonWhitespace);
+				while (comments[commentOffset] && comments[commentOffset].end <= contentOffset) commentOffset += 1;
+				const comment = comments[commentOffset];
+				const startsWithComment = comment !== void 0 && contentOffset >= comment.start && contentOffset < comment.end;
+				const candidate = line.replace(STRING_RE, "");
+				const ignoredByPattern = ignoredPatterns.some((pattern) => {
+					pattern.lastIndex = 0;
+					return pattern.test(line);
+				});
+				const ignoredByType = ignored.has("comments") && startsWithComment || ignored.has("non-comments") && !startsWithComment;
+				if (!ignoredByPattern && !ignoredByType && !PROPERTY_ONLY_RE.test(line) && candidate.length > maximum) {
+					const range = [lineOffset, lineOffset + line.length];
+					context.report({
+						loc: {
+							start: sourceCode.getLocFromIndex(range[0]),
+							end: sourceCode.getLocFromIndex(range[1])
+						},
+						messageId: "expected",
+						data: { detail: `Expected line length to be no more than ${maximum}.` }
+					});
+				}
+				offset += line.length;
+				offset += text.startsWith("\r\n", offset) ? 2 : LINEBREAK_RE$6.test(text[offset] ?? "") ? 1 : 0;
+			}
+		} };
+	}
+});
+//#endregion
+//#region src/visit/media.ts
+const LEADING_INDENT_RE$1 = /^[ \t]+(?=\r\n|\n\r|[\n\r\f])/u;
+const LINEBREAK_RE$5 = /\r\n|\n\r|[\n\r\f]/u;
+const NEWLINE_AT_START_RE$1 = /^(?:\r\n|\n\r|[\n\r\f])/u;
+function indexBetween(sourceCode, value, start, end) {
+	const { text } = sourceCode;
+	const gap = text.slice(start, end);
+	let relativeIndex = gap.indexOf(value);
+	while (relativeIndex !== -1) {
+		const index = start + relativeIndex;
+		if (!commentIntersects(sourceCode, {
+			end: index + value.length,
+			start: index
+		}) && !isEscaped(text, index)) return index;
+		relativeIndex = gap.indexOf(value, relativeIndex + 1);
+	}
+	return -1;
+}
+function commaNewlineAfterFinding(sourceCode, comma, gapEnd, option, newline) {
+	const { text } = sourceCode;
+	const afterComma = comma + 1;
+	if (!option.startsWith("always")) {
+		const whitespace = whitespaceAfter(text, afterComma, gapEnd);
+		if (whitespace.start === whitespace.end) return;
+		return finding(whitespace.start, whitespace.end, "", "Unexpected newline after \",\".", comma, comma + 1);
+	}
+	const comments = commentsWithin(sourceCode, {
+		end: gapEnd,
+		start: afterComma
+	});
+	const firstComment = comments[0];
+	const lastComment = comments.at(-1);
+	const immediateEnd = firstComment?.start ?? gapEnd;
+	const immediateWhitespace = text.slice(afterComma, immediateEnd);
+	let replacementStart = afterComma;
+	let replacementEnd = immediateEnd;
+	let newlineBeforeComment = false;
+	let dirtyWhitespaceBeforeComment = false;
+	if (firstComment && lastComment) {
+		newlineBeforeComment = NEWLINE_AT_START_RE$1.test(immediateWhitespace);
+		dirtyWhitespaceBeforeComment = LINEBREAK_RE$5.test(immediateWhitespace) && !newlineBeforeComment;
+		if (!dirtyWhitespaceBeforeComment) {
+			replacementStart = lastComment.end;
+			replacementEnd = gapEnd;
+		}
+	}
+	const replacementWhitespace = text.slice(replacementStart, replacementEnd);
+	if (!dirtyWhitespaceBeforeComment && (newlineBeforeComment || NEWLINE_AT_START_RE$1.test(replacementWhitespace))) return;
+	const replacement = (firstComment ? newlineBeforeComment || LINEBREAK_RE$5.test(replacementWhitespace) : LINEBREAK_RE$5.test(immediateWhitespace)) ? replacementWhitespace.replace(LEADING_INDENT_RE$1, "") : newline + replacementWhitespace;
+	return finding(replacementStart, replacementEnd, replacement, "Expected newline after \",\".", comma, comma + 1);
+}
+function visitMediaFeatureColon(context, side) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	return { "Feature[kind='media']": (node) => {
+		if (node.value === null) return;
+		const [start, end] = sourceCode.getRange(node);
+		const valueStart = node.value.loc?.start.offset;
+		if (valueStart === void 0) return;
+		const colon = indexBetween(sourceCode, ":", start, valueStart);
+		if (colon === -1) return;
+		const problem = spacingFinding(sourceCode.text, colon, side, "space", option, {
+			end,
+			start
+		});
+		if (problem) reportFinding(context, problem);
+	} };
+}
+function visitMediaFeatureParentheses(context) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	function check(node) {
+		const text = sourceCode.text;
+		const [start, end] = sourceCode.getRange(node);
+		const close = end - 1;
+		if (text[start] !== "(" || text[close] !== ")") return;
+		for (const problem of [spacingFinding(text, start, "after", "space", option, {
+			end,
+			start
+		}), spacingFinding(text, close, "before", "space", option, {
+			end,
+			start
+		})]) if (problem) reportFinding(context, problem);
+	}
+	return { "Feature[kind='media'], FeatureRange[kind='media']": check };
+}
+function visitMediaFeatureRangeOperator(context, side) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	return { "FeatureRange[kind='media']": (node) => {
+		const [start, end] = sourceCode.getRange(node);
+		const comparisons = [{
+			comparison: node.leftComparison,
+			left: node.left,
+			right: node.middle
+		}, ...node.rightComparison !== null && node.right !== null ? [{
+			comparison: node.rightComparison,
+			left: node.middle,
+			right: node.right
+		}] : []];
+		for (const { comparison, left, right } of comparisons) {
+			const leftEnd = left.loc?.end.offset;
+			const rightStart = right.loc?.start.offset;
+			if (leftEnd === void 0 || rightStart === void 0) continue;
+			const comparisonStart = indexBetween(sourceCode, comparison, leftEnd, rightStart);
+			if (comparisonStart === -1) continue;
+			const punctuation = side === "after" ? comparisonStart + comparison.length - 1 : comparisonStart;
+			const problem = spacingFinding(sourceCode.text, punctuation, side, "space", option, {
+				end,
+				start
+			});
+			if (problem) reportFinding(context, problem);
+		}
+	} };
+}
+function visitMediaQueryListComma(context, side, kind) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	const newline = kind === "newline" ? newlineFor(text) : "";
+	return { "Atrule[name=/^media$/i] > AtrulePrelude > MediaQueryList": (node) => {
+		const [start, end] = sourceCode.getRange(node);
+		const scope = {
+			end,
+			start
+		};
+		const multiline = isMultiline(text, scope);
+		if (!optionApplies(option, multiline)) return;
+		for (let index = 1; index < node.children.length; index += 1) {
+			const previous = node.children[index - 1];
+			const current = node.children[index];
+			if (!previous || !current) continue;
+			const previousEnd = sourceCode.getRange(previous)[1];
+			const [currentStart, currentEnd] = sourceCode.getRange(current);
+			const comma = indexBetween(sourceCode, ",", previousEnd, currentStart);
+			if (comma === -1) continue;
+			if (side === "before" && kind === "newline" && option.startsWith("always") && LINEBREAK_RE$5.test(text.slice(whitespaceBefore(text, comma, start).start, comma))) continue;
+			const problem = side === "after" && kind === "newline" ? commaNewlineAfterFinding(sourceCode, comma, triviaAfter(sourceCode, currentStart, currentEnd).end, option, newline) : spacingFinding(text, comma, side, kind, option, scope, kind === "newline" ? {
+				multiline,
+				newline
+			} : { multiline });
+			if (problem) reportFinding(context, problem);
+		}
+	} };
+}
+var media_feature_colon_space_after_default = createRule({
+	name: "media-feature-colon-space-after",
+	description: "Require or disallow whitespace after media feature colons",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitMediaFeatureColon(context, "after");
+	}
+});
+var media_feature_colon_space_before_default = createRule({
+	name: "media-feature-colon-space-before",
+	description: "Require or disallow whitespace before media feature colons",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitMediaFeatureColon(context, "before");
+	}
+});
+//#endregion
+//#region src/rules/media-feature-name-case/index.ts
+const ruleName$37 = "media-feature-name-case";
+const ESCAPED_AT_RE = /^\\40/u;
+var media_feature_name_case_default = createRule({
+	name: ruleName$37,
+	description: "Specify lowercase or uppercase for media feature names",
+	meta: {
+		defaultOptions: ["lower"],
+		schema: [{ enum: ["lower", "upper"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		function check(raw, start, end) {
+			let actual = raw;
+			let replacementPrefix = "";
+			if (ESCAPED_AT_RE.test(raw)) {
+				actual = `@${raw.slice(3)}`;
+				replacementPrefix = "\\40 ";
+			} else if (raw.startsWith("\\@")) {
+				actual = `@${raw.slice(2)}`;
+				replacementPrefix = "\\40 ";
+			} else if (raw.startsWith("\\")) actual = raw.slice(1);
+			if (actual.startsWith("--")) return;
+			const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+			if (actual === expected) return;
+			const replacement = replacementPrefix ? `${replacementPrefix}${expected.slice(1)}` : expected;
+			context.report({
+				data: { detail: `Expected media feature name "${actual}" to be "${expected}".` },
+				fix: (fixer) => fixer.replaceTextRange([start, end], replacement),
+				loc: {
+					end: sourceCode.getLocFromIndex(end),
+					start: sourceCode.getLocFromIndex(start)
+				},
+				messageId: "expected"
+			});
+		}
+		return {
+			"Feature[kind='media']": (node) => {
+				const [nodeStart] = sourceCode.getRange(node);
+				const relativeStart = sourceCode.getText(node).indexOf(node.name);
+				if (relativeStart === -1) return;
+				const start = nodeStart + relativeStart;
+				check(node.name, start, start + node.name.length);
+			},
+			[`FeatureRange[kind='media']:not([right.type]) > Identifier.left,\
+        FeatureRange[kind='media']:not([right.type])[left.type!='Identifier'] > Identifier.middle,\
+        FeatureRange[kind='media'][right.type] > Identifier.middle`]: (node) => {
+				const [start, end] = sourceCode.getRange(node);
+				check(sourceCode.getText(node), start, end);
+			}
+		};
+	}
+});
+var media_feature_parentheses_space_inside_default = createRule({
+	name: "media-feature-parentheses-space-inside",
+	description: "Require or disallow spaces inside media feature parentheses",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitMediaFeatureParentheses(context);
+	}
+});
+var media_feature_range_operator_space_after_default = createRule({
+	name: "media-feature-range-operator-space-after",
+	description: "Require or disallow spaces after media feature range operators",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitMediaFeatureRangeOperator(context, "after");
+	}
+});
+var media_feature_range_operator_space_before_default = createRule({
+	name: "media-feature-range-operator-space-before",
+	description: "Require or disallow spaces before media feature range operators",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitMediaFeatureRangeOperator(context, "before");
+	}
+});
+var media_query_list_comma_newline_after_default = createRule({
+	name: "media-query-list-comma-newline-after",
+	description: "Require or disallow newlines after media query list commas",
+	meta: {
+		defaultOptions: ["always-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitMediaQueryListComma(context, "after", "newline");
+	}
+});
+var media_query_list_comma_newline_before_default = createRule({
+	name: "media-query-list-comma-newline-before",
+	description: "Require or disallow newlines before media query list commas",
+	meta: {
+		defaultOptions: ["never-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitMediaQueryListComma(context, "before", "newline");
+	}
+});
+var media_query_list_comma_space_after_default = createRule({
+	name: "media-query-list-comma-space-after",
+	description: "Require or disallow spaces after media query list commas",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitMediaQueryListComma(context, "after", "space");
+	}
+});
+var media_query_list_comma_space_before_default = createRule({
+	name: "media-query-list-comma-space-before",
+	description: "Require or disallow spaces before media query list commas",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitMediaQueryListComma(context, "before", "space");
+	}
+});
+//#endregion
+//#region src/rules/named-grid-areas-alignment/index.ts
+const ruleName$29 = "named-grid-areas-alignment";
+const LINEBREAK_RE$4 = /[\n\r\f]/u;
+const WHITESPACE_RUN_RE = /\s+/u;
+function collectStrings(node) {
+	if (node.type === "String") return [node];
+	if (!("children" in node) || !node.children) return [];
+	return node.children.flatMap(collectStrings);
+}
+var named_grid_areas_alignment_default = createRule({
+	name: ruleName$29,
+	description: "Align named grid area cell tokens",
+	meta: {
+		defaultOptions: [true, {
+			alignQuotes: false,
+			gap: 1
+		}],
+		schema: [{ enum: [true] }, {
+			additionalProperties: false,
+			properties: {
+				alignQuotes: { type: "boolean" },
+				gap: { type: "number" }
+			},
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [, secondary] = context.options;
+		const gap = secondary.gap !== void 0 && secondary.gap >= 0 ? secondary.gap : 1;
+		const alignQuotes = secondary.alignQuotes ?? false;
+		return { "Block > Declaration[property=/^grid-template-areas$/i]": (node) => {
+			const text = sourceCode.text;
+			const rows = collectStrings(node.value).map((row) => {
+				const [start, end] = sourceCode.getRange(row);
+				return {
+					end,
+					start
+				};
+			});
+			if (rows.length === 0) return;
+			const cells = rows.map((row) => text.slice(row.start + 1, row.end - 1).trim().split(WHITESPACE_RUN_RE));
+			const columnCount = Math.max(...cells.map((row) => row.length));
+			const widths = Array.from({ length: columnCount }, (_, column) => Math.max(...cells.map((row) => row[column]?.length ?? 0)));
+			const alignedWidth = widths.reduce((total, width) => total + width, 0) + Math.max(0, columnCount - 1) * gap;
+			const lastRow = rows.at(-1);
+			const singleLine = !LINEBREAK_RE$4.test(text.slice(rows[0].start, lastRow?.end));
+			const expectedRows = rows.map((_row, rowIndex) => {
+				const expected = cells[rowIndex].map((cell, column) => {
+					if (column === cells[rowIndex].length - 1) return cell;
+					return singleLine ? cell + " ".repeat(gap) : cell.padEnd(widths[column] + gap);
+				}).join("");
+				return !singleLine && alignQuotes ? expected.padEnd(alignedWidth) : expected;
+			});
+			if (rows.every((row, index) => text.slice(row.start + 1, row.end - 1) === expectedRows[index])) return;
+			const start = rows[0].start + 1;
+			const end = (lastRow?.end ?? start) - 1;
+			let cursor = start;
+			let replacement = "";
+			rows.forEach((row, index) => {
+				replacement += text.slice(cursor, row.start + 1);
+				replacement += expectedRows[index];
+				cursor = row.end - 1;
+			});
+			replacement += text.slice(cursor, end);
+			context.report({
+				loc: {
+					start: sourceCode.getLocFromIndex(start),
+					end: sourceCode.getLocFromIndex(end)
+				},
+				messageId: "expected",
+				data: { detail: "Expected named grid areas to be aligned." },
+				fix: (fixer) => fixer.replaceTextRange([start, end], replacement)
+			});
+		} };
+	}
+});
+var no_empty_first_line_default = createRule({
+	name: "no-empty-first-line",
+	description: "Disallow an empty first line",
+	meta: {
+		defaultOptions: [true],
+		schema: [{ enum: [true] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		return { StyleSheet() {
+			const match = sourceCode.text.match(/^(?:[ \t]*(?:\r\n|[\n\r\f]))+/u);
+			if (!match || sourceCode.text.slice(match[0].length).trim() === "") return;
+			const range = [0, match[0].length];
+			context.report({
+				loc: {
+					start: sourceCode.getLocFromIndex(range[0]),
+					end: sourceCode.getLocFromIndex(range[1])
+				},
+				messageId: "expected",
+				data: { detail: "Unexpected empty first line." },
+				fix: (fixer) => fixer.removeRange(range)
+			});
+		} };
+	}
+});
+var no_eol_whitespace_default = createRule({
+	name: "no-eol-whitespace",
+	description: "Disallow end-of-line whitespace",
+	meta: {
+		defaultOptions: [true, { ignore: [] }],
+		schema: [{ enum: [true] }, {
+			additionalProperties: false,
+			properties: { ignore: { anyOf: [{ enum: ["empty-lines"] }, {
+				items: { enum: ["empty-lines"] },
+				type: "array"
+			}] } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [, secondary] = context.options;
+		const ignoreEmptyLines = optionValues(secondary.ignore).includes("empty-lines");
+		return { StyleSheet() {
+			const { text } = sourceCode;
+			for (const match of text.matchAll(/[ \t]+(?=\r\n|[\n\r\f]|$)/gu)) {
+				const lineStart = Math.max(text.lastIndexOf("\n", match.index - 1), text.lastIndexOf("\r", match.index - 1), text.lastIndexOf("\f", match.index - 1)) + 1;
+				if (ignoreEmptyLines && lineStart === match.index) continue;
+				const range = [match.index, match.index + match[0].length];
+				context.report({
+					loc: {
+						start: sourceCode.getLocFromIndex(range[0]),
+						end: sourceCode.getLocFromIndex(range[1])
+					},
+					messageId: "expected",
+					data: { detail: "Unexpected end-of-line whitespace." },
+					fix: (fixer) => fixer.removeRange(range)
+				});
+			}
+		} };
+	}
+});
+var no_extra_semicolons_default = createRule({
+	name: "no-extra-semicolons",
+	description: "Disallow extra semicolons",
+	meta: {
+		defaultOptions: [true],
+		schema: [{ enum: [true] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		return { "Block > Raw": (node) => {
+			const [start] = sourceCode.getRange(node);
+			const masked = maskCommentsAndStrings(sourceCode.getText(node));
+			for (let offset = 0; offset < masked.length; offset += 1) {
+				if (masked[offset] !== ";") continue;
+				const index = start + offset;
+				const range = [index, index + 1];
+				context.report({
+					loc: {
+						start: sourceCode.getLocFromIndex(range[0]),
+						end: sourceCode.getLocFromIndex(range[1])
+					},
+					messageId: "expected",
+					data: { detail: "Unexpected extra semicolon." },
+					fix: (fixer) => fixer.removeRange(range)
+				});
+			}
+		} };
+	}
+});
+var no_missing_end_of_source_newline_default = createRule({
+	name: "no-missing-end-of-source-newline",
+	description: "Require a newline at the end of source",
+	meta: {
+		defaultOptions: [true],
+		schema: [{ enum: [true] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		return { StyleSheet() {
+			const { text } = sourceCode;
+			if (text.length === 0 || /[\n\r\f]$/u.test(text)) return;
+			const range = [text.length, text.length];
+			context.report({
+				loc: {
+					start: sourceCode.getLocFromIndex(text.length),
+					end: sourceCode.getLocFromIndex(text.length)
+				},
+				messageId: "expected",
+				data: { detail: "Expected a newline at the end of source." },
+				fix: (fixer) => fixer.replaceTextRange(range, newlineFor(text))
+			});
+		} };
+	}
+});
+//#endregion
+//#region src/rules/no-multiple-whitespaces/index.ts
+const ruleName$24 = "no-multiple-whitespaces";
+const LINEBREAK_RE$3 = /[\n\r\f]/u;
+const WHITESPACE_RE = /\s/u;
+var no_multiple_whitespaces_default = createRule({
+	name: ruleName$24,
+	description: "Disallow multiple whitespace characters",
+	meta: {
+		defaultOptions: [true],
+		schema: [{ enum: [true] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const stringRanges = [];
+		return {
+			Raw(node) {
+				const [rawStart] = sourceCode.getRange(node);
+				for (const string of strings(sourceCode.getText(node))) stringRanges.push([rawStart + string.start, rawStart + string.end]);
+			},
+			String(node) {
+				stringRanges.push(sourceCode.getRange(node));
+			},
+			Url(node) {
+				stringRanges.push(sourceCode.getRange(node));
+			},
+			"StyleSheet:exit": () => {
+				const { text } = sourceCode;
+				const ignored = [...stringRanges, ...commentIndex(sourceCode).ranges.map(({ end, start }) => [start, end])].sort((left, right) => {
+					return left[0] - right[0] || right[1] - left[1];
+				});
+				const mergedIgnored = [];
+				for (const range of ignored) {
+					const previous = mergedIgnored.at(-1);
+					if (previous && range[0] <= previous[1]) previous[1] = Math.max(previous[1], range[1]);
+					else mergedIgnored.push([...range]);
+				}
+				const expression = / {2,}|\t+/gu;
+				let ignoredIndex = 0;
+				let lineOnlyWhitespace = true;
+				let scanIndex = 0;
+				for (const match of text.matchAll(expression)) {
+					const range = [match.index, match.index + match[0].length];
+					for (; scanIndex < match.index; scanIndex += 1) {
+						const character = text[scanIndex];
+						if (LINEBREAK_RE$3.test(character)) lineOnlyWhitespace = true;
+						else if (!WHITESPACE_RE.test(character)) lineOnlyWhitespace = false;
+					}
+					scanIndex = range[1];
+					while (mergedIgnored[ignoredIndex] && mergedIgnored[ignoredIndex][1] <= range[0]) ignoredIndex += 1;
+					const ignoredRange = mergedIgnored[ignoredIndex];
+					if (ignoredRange && range[0] >= ignoredRange[0] && range[1] <= ignoredRange[1]) continue;
+					if (lineOnlyWhitespace) continue;
+					context.report({
+						loc: {
+							start: sourceCode.getLocFromIndex(range[0]),
+							end: sourceCode.getLocFromIndex(range[1])
+						},
+						messageId: "expected",
+						data: { detail: "Unexpected multiple whitespace characters." },
+						fix: (fixer) => fixer.replaceTextRange(range, " ")
+					});
+				}
+			}
+		};
+	}
+});
+//#endregion
+//#region src/visit/numeric.ts
+function visitNumericTokens(context, check) {
+	const { sourceCode } = context;
+	function checkNumericNode(node) {
+		check(node.value, sourceCode.getRange(node)[0]);
+	}
+	return {
+		[`Block > Declaration Dimension,\
+      Block > Declaration Number,\
+      Block > Declaration Percentage,\
+      Atrule[name=/^media$/i] > AtrulePrelude Dimension,\
+      Atrule[name=/^media$/i] > AtrulePrelude Number,\
+      Atrule[name=/^media$/i] > AtrulePrelude Percentage`]: checkNumericNode,
+		[`Block > Declaration Raw,\
+      Atrule[name=/^media$/i] > Raw,\
+      Atrule[name=/^media$/i] > AtrulePrelude Raw`]: (node) => {
+			const [valueStart] = sourceCode.getRange(node);
+			const value = sourceCode.getText(node);
+			new ValueParser(value).walk((parsedNode) => {
+				if (parsedNode.type === "function" && parsedNode.value.toLowerCase() === "url") return false;
+				if (parsedNode.type === "word") check(parsedNode.value, valueStart + parsedNode.sourceIndex);
+			});
+		}
+	};
+}
+//#endregion
+//#region src/rules/number-leading-zero/index.ts
+const ruleName$23 = "number-leading-zero";
+const FRACTION_RE = /(?<![\w.])(-?)(0*)\.\d+/gu;
+var number_leading_zero_default = createRule({
+	name: ruleName$23,
+	description: "Require or disallow a leading zero for fractional numbers",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [option] = context.options;
+		function check(source, sourceStart) {
+			for (const match of source.matchAll(FRACTION_RE)) {
+				const hasZero = match[2].length > 0;
+				const expectedZero = option === "always";
+				if (hasZero === expectedZero) continue;
+				const start = sourceStart + match.index + match[1].length;
+				const end = start + match[2].length;
+				context.report({
+					loc: {
+						start: sourceCode.getLocFromIndex(start),
+						end: sourceCode.getLocFromIndex(end)
+					},
+					messageId: "expected",
+					data: { detail: expectedZero ? "Expected a leading zero." : "Unexpected leading zero." },
+					fix: (fixer) => fixer.replaceTextRange([start, end], expectedZero ? "0" : "")
+				});
+			}
+		}
+		return visitNumericTokens(context, check);
+	}
+});
+//#endregion
+//#region src/rules/number-no-trailing-zeros/index.ts
+const ruleName$22 = "number-no-trailing-zeros";
+const NUMBER_RE = /\d+\.\d+|\.\d+/gu;
+var number_no_trailing_zeros_default = createRule({
+	name: ruleName$22,
+	description: "Disallow trailing zeros in numbers",
+	meta: {
+		defaultOptions: [true],
+		schema: [{ enum: [true] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		function check(source, sourceStart) {
+			for (const match of source.matchAll(NUMBER_RE)) {
+				let relativeStart = match.index + match[0].length;
+				while (relativeStart > match.index && source[relativeStart - 1] === "0") relativeStart -= 1;
+				if (relativeStart === match.index + match[0].length) continue;
+				if (source[relativeStart - 1] === ".") relativeStart -= 1;
+				const start = sourceStart + relativeStart;
+				const end = sourceStart + match.index + match[0].length;
+				context.report({
+					loc: {
+						start: sourceCode.getLocFromIndex(start),
+						end: sourceCode.getLocFromIndex(end)
+					},
+					messageId: "expected",
+					data: { detail: "Unexpected trailing zeros." },
+					fix: (fixer) => fixer.removeRange([start, end])
+				});
+			}
+		}
+		return visitNumericTokens(context, check);
+	}
+});
+//#endregion
+//#region src/rules/property-case/index.ts
+const ruleName$21 = "property-case";
+function matchesIgnoredProperty(property, patterns) {
+	return patterns.some((pattern) => {
+		if (pattern instanceof RegExp) return new RegExp(pattern.source, pattern.flags).test(property);
+		if (typeof pattern !== "string") return false;
+		return new RegExp(pattern, "u").test(property);
+	});
+}
+var property_case_default = createRule({
+	name: ruleName$21,
+	description: "Specify lowercase or uppercase for properties",
+	meta: {
+		defaultOptions: ["lower", {
+			ignoreProperties: [],
+			ignoreSelectors: []
+		}],
+		schema: [{ enum: ["lower", "upper"] }, {
+			additionalProperties: false,
+			properties: {
+				ignoreProperties: {
+					items: { anyOf: [{ type: "string" }, {
+						additionalProperties: false,
+						type: "object"
+					}] },
+					type: "array"
+				},
+				ignoreSelectors: { anyOf: [
+					{ type: "string" },
+					{
+						additionalProperties: false,
+						type: "object"
+					},
+					{
+						items: { anyOf: [{ type: "string" }, {
+							additionalProperties: false,
+							type: "object"
+						}] },
+						type: "array"
+					}
+				] }
+			},
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation, secondary] = context.options;
+		const selectorsByBlock = /* @__PURE__ */ new WeakMap();
+		return {
+			"Block > Declaration": (node, parent) => {
+				if (node.property.startsWith("--")) return;
+				const selector = selectorsByBlock.get(parent);
+				const actual = node.property;
+				if (selector !== void 0 && optionMatches(selector, secondary.ignoreSelectors) || matchesIgnoredProperty(actual, secondary.ignoreProperties ?? [])) return;
+				const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+				if (actual === expected) return;
+				const start = sourceCode.getRange(node)[0];
+				const end = start + actual.length;
+				context.report({
+					data: { detail: `Expected property "${actual}" to be "${expected}".` },
+					fix: (fixer) => fixer.replaceTextRange([start, end], expected),
+					loc: {
+						end: sourceCode.getLocFromIndex(end),
+						start: sourceCode.getLocFromIndex(start)
+					},
+					messageId: "expected"
+				});
+			},
+			Rule(node) {
+				selectorsByBlock.set(node.block, sourceCode.getText(node.prelude));
+			}
+		};
+	}
+});
+//#endregion
+//#region src/visit/selector.ts
+const DESCENDANT_WHITESPACE_RE = /^[ \t\n\r\f]+$/u;
+const LEADING_INDENT_RE = /^[ \t]+(?=\r\n|\n\r|[\n\r\f])/u;
+const LINEBREAK_RE$2 = /\r\n|\n\r|[\n\r\f]/u;
+const LINEBREAK_MATCH_RE = /\r\n|\n\r|[\n\r\f]/gu;
+const LINEBREAK_RUN_RE$1 = /(?:\r\n|\n\r|[\n\r\f])+/gu;
+const NEWLINE_AT_START_RE = /^(?:\r\n|\n\r|[\n\r\f])/u;
+const childIndexes = /* @__PURE__ */ new WeakMap();
+function childIndex(children, child) {
+	let indexes = childIndexes.get(children);
+	if (!indexes) {
+		indexes = new Map(children.map((candidate, index) => [candidate, index]));
+		childIndexes.set(children, indexes);
+	}
+	return indexes.get(child) ?? -1;
+}
+function insideSpaceFinding(text, punctuation, side, expectation, minimum, maximum) {
+	const whitespace = side === "after" ? whitespaceAfter(text, punctuation + 1, maximum) : whitespaceBefore(text, punctuation, minimum);
+	const actual = text.slice(whitespace.start, whitespace.end);
+	if (LINEBREAK_RE$2.test(actual) || expectation === "always" && actual.length > 0 || expectation === "never" && actual.length === 0) return;
+	return {
+		detail: expectation === "always" ? `Expected space ${side} "${text[punctuation]}".` : `Unexpected space ${side} "${text[punctuation]}".`,
+		end: whitespace.end,
+		replacement: expectation === "always" ? " " : "",
+		reportEnd: punctuation + 1,
+		reportStart: punctuation,
+		start: whitespace.start
+	};
+}
+function attributeMatcherRange(sourceCode, matcher, nameEnd, valueStart) {
+	const { text } = sourceCode;
+	const gap = text.slice(nameEnd, valueStart);
+	let start = -1;
+	let relativeIndex = gap.indexOf(matcher);
+	while (relativeIndex !== -1) {
+		const candidate = nameEnd + relativeIndex;
+		if (!commentIntersects(sourceCode, {
+			end: candidate + matcher.length,
+			start: candidate
+		})) start = candidate;
+		relativeIndex = gap.indexOf(matcher, relativeIndex + 1);
+	}
+	return start === -1 ? void 0 : {
+		end: start + matcher.length,
+		start
+	};
+}
+function commaBetween(sourceCode, start, end) {
+	const gap = sourceCode.text.slice(start, end);
+	let relativeIndex = gap.indexOf(",");
+	while (relativeIndex !== -1) {
+		const index = start + relativeIndex;
+		if (!commentIntersects(sourceCode, {
+			end: index + 1,
+			start: index
+		})) return index;
+		relativeIndex = gap.indexOf(",", relativeIndex + 1);
+	}
+	return -1;
+}
+function selectorListCommaNewlineAfterFinding(sourceCode, comma, gapEnd, expectation, multiline, newline) {
+	if (!optionApplies(expectation, multiline)) return;
+	const { text } = sourceCode;
+	const afterComma = comma + 1;
+	const comments = commentsWithin(sourceCode, {
+		end: gapEnd,
+		start: afterComma
+	});
+	const firstComment = comments[0];
+	const lastComment = comments.at(-1);
+	const immediateEnd = firstComment?.start ?? gapEnd;
+	const immediateWhitespace = text.slice(afterComma, immediateEnd);
+	let replacementStart = afterComma;
+	let replacementEnd = immediateEnd;
+	let newlineBeforeComment = false;
+	let dirtyWhitespaceBeforeComment = false;
+	if (firstComment && lastComment) {
+		newlineBeforeComment = NEWLINE_AT_START_RE.test(immediateWhitespace);
+		dirtyWhitespaceBeforeComment = LINEBREAK_RE$2.test(immediateWhitespace) && !newlineBeforeComment;
+		if (!dirtyWhitespaceBeforeComment) {
+			replacementStart = lastComment.end;
+			replacementEnd = gapEnd;
+		}
+	}
+	const replacementWhitespace = text.slice(replacementStart, replacementEnd);
+	if (expectation.startsWith("always")) {
+		if (!dirtyWhitespaceBeforeComment && (newlineBeforeComment || NEWLINE_AT_START_RE.test(replacementWhitespace))) return;
+		const replacement = (firstComment ? newlineBeforeComment || LINEBREAK_RE$2.test(replacementWhitespace) : LINEBREAK_RE$2.test(immediateWhitespace)) ? replacementWhitespace.replace(LEADING_INDENT_RE, "") : newline + replacementWhitespace;
+		return {
+			detail: "Expected newline after \",\".",
+			end: replacementEnd,
+			replacement,
+			reportEnd: comma + 1,
+			reportStart: comma,
+			start: replacementStart
+		};
+	}
+	if (!(firstComment ? replacementWhitespace.length > 0 : immediateWhitespace.length > 0)) return;
+	return {
+		detail: "Unexpected newline after \",\".",
+		end: replacementEnd,
+		replacement: "",
+		reportEnd: comma + 1,
+		reportStart: comma,
+		start: replacementStart
+	};
+}
+function previousLocatedSibling(children, index) {
+	for (let childIndex = index - 1; childIndex >= 0; childIndex -= 1) if (children[childIndex]?.loc) return children[childIndex];
+}
+function nextLocatedSibling(children, index) {
+	for (let childIndex = index + 1; childIndex < children.length; childIndex += 1) if (children[childIndex]?.loc) return children[childIndex];
+}
+function visitSelectorAttributeBracketsSpaceInside(context) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	return { "Rule > SelectorList AttributeSelector": (node) => {
+		const [start, end] = sourceCode.getRange(node);
+		for (const [punctuation, side] of [[start, "after"], [end - 1, "before"]]) {
+			const problem = insideSpaceFinding(sourceCode.text, punctuation, side, expectation, start + 1, end - 1);
+			if (problem) reportFinding(context, problem);
+		}
+	} };
+}
+function visitSelectorAttributeOperatorSpace(context, side) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	return { "Rule > SelectorList AttributeSelector": (node) => {
+		if (node.matcher === null || node.value === null) return;
+		const nameEnd = sourceCode.getRange(node.name)[1];
+		const valueStart = sourceCode.getRange(node.value)[0];
+		const matcher = attributeMatcherRange(sourceCode, node.matcher, nameEnd, valueStart);
+		if (!matcher) return;
+		const punctuation = side === "after" ? matcher.end - 1 : matcher.start;
+		const problem = spacingFinding(sourceCode.text, punctuation, side, "space", expectation, {
+			end: valueStart,
+			start: nameEnd
+		});
+		if (problem) reportFinding(context, problem);
+	} };
+}
+function visitSelectorCombinatorSpace(context, side) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	return { "Rule > SelectorList Combinator": (node, parent) => {
+		if (node.loc === null || node.name === " " || side === "before" && parent.children[0] === node) return;
+		const [start, end] = sourceCode.getRange(node);
+		const index = childIndex(parent.children, node);
+		const sibling = index === -1 ? void 0 : side === "after" ? parent.children[index + 1] : parent.children[index - 1];
+		if (sibling?.type === "Combinator" && sibling.loc !== null && (side === "after" ? sourceCode.getRange(sibling)[0] === end : sourceCode.getRange(sibling)[1] === start)) return;
+		const punctuation = side === "after" ? end - 1 : start;
+		const problem = spacingFinding(sourceCode.text, punctuation, side, "space", expectation, {
+			end,
+			start
+		});
+		if (problem) reportFinding(context, problem);
+	} };
+}
+function visitSelectorDescendantCombinator(context) {
+	const { sourceCode } = context;
+	return { "Rule > SelectorList Combinator": (node, parent) => {
+		if (node.name !== " " || node.loc !== null) return;
+		const index = childIndex(parent.children, node);
+		const previous = previousLocatedSibling(parent.children, index);
+		const next = nextLocatedSibling(parent.children, index);
+		if (!previous || !next) return;
+		const start = sourceCode.getRange(previous)[1];
+		const end = sourceCode.getRange(next)[0];
+		const gap = sourceCode.text.slice(start, end);
+		if (gap === " " || gap.includes("/*") || !DESCENDANT_WHITESPACE_RE.test(gap)) return;
+		reportFinding(context, finding(start, end, " ", "Expected a single space for descendant combinator."));
+	} };
+}
+function visitSelectorListComma(context, side, kind) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	const newline = kind === "newline" ? newlineFor(sourceCode.text) : "";
+	return { "Rule > SelectorList": (node) => {
+		const [scopeStart, scopeEnd] = sourceCode.getRange(node);
+		const multiline = LINEBREAK_RE$2.test(sourceCode.text.slice(scopeStart, scopeEnd));
+		for (let index = 0; index < node.children.length - 1; index += 1) {
+			const current = node.children[index];
+			const next = node.children[index + 1];
+			if (!current || !next) continue;
+			const gapStart = sourceCode.getRange(current)[1];
+			const gapEnd = sourceCode.getRange(next)[0];
+			const comma = commaBetween(sourceCode, gapStart, gapEnd);
+			if (comma === -1) continue;
+			const problem = side === "after" && kind === "newline" ? selectorListCommaNewlineAfterFinding(sourceCode, comma, gapEnd, expectation, multiline, newline) : spacingFinding(sourceCode.text, comma, side, kind, expectation, {
+				end: scopeEnd,
+				start: scopeStart
+			}, kind === "newline" ? { newline } : void 0);
+			if (problem) reportFinding(context, problem);
+		}
+	} };
+}
+function visitSelectorMaxEmptyLines(context) {
+	const { sourceCode } = context;
+	const [maximum] = context.options;
+	const newline = newlineFor(sourceCode.text);
+	return { "Rule > SelectorList": (node) => {
+		const [start, end] = sourceCode.getRange(node);
+		const source = sourceCode.text.slice(start, end);
+		const firstContent = source.length - source.trimStart().length;
+		const lastContentEnd = source.trimEnd().length;
+		let replacement = "";
+		let cursor = 0;
+		let changed = false;
+		for (const match of source.matchAll(LINEBREAK_RUN_RE$1)) {
+			replacement += source.slice(cursor, match.index);
+			cursor = match.index + match[0].length;
+			if (match.index <= firstContent || cursor >= lastContentEnd) {
+				replacement += match[0];
+				continue;
+			}
+			const lineBreaks = match[0].match(LINEBREAK_MATCH_RE)?.length ?? 0;
+			const permittedLineBreaks = maximum + 1;
+			if (lineBreaks <= permittedLineBreaks) {
+				replacement += match[0];
+				continue;
+			}
+			changed = true;
+			replacement += newline.repeat(permittedLineBreaks);
+		}
+		if (!changed) return;
+		replacement += source.slice(cursor);
+		reportFinding(context, finding(start, end, replacement, `Expected no more than ${maximum} empty line(s) in selectors.`));
+	} };
+}
+function visitSelectorPseudoClassParenthesesSpaceInside(context) {
+	const { sourceCode } = context;
+	const [expectation] = context.options;
+	return { "Rule > SelectorList PseudoClassSelector": (node) => {
+		if (node.children === null) return;
+		const [start, end] = sourceCode.getRange(node);
+		const open = sourceCode.text.slice(start, end).indexOf("(") + start;
+		const close = end - 1;
+		if (open < start || sourceCode.text[close] !== ")") return;
+		for (const [punctuation, side] of [[open, "after"], [close, "before"]]) {
+			const problem = insideSpaceFinding(sourceCode.text, punctuation, side, expectation, open + 1, close);
+			if (problem) reportFinding(context, problem);
+		}
+	} };
+}
+var selector_attribute_brackets_space_inside_default = createRule({
+	name: "selector-attribute-brackets-space-inside",
+	description: "Require or disallow spaces inside attribute selector brackets",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitSelectorAttributeBracketsSpaceInside(context);
+	}
+});
+var selector_attribute_operator_space_after_default = createRule({
+	name: "selector-attribute-operator-space-after",
+	description: "Require or disallow spaces after attribute selector operators",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitSelectorAttributeOperatorSpace(context, "after");
+	}
+});
+var selector_attribute_operator_space_before_default = createRule({
+	name: "selector-attribute-operator-space-before",
+	description: "Require or disallow spaces before attribute selector operators",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitSelectorAttributeOperatorSpace(context, "before");
+	}
+});
+var selector_combinator_space_after_default = createRule({
+	name: "selector-combinator-space-after",
+	description: "Require or disallow spaces after selector combinators",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitSelectorCombinatorSpace(context, "after");
+	}
+});
+var selector_combinator_space_before_default = createRule({
+	name: "selector-combinator-space-before",
+	description: "Require or disallow spaces before selector combinators",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitSelectorCombinatorSpace(context, "before");
+	}
+});
+var selector_descendant_combinator_no_non_space_default = createRule({
+	name: "selector-descendant-combinator-no-non-space",
+	description: "Require a single space for descendant combinators",
+	meta: {
+		defaultOptions: [true],
+		schema: [{ enum: [true] }]
+	},
+	create(context) {
+		return visitSelectorDescendantCombinator(context);
+	}
+});
+var selector_list_comma_newline_after_default = createRule({
+	name: "selector-list-comma-newline-after",
+	description: "Require or disallow newlines after selector list commas",
+	meta: {
+		defaultOptions: ["always-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitSelectorListComma(context, "after", "newline");
+	}
+});
+var selector_list_comma_newline_before_default = createRule({
+	name: "selector-list-comma-newline-before",
+	description: "Require or disallow newlines before selector list commas",
+	meta: {
+		defaultOptions: ["never-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitSelectorListComma(context, "before", "newline");
+	}
+});
+var selector_list_comma_space_after_default = createRule({
+	name: "selector-list-comma-space-after",
+	description: "Require or disallow spaces after selector list commas",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitSelectorListComma(context, "after", "space");
+	}
+});
+var selector_list_comma_space_before_default = createRule({
+	name: "selector-list-comma-space-before",
+	description: "Require or disallow spaces before selector list commas",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitSelectorListComma(context, "before", "space");
+	}
+});
+var selector_max_empty_lines_default = createRule({
+	name: "selector-max-empty-lines",
+	description: "Limit the number of adjacent empty lines in selectors",
+	meta: {
+		defaultOptions: [0],
+		schema: [{ type: "number" }]
+	},
+	create(context) {
+		return visitSelectorMaxEmptyLines(context);
+	}
+});
+//#endregion
+//#region src/rules/selector-pseudo-class-case/index.ts
+const ruleName$9 = "selector-pseudo-class-case";
+const IDENTIFIER_RE$1 = /^[-\w]+$/u;
+const legacyPseudoElements$1 = /* @__PURE__ */ new Set([
+	"after",
+	"before",
+	"first-letter",
+	"first-line"
+]);
+var selector_pseudo_class_case_default = createRule({
+	name: ruleName$9,
+	description: "Specify lowercase or uppercase for pseudo-class selectors",
+	meta: {
+		defaultOptions: ["lower"],
+		schema: [{ enum: ["lower", "upper"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		return { PseudoClassSelector(node) {
+			if (legacyPseudoElements$1.has(node.name.toLowerCase()) || !IDENTIFIER_RE$1.test(node.name)) return;
+			const actual = node.name;
+			const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+			if (actual === expected) return;
+			const [nodeStart] = sourceCode.getRange(node);
+			const relativeStart = sourceCode.getText(node).indexOf(actual);
+			if (relativeStart === -1) return;
+			const start = nodeStart + relativeStart;
+			const end = start + actual.length;
+			context.report({
+				data: { detail: `Expected pseudo-class selector "${actual}" to be "${expected}".` },
+				fix: (fixer) => fixer.replaceTextRange([start, end], expected),
+				loc: {
+					end: sourceCode.getLocFromIndex(end),
+					start: sourceCode.getLocFromIndex(start)
+				},
+				messageId: "expected"
+			});
+		} };
+	}
+});
+var selector_pseudo_class_parentheses_space_inside_default = createRule({
+	name: "selector-pseudo-class-parentheses-space-inside",
+	description: "Require or disallow spaces inside pseudo-class parentheses",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: ["always", "never"] }]
+	},
+	create(context) {
+		return visitSelectorPseudoClassParenthesesSpaceInside(context);
+	}
+});
+//#endregion
+//#region src/rules/selector-pseudo-element-case/index.ts
+const ruleName$7 = "selector-pseudo-element-case";
+const IDENTIFIER_RE = /^[-\w]+$/u;
+const legacyPseudoElements = /* @__PURE__ */ new Set([
+	"after",
+	"before",
+	"first-letter",
+	"first-line"
+]);
+function nameRange(node, sourceCode) {
+	const [nodeStart] = sourceCode.getRange(node);
+	const relativeStart = sourceCode.getText(node).indexOf(node.name);
+	return relativeStart === -1 ? void 0 : [nodeStart + relativeStart, nodeStart + relativeStart + node.name.length];
+}
+var selector_pseudo_element_case_default = createRule({
+	name: ruleName$7,
+	description: "Specify lowercase or uppercase for pseudo-element selectors",
+	meta: {
+		defaultOptions: ["lower"],
+		schema: [{ enum: ["lower", "upper"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		function check(node) {
+			if (!IDENTIFIER_RE.test(node.name)) return;
+			const actual = node.name;
+			const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+			if (actual === expected) return;
+			const range = nameRange(node, sourceCode);
+			if (!range) return;
+			const [start, end] = range;
+			context.report({
+				data: { detail: `Expected pseudo-element selector "${actual}" to be "${expected}".` },
+				fix: (fixer) => fixer.replaceTextRange(range, expected),
+				loc: {
+					end: sourceCode.getLocFromIndex(end),
+					start: sourceCode.getLocFromIndex(start)
+				},
+				messageId: "expected"
+			});
+		}
+		return {
+			PseudoClassSelector(node) {
+				if (legacyPseudoElements.has(node.name.toLowerCase())) check(node);
+			},
+			PseudoElementSelector: check
+		};
+	}
+});
+var string_quotes_default = createRule({
+	name: "string-quotes",
+	description: "Specify single or double quotes around strings",
+	meta: {
+		defaultOptions: ["double", { avoidEscape: true }],
+		schema: [{ enum: ["single", "double"] }, {
+			additionalProperties: false,
+			properties: { avoidEscape: { type: "boolean" } },
+			type: "object"
+		}]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation, secondary] = context.options;
+		const expectedQuote = expectation === "single" ? "'" : "\"";
+		const avoidEscape = secondary.avoidEscape ?? true;
+		const charsetContainers = /* @__PURE__ */ new WeakSet();
+		function check(start, end, charset) {
+			if (expectedQuote === "'" && charset) return;
+			const text = sourceCode.text;
+			if (text[start] === expectedQuote) return;
+			const contents = text.slice(start + 1, end - 1);
+			const needsEscape = contents.includes(expectedQuote);
+			if (avoidEscape && needsEscape) return;
+			const replacement = needsEscape ? void 0 : `${expectedQuote}${contents}${expectedQuote}`;
+			context.report({
+				loc: {
+					start: sourceCode.getLocFromIndex(start),
+					end: sourceCode.getLocFromIndex(end)
+				},
+				messageId: "expected",
+				data: { detail: `Expected ${expectedQuote === "'" ? "single" : "double"} quotes.` },
+				fix: replacement === void 0 ? void 0 : (fixer) => fixer.replaceTextRange([start, end], replacement)
+			});
+		}
+		function checkRaw(start, end, charset = false) {
+			const source = sourceCode.text.slice(start, end);
+			for (const string of strings(source)) check(start + string.start, start + string.end, charset);
+		}
+		return {
+			"Atrule[name=/^charset$/i]": (node) => {
+				charsetContainers.add(node);
+				if (node.prelude) charsetContainers.add(node.prelude);
+			},
+			Raw(node, parent) {
+				const [start, end] = sourceCode.getRange(node);
+				checkRaw(start, end, charsetContainers.has(parent));
+			},
+			String(node, parent) {
+				const [start, end] = sourceCode.getRange(node);
+				check(start, end, charsetContainers.has(parent));
+			},
+			Url(node) {
+				const [start, end] = sourceCode.getRange(node);
+				checkRaw(start, end);
+			}
+		};
+	}
+});
+//#endregion
+//#region src/rules/unit-case/index.ts
+const ruleName$5 = "unit-case";
+const UNIT_RE = /(?:^|[^\w-])(?:\d+(?:\.\d+)?|\.\d+)([a-z%]+)\b/giu;
+var unit_case_default = createRule({
+	name: ruleName$5,
+	description: "Specify lowercase or uppercase for units",
+	meta: {
+		defaultOptions: ["lower"],
+		schema: [{ enum: ["lower", "upper"] }]
+	},
+	create(context) {
+		const { sourceCode } = context;
+		const [expectation] = context.options;
+		function check(actual, start, end) {
+			const expected = expectation === "upper" ? actual.toUpperCase() : actual.toLowerCase();
+			if (actual === expected) return;
+			context.report({
+				data: { detail: `Expected unit "${actual}" to be "${expected}".` },
+				fix: (fixer) => fixer.replaceTextRange([start, end], expected),
+				loc: {
+					end: sourceCode.getLocFromIndex(end),
+					start: sourceCode.getLocFromIndex(start)
+				},
+				messageId: "expected"
+			});
+		}
+		return {
+			[`Block > Declaration Dimension,\
+        Atrule[name=/^media$/i] > AtrulePrelude Dimension`]: (node) => {
+				const [nodeStart] = sourceCode.getRange(node);
+				const relativeStart = sourceCode.getText(node).lastIndexOf(node.unit);
+				if (relativeStart === -1) return;
+				const start = nodeStart + relativeStart;
+				check(node.unit, start, start + node.unit.length);
+			},
+			[`Block > Declaration Raw,\
+        Atrule[name=/^media$/i] > Raw,\
+        Atrule[name=/^media$/i] > AtrulePrelude Raw`]: (node) => {
+				const [valueStart] = sourceCode.getRange(node);
+				const value = sourceCode.getText(node);
+				new ValueParser(value).walk((parsedNode) => {
+					if (parsedNode.type === "function" && parsedNode.value.toLowerCase() === "url") return false;
+					if (parsedNode.type !== "word") return;
+					for (const match of parsedNode.value.matchAll(UNIT_RE)) {
+						const actual = match[1];
+						const start = valueStart + parsedNode.sourceIndex + match.index + match[0].lastIndexOf(actual);
+						check(actual, start, start + actual.length);
+					}
+				});
+			}
+		};
+	}
+});
+//#endregion
+//#region src/visit/value-list.ts
+const HORIZONTAL_WHITESPACE_RE = /[ \t]/u;
+const LINEBREAK_RE$1 = /[\n\r\f]/u;
+function topLevelCommaIndexes(text, range) {
+	const masked = maskCommentsAndStrings(text.slice(range.start, range.end));
+	const indexes = [];
+	let braceDepth = 0;
+	let bracketDepth = 0;
+	let parenthesisDepth = 0;
+	for (let offset = 0; offset < masked.length; offset += 1) {
+		const character = masked[offset];
+		const index = range.start + offset;
+		if (isEscaped(text, index)) continue;
+		if (character === "(") parenthesisDepth += 1;
+		else if (character === ")") parenthesisDepth -= 1;
+		else if (character === "[") bracketDepth += 1;
+		else if (character === "]") bracketDepth -= 1;
+		else if (character === "{") braceDepth += 1;
+		else if (character === "}") braceDepth -= 1;
+		else if (character === "," && parenthesisDepth === 0 && bracketDepth === 0 && braceDepth === 0) indexes.push(index);
+	}
+	return indexes;
+}
+function visitValueListComma(context, side, kind) {
+	const { sourceCode } = context;
+	const [option] = context.options;
+	const text = sourceCode.text;
+	const commentsAreTransparent = side === "after" && kind === "newline";
+	const maskedComments = commentsAreTransparent ? maskComments(text) : void 0;
+	const newline = kind === "newline" ? newlineFor(text) : void 0;
+	function checkCommas(indexes, scope) {
+		const multiline = isMultiline(text, scope);
+		for (const index of indexes) {
+			if (commentsAreTransparent) {
+				let after = index + 1;
+				while (HORIZONTAL_WHITESPACE_RE.test(text[after])) after += 1;
+				if (option.startsWith("always") && text.startsWith("//", after) && LINEBREAK_RE$1.test(text.slice(after, scope.end))) continue;
+			}
+			const problem = spacingFinding(text, index, side, kind, option, scope, {
+				commentsAreTransparent,
+				maskedComments,
+				multiline,
+				newline
+			});
+			if (!problem) continue;
+			if (kind === "newline" && side === "before" && option.startsWith("always") && problem.replacement) problem.replacement = newline;
+			reportFinding(context, problem);
+		}
+	}
+	return {
+		"Block > Declaration > Raw": (node) => {
+			const [start, end] = sourceCode.getRange(node);
+			const scope = {
+				end,
+				start
+			};
+			checkCommas(topLevelCommaIndexes(text, scope), scope);
+		},
+		"Block > Declaration > Value > Operator[value=',']": (node, parent) => {
+			const [start, end] = sourceCode.getRange(parent);
+			checkCommas([sourceCode.getRange(node)[0]], {
+				end,
+				start
+			});
+		}
+	};
+}
+var value_list_comma_newline_after_default = createRule({
+	name: "value-list-comma-newline-after",
+	description: "Require or disallow newlines after value list commas",
+	meta: {
+		defaultOptions: ["always-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitValueListComma(context, "after", "newline");
+	}
+});
+var value_list_comma_newline_before_default = createRule({
+	name: "value-list-comma-newline-before",
+	description: "Require or disallow newlines before value list commas",
+	meta: {
+		defaultOptions: ["never-multi-line"],
+		schema: [{ enum: [
+			"always",
+			"always-multi-line",
+			"never-multi-line"
+		] }]
+	},
+	create(context) {
+		return visitValueListComma(context, "before", "newline");
+	}
+});
+var value_list_comma_space_after_default = createRule({
+	name: "value-list-comma-space-after",
+	description: "Require or disallow spaces after value list commas",
+	meta: {
+		defaultOptions: ["always"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitValueListComma(context, "after", "space");
+	}
+});
+var value_list_comma_space_before_default = createRule({
+	name: "value-list-comma-space-before",
+	description: "Require or disallow spaces before value list commas",
+	meta: {
+		defaultOptions: ["never"],
+		schema: [{ enum: [
+			"always",
+			"never",
+			"always-single-line",
+			"never-single-line"
+		] }]
+	},
+	create(context) {
+		return visitValueListComma(context, "before", "space");
+	}
+});
+//#endregion
+//#region src/rules/value-list-max-empty-lines/index.ts
+const ruleName = "value-list-max-empty-lines";
+const LINEBREAK_RE = /\r\n|\n\r|[\n\r\f]/gu;
+const LINEBREAK_RUN_RE = /(?:\r\n|\n\r|[\n\r\f])+/gu;
+//#endregion
+//#region src/rules/index.ts
+const rules = {
+	"at-rule-name-case": at_rule_name_case_default,
+	"at-rule-name-newline-after": at_rule_name_newline_after_default,
+	"at-rule-name-space-after": at_rule_name_space_after_default,
+	"at-rule-semicolon-newline-after": at_rule_semicolon_newline_after_default,
+	"at-rule-semicolon-space-before": at_rule_semicolon_space_before_default,
+	"block-closing-brace-empty-line-before": block_closing_brace_empty_line_before_default,
+	"block-closing-brace-newline-after": block_closing_brace_newline_after_default,
+	"block-closing-brace-newline-before": block_closing_brace_newline_before_default,
+	"block-closing-brace-space-after": block_closing_brace_space_after_default,
+	"block-closing-brace-space-before": block_closing_brace_space_before_default,
+	"block-opening-brace-newline-after": block_opening_brace_newline_after_default,
+	"block-opening-brace-newline-before": block_opening_brace_newline_before_default,
+	"block-opening-brace-space-after": block_opening_brace_space_after_default,
+	"block-opening-brace-space-before": block_opening_brace_space_before_default,
+	"color-hex-case": color_hex_case_default,
+	"declaration-bang-space-after": declaration_bang_space_after_default,
+	"declaration-bang-space-before": declaration_bang_space_before_default,
+	"declaration-block-semicolon-newline-after": declaration_block_semicolon_newline_after_default,
+	"declaration-block-semicolon-newline-before": declaration_block_semicolon_newline_before_default,
+	"declaration-block-semicolon-space-after": declaration_block_semicolon_space_after_default,
+	"declaration-block-semicolon-space-before": declaration_block_semicolon_space_before_default,
+	"declaration-block-trailing-semicolon": declaration_block_trailing_semicolon_default,
+	"declaration-colon-newline-after": declaration_colon_newline_after_default,
+	"declaration-colon-space-after": declaration_colon_space_after_default,
+	"declaration-colon-space-before": declaration_colon_space_before_default,
+	"function-comma-newline-after": function_comma_newline_after_default,
+	"function-comma-newline-before": function_comma_newline_before_default,
+	"function-comma-space-after": function_comma_space_after_default,
+	"function-comma-space-before": function_comma_space_before_default,
+	"function-max-empty-lines": function_max_empty_lines_default,
+	"function-parentheses-newline-inside": function_parentheses_newline_inside_default,
+	"function-parentheses-space-inside": function_parentheses_space_inside_default,
+	"function-whitespace-after": function_whitespace_after_default,
+	indentation: indentation_default,
+	linebreaks: linebreaks_default,
+	"max-empty-lines": max_empty_lines_default,
+	"max-line-length": max_line_length_default,
+	"media-feature-colon-space-after": media_feature_colon_space_after_default,
+	"media-feature-colon-space-before": media_feature_colon_space_before_default,
+	"media-feature-name-case": media_feature_name_case_default,
+	"media-feature-parentheses-space-inside": media_feature_parentheses_space_inside_default,
+	"media-feature-range-operator-space-after": media_feature_range_operator_space_after_default,
+	"media-feature-range-operator-space-before": media_feature_range_operator_space_before_default,
+	"media-query-list-comma-newline-after": media_query_list_comma_newline_after_default,
+	"media-query-list-comma-newline-before": media_query_list_comma_newline_before_default,
+	"media-query-list-comma-space-after": media_query_list_comma_space_after_default,
+	"media-query-list-comma-space-before": media_query_list_comma_space_before_default,
+	"named-grid-areas-alignment": named_grid_areas_alignment_default,
+	"no-empty-first-line": no_empty_first_line_default,
+	"no-eol-whitespace": no_eol_whitespace_default,
+	"no-extra-semicolons": no_extra_semicolons_default,
+	"no-missing-end-of-source-newline": no_missing_end_of_source_newline_default,
+	"no-multiple-whitespaces": no_multiple_whitespaces_default,
+	"number-leading-zero": number_leading_zero_default,
+	"number-no-trailing-zeros": number_no_trailing_zeros_default,
+	"property-case": property_case_default,
+	"selector-attribute-brackets-space-inside": selector_attribute_brackets_space_inside_default,
+	"selector-attribute-operator-space-after": selector_attribute_operator_space_after_default,
+	"selector-attribute-operator-space-before": selector_attribute_operator_space_before_default,
+	"selector-combinator-space-after": selector_combinator_space_after_default,
+	"selector-combinator-space-before": selector_combinator_space_before_default,
+	"selector-descendant-combinator-no-non-space": selector_descendant_combinator_no_non_space_default,
+	"selector-list-comma-newline-after": selector_list_comma_newline_after_default,
+	"selector-list-comma-newline-before": selector_list_comma_newline_before_default,
+	"selector-list-comma-space-after": selector_list_comma_space_after_default,
+	"selector-list-comma-space-before": selector_list_comma_space_before_default,
+	"selector-max-empty-lines": selector_max_empty_lines_default,
+	"selector-pseudo-class-case": selector_pseudo_class_case_default,
+	"selector-pseudo-class-parentheses-space-inside": selector_pseudo_class_parentheses_space_inside_default,
+	"selector-pseudo-element-case": selector_pseudo_element_case_default,
+	"string-quotes": string_quotes_default,
+	"unit-case": unit_case_default,
+	"value-list-comma-newline-after": value_list_comma_newline_after_default,
+	"value-list-comma-newline-before": value_list_comma_newline_before_default,
+	"value-list-comma-space-after": value_list_comma_space_after_default,
+	"value-list-comma-space-before": value_list_comma_space_before_default,
+	"value-list-max-empty-lines": createRule({
+		name: ruleName,
+		description: "Limit the number of adjacent empty lines in value lists",
+		meta: {
+			defaultOptions: [0],
+			schema: [{ type: "number" }]
+		},
+		create(context) {
+			const { sourceCode } = context;
+			const [maximum] = context.options;
+			const text = sourceCode.text;
+			const newline = newlineFor(text);
+			function checkValue(scope) {
+				const source = text.slice(scope.start, scope.end);
+				const firstContent = source.length - source.trimStart().length;
+				const lastContentEnd = source.trimEnd().length;
+				let replacement = "";
+				let cursor = 0;
+				let changed = false;
+				for (const match of source.matchAll(LINEBREAK_RUN_RE)) {
+					replacement += source.slice(cursor, match.index);
+					cursor = match.index + match[0].length;
+					if (match.index <= firstContent || cursor >= lastContentEnd) {
+						replacement += match[0];
+						continue;
+					}
+					const lineBreaks = match[0].match(LINEBREAK_RE)?.length ?? 0;
+					const permittedLineBreaks = maximum + 1;
+					if (lineBreaks <= permittedLineBreaks) {
+						replacement += match[0];
+						continue;
+					}
+					changed = true;
+					replacement += newline.repeat(permittedLineBreaks);
+				}
+				if (!changed) return;
+				replacement += source.slice(cursor);
+				context.report({
+					loc: {
+						start: sourceCode.getLocFromIndex(scope.start),
+						end: sourceCode.getLocFromIndex(scope.end)
+					},
+					messageId: "expected",
+					data: { detail: `Expected no more than ${maximum} empty line(s) in value lists.` },
+					fix: (fixer) => fixer.replaceTextRange([scope.start, scope.end], replacement)
+				});
+			}
+			return {
+				"Block > Declaration > Raw": (node) => {
+					const [start, end] = sourceCode.getRange(node);
+					checkValue({
+						end,
+						start
+					});
+				},
+				"Block > Declaration > Value": (node) => {
+					const [start, end] = sourceCode.getRange(node);
+					checkValue({
+						end,
+						start
+					});
+				}
+			};
+		}
+	})
+};
+//#endregion
+//#region src/index.ts
+const plugin = {
+	meta: {
+		name,
+		version
+	},
+	rules
+};
+//#endregion
+export { plugin as default, rules };

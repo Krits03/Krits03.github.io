@@ -1,0 +1,10 @@
+import type { H3Error, H3Event } from '#nuxtseo/h3';
+import type { DevToolsMetaDataExtraction, OgImageOptionsInternal } from '../../types.js';
+export interface DevToolsExtractPayload {
+    options: OgImageOptionsInternal[];
+    socialPreview: {
+        root: Record<string, string>;
+        images: DevToolsMetaDataExtraction[];
+    };
+}
+export declare function fetchPathHtmlAndExtractOptions(e: H3Event, path: string, cacheKey: string): Promise<H3Error | DevToolsExtractPayload>;
