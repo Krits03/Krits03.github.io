@@ -1,0 +1,219 @@
+import * as _nuxt_schema from '@nuxt/schema';
+import { ResvgRenderOptions } from '@resvg/resvg-js';
+import { SatoriOptions } from 'satori';
+import { SharpOptions } from 'sharp';
+import { OgImageComponent, RendererType, OgImageRuntimeConfig, OgImageOptions, CompatibilityFlagEnvOverrides, BrowserConfig } from '../dist/runtime/types.js';
+export { OgImageComponent, OgImageOptions, OgImageRenderEventContext, OgImageRuntimeConfig, RuntimeCompatibilitySchema, VNode } from '../dist/runtime/types.js';
+
+interface ModuleOptions {
+    /**
+     * Whether the og:image images should be generated.
+     *
+     * @default true
+     */
+    enabled: boolean;
+    /**
+     * Default data used within the payload to generate the OG Image.
+     *
+     * You can use this to change the default template, image sizing and more.
+     *
+     * @default { width: 1200, height: 600, extension: 'png', emojis: 'noto', cacheMaxAgeSeconds: 60 * 60 * 24 * 3 }
+     */
+    defaults: Omit<OgImageOptions, 'component' | 'renderer' | 'props' | 'url' | 'html' | 'key' | 'cacheKey' | '_query' | '_hash' | 'socialPreview'>;
+    /**
+     * Options to pass to satori.
+     *
+     * @see https://github.com/vercel/satori/blob/main/src/satori.ts#L18
+     */
+    satoriOptions?: Partial<SatoriOptions>;
+    /**
+     * Options to pass to resvg.
+     *
+     * @see https://github.com/yisibl/resvg-js/blob/main/wasm/index.d.ts#L39
+     */
+    resvgOptions?: Partial<ResvgRenderOptions>;
+    /**
+     * Options to pass to sharp.
+     *
+     * @see https://sharp.pixelplumbing.com/api-constructor
+     */
+    sharpOptions?: true | Partial<SharpOptions>;
+    /**
+     * Enables debug logs and a debug endpoint.
+     *
+     * @false false
+     */
+    debug: boolean;
+    /**
+     * Configure the runtime cache storage for generated OG images.
+     * - `true` - Use Nitro's default cache storage (default)
+     * - `false` - Disable caching
+     * - `string` - Use a custom storage mount key (e.g., `'redis'`). You must mount the storage yourself via a Nitro plugin.
+     * - `object` - Provide a driver config that the module will mount for you (build-time only)
+     *
+     * @default true
+     * @see https://nitro.unjs.io/guide/storage#mountpoints
+     * @example runtimeCacheStorage: 'redis' // Use your own mounted 'redis' storage
+     * @example runtimeCacheStorage: { driver: 'redis', host: 'localhost', port: 6379 }
+     */
+    runtimeCacheStorage: boolean | string | (Record<string, any> & {
+        driver: string;
+    });
+    /**
+     * Custom version string for cache key namespacing.
+     *
+     * By default, the module version is used which invalidates cache on upgrades.
+     * Set a static value like `'v1'` to persist cache across module updates.
+     * Set to `false` to disable versioning entirely.
+     *
+     * @default module version
+     * @example cacheVersion: 'v1'
+     * @example cacheVersion: false
+     */
+    cacheVersion?: string | false;
+    /**
+     * Extra component directories that should be used to resolve components.
+     *
+     * @default ['OgImage', 'OgImageCommunity', 'og-image', 'OgImageTemplate']
+     */
+    componentDirs: string[];
+    /**
+     * Manually modify the compatibility.
+     */
+    compatibility?: CompatibilityFlagEnvOverrides;
+    /**
+     * Only allow the prerendering and dev runtimes to generate images.
+     */
+    zeroRuntime?: boolean;
+    /**
+     * Enable persistent build cache for CI environments.
+     * Caches rendered images to disk so they persist between CI runs.
+     *
+     * @default false
+     * @example true
+     * @example { base: '.cache/og-image' }
+     */
+    buildCache?: boolean | {
+        base?: string;
+    };
+    /**
+     * Warn about OG Image components missing renderer suffix in dev mode.
+     * Set to false to suppress warnings for legacy/test components.
+     *
+     * @default true
+     */
+    warnMissingSuffix?: boolean;
+    /**
+     * @deprecated Runtime always uses Iconify API now. Build-time uses local icons if available.
+     * Use `defaults.emojis: false` to disable emoji support entirely.
+     */
+    emojiStrategy?: 'auto' | 'local' | 'fetch';
+    /**
+     * Default cache duration in seconds for generated OG images.
+     *
+     * Controls the internal storage TTL, HTTP Cache-Control headers, and the
+     * auto-configured SWR route rule. Can be overridden per-image via
+     * `defineOgImage`'s `cacheMaxAgeSeconds` option.
+     *
+     * @default 60 * 60 * 24 * 3 (3 days)
+     */
+    cacheMaxAgeSeconds?: number;
+    /**
+     * Font subsets to download when resolving missing font families via fontless.
+     *
+     * Fonts from @nuxt/fonts are always included with all their subsets (devanagari,
+     * cyrillic, etc.). This option only controls which subsets fontless downloads when
+     * supplementing missing families for the Satori renderer.
+     *
+     * @default ['latin']
+     * @example ['latin', 'latin-ext', 'devanagari']
+     */
+    fontSubsets?: string[];
+    /**
+     * Browser renderer configuration.
+     *
+     * When using browser-based rendering (screenshots), configure the browser provider.
+     * For Cloudflare deployments, specify the browser binding name.
+     *
+     * @example { provider: 'cloudflare', binding: 'BROWSER' }
+     */
+    browser?: BrowserConfig;
+    /**
+     * Security limits for image generation. Prevents denial of service via
+     * oversized dimensions, unbounded DPR, or long-running renders.
+     */
+    security?: {
+        /** Maximum allowed width or height in pixels. @default 2048 */
+        maxDimension?: number;
+        /** Maximum device pixel ratio (takumi renderer). @default 2 */
+        maxDpr?: number;
+        /** Render timeout in milliseconds. Returns 408 on timeout. @default 15000 */
+        renderTimeout?: number;
+        /**
+         * Per-image fetch timeout in milliseconds.
+         *
+         * Applies to remote `<img>` / `background-image` fetches done while resolving templates.
+         * A stalled resource can otherwise consume the entire `renderTimeout` budget, which
+         * shows up as near-total request timeouts on edge platforms (e.g. Cloudflare Workers
+         * when the image URL routes back through the same worker).
+         *
+         * @default 3000
+         */
+        imageFetchTimeout?: number;
+        /**
+         * Maximum allowed length (in characters) for the query string on runtime OG image requests.
+         * Requests exceeding this limit receive a 400 response.
+         *
+         * Set to a number to enable (e.g. `2048`). Leave `null` to disable.
+         *
+         * @default null
+         */
+        maxQueryParamSize?: number | null;
+        /**
+         * Restrict runtime image generation to requests whose Host header matches allowed hosts.
+         * - `true`: only allow requests whose Host matches the site config URL host
+         * - `string[]`: allow the site config URL host plus these additional origins
+         * - `false` (default): no host restriction
+         *
+         * Uses h3's `getRequestHost` with `X-Forwarded-Host` support for reverse proxies.
+         * Prerendering and dev mode are never restricted.
+         *
+         * @default false
+         */
+        restrictRuntimeImagesToOrigin?: boolean | string[];
+        /**
+         * Secret for URL signing. When set, all runtime OG image URLs include a
+         * keyed hash signature and the handler rejects requests with missing or
+         * invalid signatures.
+         *
+         * Leave unset to auto-generate a per-build secret (signing on by default).
+         * Set an explicit, stable string for rolling or multi-instance deploys, or
+         * `false` to disable signing entirely. Generate one with:
+         * `npx nuxt-og-image generate-secret`
+         *
+         * Required (explicitly) when `strict` is enabled.
+         */
+        secret?: string | false;
+        /**
+         * Enable strict security mode. When enabled:
+         * - `secret` is required (URL signing)
+         * - The `html` option is disabled (prevents SSRF via inline HTML injection)
+         * - `maxQueryParamSize` defaults to `2048`
+         * - `restrictRuntimeImagesToOrigin` defaults to `true`
+         *
+         * @default false
+         */
+        strict?: boolean;
+    };
+}
+interface ModuleHooks {
+    'nuxt-og-image:components': (ctx: {
+        components: OgImageComponent[];
+        detectedRenderers: Set<RendererType>;
+    }) => Promise<void> | void;
+    'nuxt-og-image:runtime-config': (config: OgImageRuntimeConfig) => Promise<void> | void;
+}
+declare const _default: _nuxt_schema.NuxtModule<ModuleOptions, ModuleOptions, false>;
+
+export { _default as default };
+export type { ModuleHooks, ModuleOptions };

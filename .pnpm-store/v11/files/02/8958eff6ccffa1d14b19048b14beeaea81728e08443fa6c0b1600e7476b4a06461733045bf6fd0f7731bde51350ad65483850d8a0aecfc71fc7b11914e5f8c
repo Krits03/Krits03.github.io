@@ -1,0 +1,3 @@
+import type { ObjectPlugin } from 'nuxt/app';
+declare const plugin: ObjectPlugin;
+export default plugin;

@@ -1,0 +1,1 @@
+import{H as a,I as r,J as u}from"./CgSA-cNt.js";const i=a(t=>{const e=t.meta.feature;if(!e)return;if(!r(e))return u("/",{replace:!0})});export{i as default};

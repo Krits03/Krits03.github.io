@@ -1,0 +1,49 @@
+import { BundledLanguage, BundledTheme, CodeOptionsMultipleThemes, CodeToHastOptionsCommon, HighlighterCore } from "shiki";
+
+//#region src/index.d.ts
+interface MountPlainShikiOptions {
+  /**
+   * Language of the code to be highlighted.
+   */
+  lang: CodeToHastOptionsCommon<BundledLanguage>["lang"];
+  /**
+   * Themes of the code to be highlighted.
+   * @default {light:"min-light",dark:"min-dark"}
+   */
+  themes?: CodeOptionsMultipleThemes<BundledTheme>["themes"];
+  /**
+   * Name of default theme.
+   * @default "light"
+   */
+  defaultTheme?: string | false;
+  /**
+   * Root element selector corresponding to the theme.
+   * @default `.${theme}`
+   */
+  selector?: (theme: string) => string;
+  /**
+   * Root element selector with default theme.
+   * @default ":root"
+   */
+  defaultSelector?: string;
+  /**
+   * Whether to listen for element update events and automatic rendering.
+   * @default true
+   */
+  watch?: boolean;
+  /**
+   * Throttle delay in updating when `watch: true`.
+   * @default 33.4
+   */
+  delay?: number;
+}
+interface MountPlainShikiReturns {
+  dispose: () => boolean;
+  update: () => void;
+}
+interface PlainShiki {
+  mount: (el: HTMLElement, options: MountPlainShikiOptions) => MountPlainShikiReturns;
+}
+declare function createPlainShiki(shiki: HighlighterCore): PlainShiki;
+//#endregion
+export { MountPlainShikiOptions, MountPlainShikiReturns, PlainShiki, createPlainShiki };

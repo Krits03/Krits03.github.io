@@ -1,0 +1,8 @@
+import type { H3Event } from '#nuxtseo/h3';
+import type { OgImageOptionsInternal, OgImageRuntimeConfig } from '../types.js';
+export interface GetOgImagePathResult {
+    path: string;
+    hash?: string;
+}
+export declare function getOgImagePath(_pagePath: string, _options?: Partial<OgImageOptionsInternal>): GetOgImagePathResult;
+export declare function useOgImageRuntimeConfig(e?: H3Event): OgImageRuntimeConfig;

@@ -1,0 +1,28 @@
+import { localePath } from "nuxtseo-shared/i18n-runtime";
+import { hasTrailingSlash, parseURL, stringifyParsedURL, withTrailingSlash } from "ufo";
+export function resolveBreadcrumbRoot(rootNode, context) {
+  if (!context.locale || !context.strategy)
+    return rootNode;
+  return localePath(rootNode, context.locale, {
+    defaultLocale: context.defaultLocale || context.locale,
+    strategy: context.strategy,
+    locales: []
+  });
+}
+export function pathBreadcrumbSegments(path, rootNode = "/") {
+  const startNode = parseURL(path);
+  const appendsTrailingSlash = hasTrailingSlash(startNode.pathname);
+  const stepNode = (node, nodes = []) => {
+    const fullPath = stringifyParsedURL(node);
+    const currentPathName = node.pathname || "/";
+    nodes.push(fullPath || "/");
+    if (currentPathName !== rootNode && currentPathName !== "/") {
+      node.pathname = currentPathName.substring(0, currentPathName.lastIndexOf("/"));
+      if (appendsTrailingSlash)
+        node.pathname = withTrailingSlash(node.pathname.substring(0, node.pathname.lastIndexOf("/")));
+      stepNode(node, nodes);
+    }
+    return nodes;
+  };
+  return stepNode(startNode).reverse();
+}

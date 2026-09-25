@@ -1,0 +1,92 @@
+import { resolveCanonicalLocaleDomain } from "nuxtseo-shared/i18n-runtime";
+import { SiteConfigPriority } from "site-config-stack";
+import { hasProtocol, parseURL } from "ufo";
+import { computed, toValue, watch } from "vue";
+import { defineNuxtPlugin, useRequestURL } from "#app";
+import { i18nPluginDeps } from "#build/nuxt-site-config/i18n-plugin-deps.mjs";
+import { getSiteConfigStack } from "./i18n-shared.js";
+function resolveDefaultLocale(i18n) {
+  const locale = toValue(i18n.locales).find((l) => l.code === i18n.defaultLocale);
+  return locale?.language || locale?.iso || i18n.defaultLocale;
+}
+function resolveI18nUrl(i18n, requestProtocol) {
+  const baseUrl = toValue(i18n.baseUrl) || void 0;
+  if (!toValue(i18n.differentDomains))
+    return baseUrl;
+  const locales = toValue(i18n.locales);
+  const defaultLocale = locales.find((locale) => locale.code === toValue(i18n.defaultLocale));
+  const domain = resolveCanonicalLocaleDomain(toValue(i18n.localeProperties), defaultLocale);
+  if (!domain)
+    return baseUrl;
+  return hasProtocol(domain, { strict: true }) ? domain : `${requestProtocol}//${domain}`;
+}
+function resolveCurrentLocale(i18n) {
+  const properties = toValue(i18n.localeProperties);
+  if (properties.language)
+    return properties.language;
+  return resolveDefaultLocale(i18n);
+}
+function resolveDescription(i18n) {
+  return i18n.te("nuxtSiteConfig.description") ? i18n.t("nuxtSiteConfig.description") : void 0;
+}
+function resolveName(i18n) {
+  return i18n.te("nuxtSiteConfig.name") ? i18n.t("nuxtSiteConfig.name") : void 0;
+}
+export default defineNuxtPlugin({
+  name: "nuxt-site-config:i18n",
+  dependsOn: i18nPluginDeps,
+  setup(nuxtApp) {
+    const i18n = nuxtApp.$i18n;
+    if (!i18n)
+      return;
+    const stack = getSiteConfigStack();
+    const requestProtocol = useRequestURL().protocol;
+    const i18nBaseUrl = toValue(i18n.baseUrl);
+    if (i18nBaseUrl) {
+      const siteConfig = stack.get({ resolveRefs: true });
+      const currentUrl = siteConfig.url;
+      if (currentUrl && !currentUrl.includes("localhost")) {
+        const i18nURL = parseURL(i18nBaseUrl, "https://");
+        const siteConfigURL = parseURL(currentUrl, "https://");
+        if (i18nURL.host !== siteConfigURL.host) {
+          if (siteConfig.env === "production") {
+            console.error(`[Nuxt Site Config] Your I18n baseUrl \`${i18nURL.host}\` doesn't match your site url ${siteConfigURL.host}. This will cause production SEO issues. Either provide a matching baseUrl or remove the site url config.`);
+          }
+        }
+      }
+    }
+    if (import.meta.server) {
+      stack.push({
+        _priority: SiteConfigPriority.i18n,
+        _context: "@nuxtjs/i18n",
+        url: () => resolveI18nUrl(i18n, requestProtocol),
+        defaultLocale: () => resolveDefaultLocale(i18n),
+        currentLocale: () => resolveCurrentLocale(i18n),
+        description: () => resolveDescription(i18n),
+        name: () => resolveName(i18n)
+      });
+      return;
+    }
+    const defaultLocale = computed(() => resolveDefaultLocale(i18n));
+    const i18nUrl = computed(() => resolveI18nUrl(i18n, requestProtocol));
+    const currentLocale = computed(() => resolveCurrentLocale(i18n));
+    const description = computed(() => resolveDescription(i18n));
+    const name = computed(() => resolveName(i18n));
+    let siteConfigEntry;
+    watch(i18n.locale, () => {
+      if (siteConfigEntry)
+        siteConfigEntry();
+      siteConfigEntry = stack.push({
+        _priority: SiteConfigPriority.build,
+        _context: "@nuxtjs/i18n",
+        url: i18nUrl,
+        defaultLocale,
+        currentLocale,
+        description,
+        name
+      });
+    }, {
+      immediate: true
+    });
+  }
+});

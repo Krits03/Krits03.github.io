@@ -1,0 +1,17 @@
+function toRecord(value) {
+  return typeof value === "object" && value !== null ? value : void 0;
+}
+export function getCloudflareEnv(event) {
+  const runtime = event && "runtime" in event ? toRecord(event.runtime) : void 0;
+  const runtimeCloudflare = toRecord(runtime?.cloudflare);
+  const runtimeEnv = toRecord(runtimeCloudflare?.env);
+  if (runtimeEnv)
+    return runtimeEnv;
+  const contextCloudflare = toRecord(event?.context.cloudflare);
+  const contextEnv = toRecord(contextCloudflare?.env);
+  if (contextEnv)
+    return contextEnv;
+  const platform = toRecord(event?.context._platform);
+  const platformCloudflare = toRecord(platform?.cloudflare);
+  return toRecord(platformCloudflare?.env);
+}

@@ -1,0 +1,1 @@
+import{_ as n,o as s,c,D as o}from"./CgSA-cNt.js";const t={},_={class:"n-card n-card-base"};function a(e,r){return s(),c("div",_,[o(e.$slots,"default")])}const l=Object.assign(n(t,[["render",a]]),{__name:"NCard"});export{l as _};

@@ -1,0 +1,12 @@
+{
+  "name": "nuxt-link-checker",
+  "compatibility": {
+    "nuxt": ">=3.9.0"
+  },
+  "configKey": "linkChecker",
+  "version": "5.3.0",
+  "builder": {
+    "@nuxt/module-builder": "1.0.3",
+    "unbuild": "3.6.1"
+  }
+}

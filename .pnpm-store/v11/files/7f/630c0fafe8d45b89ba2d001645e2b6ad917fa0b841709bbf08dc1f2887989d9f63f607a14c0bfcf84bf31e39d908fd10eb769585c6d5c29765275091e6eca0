@@ -1,0 +1,116 @@
+import * as schemaOrgVue from "@unhead/schema-org/vue";
+import { resolveSitePath } from "nuxt-site-config/urls";
+import { useRoute, useRuntimeConfig } from "nuxt/app";
+import { withTrailingSlash } from "ufo";
+import { toValue, watch } from "vue";
+import { injectHead, useHead } from "#imports";
+import {
+  useSiteConfig
+} from "#site-config/app/composables/useSiteConfig";
+import { createSitePathResolver } from "#site-config/app/composables/utils";
+import { useSchemaOrg } from "../composables/useSchemaOrg.js";
+import { useSchemaOrgConfig } from "./config.js";
+function resolvePathDirect(siteConfig, path, options) {
+  const nuxtBase = useRuntimeConfig().app.baseURL || "/";
+  return resolveSitePath(path, {
+    absolute: options.absolute,
+    withBase: options.withBase,
+    siteUrl: toValue(siteConfig.url),
+    trailingSlash: toValue(siteConfig.trailingSlash),
+    base: nuxtBase
+  });
+}
+export function initPlugin(nuxtApp) {
+  initSchemaOrgMeta();
+  initSchemaOrgHead(nuxtApp);
+}
+export function initSchemaOrgMeta() {
+  const route = useRoute();
+  const siteConfig = useSiteConfig();
+  const resolveUrl = import.meta.server ? (path) => resolvePathDirect(siteConfig, path, { canonical: true, absolute: true, withBase: true }) : createSitePathResolver({ canonical: true, absolute: true, withBase: true });
+  function resolveSchemaOrg() {
+    const siteConfigResolved = {};
+    for (const key in siteConfig) {
+      if (key.startsWith("_")) {
+        continue;
+      }
+      siteConfigResolved[key] = toValue(siteConfig[key]);
+      if (typeof siteConfigResolved[key] === "object") {
+        for (const k in siteConfigResolved[key]) {
+          siteConfigResolved[key][k] = toValue(siteConfigResolved[key][k]);
+        }
+      }
+    }
+    return {
+      ...route.meta?.schemaOrg || {},
+      ...siteConfigResolved,
+      url: toValue(resolveUrl(route.path)),
+      host: withTrailingSlash(toValue(resolveUrl("/"))),
+      inLanguage: toValue(siteConfigResolved.currentLocale) || toValue(siteConfigResolved.defaultLocale),
+      path: route.path
+    };
+  }
+  const templateParamEntry = useHead({
+    templateParams: { schemaOrg: resolveSchemaOrg() }
+  });
+  if (import.meta.client) {
+    watch(() => siteConfig, () => {
+      templateParamEntry.patch({
+        templateParams: { schemaOrg: resolveSchemaOrg() }
+      });
+    }, { deep: true });
+  }
+}
+export function initSchemaOrgHead(nuxtApp) {
+  const head = injectHead(nuxtApp);
+  const config = useSchemaOrgConfig();
+  const siteConfig = useSiteConfig();
+  const schemaOrgPlugin = schemaOrgVue.UnheadSchemaOrg;
+  head.use(
+    schemaOrgPlugin({}, async () => {
+      const meta = {};
+      await nuxtApp.hooks.callHook("schema-org:meta", meta);
+      return meta;
+    }, {
+      minify: config.minify,
+      trailingSlash: siteConfig.trailingSlash
+    })
+  );
+}
+export function maybeAddIdentitySchemaOrg() {
+  const config = useSchemaOrgConfig();
+  const siteConfig = useSiteConfig({
+    resolveRefs: true
+  });
+  if (config.identity || siteConfig.identity) {
+    const identity = config.identity || siteConfig.identity;
+    let identityPayload = {
+      name: () => toValue(siteConfig.name),
+      url: () => toValue(siteConfig.url)
+    };
+    let identityType;
+    if (typeof identity !== "string") {
+      identityPayload = {
+        ...identityPayload,
+        ...identity
+      };
+      identityType = identity.type;
+      delete identityPayload.type;
+    } else {
+      identityType = identity;
+    }
+    if (siteConfig.twitter) {
+      const id = siteConfig.twitter.startsWith("@") ? siteConfig.twitter.slice(1) : siteConfig.twitter;
+      identityPayload.sameAs = [
+        `https://twitter.com/${id}`
+      ];
+    }
+    const identityDefines = {
+      organization: schemaOrgVue.defineOrganization,
+      person: schemaOrgVue.definePerson,
+      localbusiness: schemaOrgVue.defineLocalBusiness
+    };
+    const defineIdentity = identityDefines[identityType?.toLowerCase()] || schemaOrgVue.defineOrganization;
+    useSchemaOrg([defineIdentity(identityPayload)]);
+  }
+}

@@ -1,0 +1,25 @@
+import type { H3Event } from '#nuxtseo/h3';
+export interface FetchLocalAssetOptions {
+    fetchTimeout: number;
+    headers?: Record<string, string>;
+    /**
+     * Also attempt an external HTTP fetch to `getNitroOrigin(event) + path` when
+     * ASSETS and Nitro localFetch both miss. Enable for platforms where static
+     * files are served by edge routing that never reaches the Nitro handler
+     * (Vercel, Netlify). Disable for CF Workers where no ASSETS means no assets.
+     */
+    includeExternalFallback?: boolean;
+    onStepFailure?: (url: string, err: unknown) => void;
+}
+/**
+ * Resolve a same-origin asset path to bytes, trying (in order):
+ *   1. Cloudflare Workers ASSETS binding
+ *   2. Nitro localFetch through the event-aware bridge, which resolves dynamic routes too
+ *   3. External `$fetch` to the Nitro origin (opt-in)
+ *
+ * All steps share a single `AbortSignal.timeout(fetchTimeout)` so a broken
+ * URL can't burn N× the configured budget.
+ *
+ * Returns `undefined` when every step fails or times out.
+ */
+export declare function fetchLocalAsset(event: H3Event, path: string, options: FetchLocalAssetOptions): Promise<ArrayBuffer | undefined>;

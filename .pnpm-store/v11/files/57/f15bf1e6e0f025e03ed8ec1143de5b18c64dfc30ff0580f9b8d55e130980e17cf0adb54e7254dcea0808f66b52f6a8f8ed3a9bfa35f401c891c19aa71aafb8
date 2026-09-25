@@ -1,0 +1,89 @@
+import { TemplateParamsPlugin } from "@unhead/vue/plugins";
+import { defu } from "defu";
+import { createNitroRouteRuleMatcher } from "nuxtseo-shared/server";
+import { parseURL } from "ufo";
+import { toValue } from "vue";
+import { defineNuxtPlugin, useRequestEvent } from "#app";
+import { withSiteUrl } from "#site-config/app/composables";
+import { createOgImageMeta, getOgImagePath } from "../../app/utils.js";
+import { isInternalRoute } from "../../shared.js";
+const RE_COMMA = /,/g;
+export const ogImageCanonicalUrls = defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.hooks.hook("app:rendered", async (ctx) => {
+    const { ssrContext } = ctx;
+    const e = useRequestEvent();
+    const path = parseURL(e?.path || "").pathname;
+    if (isInternalRoute(path))
+      return;
+    ssrContext?.head.use(TemplateParamsPlugin);
+    ssrContext?.head.use({
+      key: "nuxt-og-image:overrides-and-canonical-urls",
+      hooks: {
+        "tags:afterResolve": (ctx2) => {
+          let title = "";
+          let description = "";
+          for (const tag of ctx2.tags) {
+            if (tag.tag === "title" && tag.textContent) {
+              title = tag.textContent;
+            } else if (tag.tag === "meta" && tag.props.name === "description") {
+              description = tag.props.content || "";
+            }
+            if (title && description)
+              break;
+          }
+          for (const tag of ctx2.tags) {
+            if (tag.tag === "meta" && (tag.props.property === "og:image" || ["twitter:image:src", "twitter:image"].includes(tag.props.name || ""))) {
+              if (!tag.props.content) {
+                tag.props = {};
+                continue;
+              }
+              tag.props.content = tag.props.content.replaceAll("%title", title).replaceAll("%description", description).replaceAll(" ", "+");
+              if (!tag.props.content?.startsWith("https")) {
+                nuxtApp.runWithContext(() => {
+                  tag.props.content = toValue(withSiteUrl(tag.props.content || "", {
+                    withBase: true,
+                    canonical: !import.meta.dev
+                  }));
+                });
+              }
+            }
+          }
+        }
+      }
+    });
+  });
+});
+export const routeRuleOgImage = defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.hooks.hook("app:rendered", async (ctx) => {
+    const { ssrContext } = ctx;
+    const e = useRequestEvent();
+    const path = parseURL(e?.path || "").pathname;
+    if (isInternalRoute(path))
+      return;
+    const matchRouteRules = createNitroRouteRuleMatcher(ssrContext?.runtimeConfig || {});
+    let routeRules = matchRouteRules(path).ogImage;
+    if (typeof routeRules === "undefined")
+      return;
+    if (routeRules === false) {
+      nuxtApp.ssrContext._ogImageInstance?.dispose();
+      nuxtApp.ssrContext._ogImageDevtoolsInstance?.dispose();
+      nuxtApp.ssrContext._ogImageInstance = void 0;
+      nuxtApp.ssrContext._ogImagePayloads = [];
+      if (import.meta.prerender)
+        e?.context._ogImagePrerenderPaths?.clear();
+      return;
+    }
+    routeRules = defu(nuxtApp.ssrContext?.event?.context._nitro?.routeRules?.ogImage, routeRules);
+    const { path: src, hash } = getOgImagePath(ssrContext.url, routeRules);
+    if (hash) {
+      routeRules._hash = hash;
+    }
+    createOgImageMeta(src, routeRules, nuxtApp.ssrContext);
+    if (import.meta.prerender && e) {
+      const ogKey = routeRules.key || "og";
+      const prerenderPath = (src.split("?")[0] || src).replace(RE_COMMA, "%2C");
+      const prerenderPaths = e.context._ogImagePrerenderPaths || (e.context._ogImagePrerenderPaths = /* @__PURE__ */ new Map());
+      prerenderPaths.set(ogKey, prerenderPath);
+    }
+  });
+});

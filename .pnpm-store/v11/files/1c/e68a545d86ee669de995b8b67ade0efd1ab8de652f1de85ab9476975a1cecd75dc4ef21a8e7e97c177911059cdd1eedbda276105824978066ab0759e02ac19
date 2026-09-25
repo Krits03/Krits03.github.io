@@ -1,0 +1,33 @@
+{
+  "name": "nuxt-schema-org",
+  "configKey": "schemaOrg",
+  "compatibility": {
+    "nuxt": ">=3.16.0"
+  },
+  "moduleDependencies": {
+    "@nuxtjs/i18n": {
+      "version": ">=8",
+      "optional": true
+    },
+    "nuxt-i18n-micro": {
+      "version": ">=1",
+      "optional": true
+    },
+    "nuxt-site-config": {
+      "version": ">=3.2"
+    },
+    "@harlan-zw/comark-content": {
+      "version": ">=0.1.2",
+      "optional": true
+    },
+    "@nuxt/content": {
+      "version": ">=2",
+      "optional": true
+    }
+  },
+  "version": "6.3.1",
+  "builder": {
+    "@nuxt/module-builder": "1.0.3",
+    "unbuild": "3.6.1"
+  }
+}

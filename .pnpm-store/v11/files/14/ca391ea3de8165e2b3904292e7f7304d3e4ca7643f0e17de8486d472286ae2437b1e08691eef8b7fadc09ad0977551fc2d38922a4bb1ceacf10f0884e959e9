@@ -1,0 +1,48 @@
+# eslint-plugin-css-stylistic
+
+Stylistic CSS rules for ESLint's CSS language.
+
+This package ports the 77 CSS-compatible rules from [`@stylistic/stylelint-plugin`](https://github.com/stylelint-stylistic/stylelint-stylistic) to the [`@eslint/css`](https://github.com/eslint/css) language API. Rule names and primary options are kept compatible so an existing Stylelint Stylistic configuration can be migrated without renaming rules.
+
+## Installation
+
+```bash
+pnpm i -D eslint @eslint/css eslint-plugin-css-stylistic
+```
+
+## Usage
+
+```js
+import css from "@eslint/css";
+import stylistic from "eslint-plugin-css-stylistic";
+
+export default [
+  {
+    files: ["**/*.css"],
+    language: "css/css",
+    plugins: {
+      css,
+      "css-stylistic": stylistic,
+    },
+    rules: {
+      "css-stylistic/color-hex-case": ["error", "lower"],
+      "css-stylistic/indentation": ["error", 2],
+      "css-stylistic/number-leading-zero": ["error", "always"],
+      "css-stylistic/string-quotes": ["error", "double"],
+      "css-stylistic/unit-case": ["error", "lower"],
+    },
+  },
+];
+```
+
+## Unsupported: `unicode-bom`
+
+The upstream `unicode-bom` rule is temporarily not supported.
+
+`@eslint/css` removes the Unicode byte order mark before CSS rules run, and its `CSSSourceCode` does not expose whether the original file contained a BOM. As a result, a rule running with the official `language: "css/css"` cannot reliably distinguish files with a BOM from files without one.
+
+The rule can be added once `@eslint/css` exposes the original BOM metadata to rules. Until then, `unicode-bom` is intentionally omitted instead of reporting incorrect results.
+
+## Attribution
+
+Rule implementations and tests are adapted from [`@stylistic/stylelint-plugin`](https://github.com/stylelint-stylistic/stylelint-stylistic). The upstream project is licensed under the MIT License, and its copyright notices and permission notice are preserved in this repository's [`LICENSE`](./LICENSE).

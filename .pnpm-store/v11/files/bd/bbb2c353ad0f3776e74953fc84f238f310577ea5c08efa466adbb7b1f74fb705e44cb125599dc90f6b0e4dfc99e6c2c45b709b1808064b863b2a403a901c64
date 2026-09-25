@@ -1,0 +1,10 @@
+export function selectColorModeIconLinks(icons, colorMode) {
+  const selected = colorMode === "dark" ? icons.dark : icons.light;
+  return selected.map((link, index) => ({
+    ...link,
+    key: `nuxt-seo-utils:color-mode-icon:${getLinkKey(link, index)}`
+  }));
+}
+function getLinkKey(link, index) {
+  return `${link.rel}:${index}`;
+}

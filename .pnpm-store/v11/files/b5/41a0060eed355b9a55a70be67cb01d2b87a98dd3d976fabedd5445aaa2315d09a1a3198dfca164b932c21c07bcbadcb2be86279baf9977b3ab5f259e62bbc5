@@ -1,0 +1,27 @@
+import { defineNuxtModule, createResolver, addImportsSources } from '@nuxt/kit';
+
+const name = "@bikariya/shiki";
+const packageJson = {
+	name: name};
+
+const module$1 = defineNuxtModule({
+  meta: {
+    name: packageJson.name,
+    configKey: "shiki"
+  },
+  moduleDependencies: {
+    "@bikariya/core": {}
+  },
+  setup(options, nuxt) {
+    const resolver = createResolver(import.meta.url);
+    addImportsSources({
+      from: resolver.resolve("runtime/store"),
+      imports: [
+        "useShikiStore"
+      ]
+    });
+    nuxt.options.alias["#shiki/config"] = resolver.resolve("runtime/config");
+  }
+});
+
+export { module$1 as default };

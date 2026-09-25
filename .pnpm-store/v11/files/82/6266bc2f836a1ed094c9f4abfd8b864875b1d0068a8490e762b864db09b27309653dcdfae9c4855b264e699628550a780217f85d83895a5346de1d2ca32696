@@ -1,0 +1,53 @@
+export function renameSubsetFonts(fonts) {
+  const groups = /* @__PURE__ */ new Map();
+  for (const f of fonts) {
+    const key = `${f.family}\0${f.weight}\0${f.style}`;
+    const arr = groups.get(key);
+    if (arr)
+      arr.push(f);
+    else
+      groups.set(key, [f]);
+  }
+  const result = [];
+  let changed = false;
+  for (const members of groups.values()) {
+    const needsRename = members.length > 1 && new Set(members.map((f) => f.cacheKey)).size > 1;
+    if (!needsRename) {
+      result.push(...members);
+      continue;
+    }
+    changed = true;
+    for (let i = 0; i < members.length; i++) {
+      const f = members[i];
+      result.push({
+        ...f,
+        originalFamily: f.originalFamily || f.family,
+        family: `${f.family}__${i}`
+      });
+    }
+  }
+  return changed ? result : fonts;
+}
+export function buildSubsetFamilyChain(fonts) {
+  const chains = /* @__PURE__ */ new Map();
+  for (const f of fonts) {
+    if (!f.originalFamily)
+      continue;
+    const arr = chains.get(f.originalFamily);
+    if (arr)
+      arr.push(f.family);
+    else
+      chains.set(f.originalFamily, [f.family]);
+  }
+  return chains;
+}
+export function resolveSubsetChain(family, chains) {
+  const direct = chains.get(family);
+  if (direct)
+    return direct;
+  const lower = family.toLowerCase();
+  for (const [key, value] of chains) {
+    if (key.toLowerCase() === lower)
+      return value;
+  }
+}

@@ -1,0 +1,30 @@
+import { defineRule } from "./util.js";
+const nonAsciiRe = /[^\u0020-\u007F]/;
+export default function RuleNoNonAsciiChars() {
+  return defineRule({
+    id: "no-non-ascii-chars",
+    test({ link, url, report }) {
+      if (link.startsWith("#"))
+        return;
+      function test(s) {
+        if (nonAsciiRe.test(s)) {
+          report({
+            name: "no-non-ascii-chars",
+            scope: "warning",
+            message: "Links should not contain non-ascii characters.",
+            // fix is to uri encode the link
+            fix: encodeURI(s),
+            fixDescription: "Encode non-ascii characters."
+          });
+        }
+      }
+      test(url.pathname);
+      test(url.search);
+      if (link.includes("#")) {
+        const hash = link.split("#")[1];
+        if (hash)
+          test(hash);
+      }
+    }
+  });
+}

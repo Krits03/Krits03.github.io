@@ -1,0 +1,45 @@
+import { getCurrentInstance, inject, markRaw, onMounted } from "vue";
+import { useNuxtApp } from "#imports";
+import { HYDRATION_ROUTE, formatHTML, logger, normalizeHTMLForComparison } from "./utils.js";
+import { clientOnlySymbol } from "#app/components/client-only";
+import { isFeatureDevtoolsEnabled } from "../core/features.js";
+export function useHydrationCheck() {
+  const isClientOnly = inject(clientOnlySymbol, false);
+  if (import.meta.server || isClientOnly) {
+    return;
+  }
+  const nuxtApp = useNuxtApp();
+  if (!nuxtApp.isHydrating || !nuxtApp.payload.serverRendered) {
+    return;
+  }
+  const instance = getCurrentInstance();
+  if (!instance) return;
+  const htmlPreHydration = formatHTML(instance.vnode.el?.outerHTML);
+  const vnodePrehydration = instance.vnode;
+  onMounted(() => {
+    const htmlPostHydration = formatHTML(instance.vnode.el?.outerHTML);
+    if (normalizeHTMLForComparison(htmlPreHydration) !== normalizeHTMLForComparison(htmlPostHydration)) {
+      const componentName = instance.type.name ?? instance.type.displayName ?? instance.type.__name;
+      const fileLocation = instance.type.__file ?? "unknown";
+      const body = {
+        htmlPreHydration,
+        htmlPostHydration,
+        componentName,
+        fileLocation
+      };
+      if (isFeatureDevtoolsEnabled("hydration")) {
+        $fetch(new URL(HYDRATION_ROUTE, window.location.origin).href, {
+          method: "POST",
+          body
+        }).then((payload) => {
+          nuxtApp.payload.__hints.hydration.push({
+            ...payload,
+            instance: markRaw(instance),
+            vnode: markRaw(vnodePrehydration)
+          });
+        });
+      }
+      logger.warn(`[hydration] Component ${componentName} at ${fileLocation} seems to have different html pre and post-hydration. Please make sure you don't have any hydration issue.`);
+    }
+  });
+}

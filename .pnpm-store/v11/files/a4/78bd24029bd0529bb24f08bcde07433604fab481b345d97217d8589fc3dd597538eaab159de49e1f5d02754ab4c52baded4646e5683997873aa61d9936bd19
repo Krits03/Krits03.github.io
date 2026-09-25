@@ -1,0 +1,230 @@
+'use strict';
+
+const node_url = require('node:url');
+const kit = require('@nuxt/kit');
+const defu = require('defu');
+const kit$2 = require('nuxt-site-config/kit');
+const kit$1 = require('nuxtseo-shared/kit');
+const pkgTypes = require('pkg-types');
+const devtools = require('nuxtseo-shared/devtools');
+const content_js = require('../dist/runtime/utils/content.js');
+const node_fs = require('node:fs');
+
+var _documentCurrentScript = typeof document !== 'undefined' ? document.currentScript : null;
+function setupDevToolsUI(_options, resolve, nuxt = kit.useNuxt()) {
+  devtools.setupDevToolsUI({
+    route: "/__nuxt-schema-org",
+    name: "nuxt-schema-org",
+    title: "Schema.org",
+    icon: "carbon:chart-relationship"
+  }, resolve, nuxt);
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function cloneSerializableIdentityValue(value) {
+  if (typeof value === "function")
+    return void 0;
+  if (Array.isArray(value))
+    return value.map(cloneSerializableIdentityValue).filter((value2) => typeof value2 !== "undefined");
+  if (!isPlainObject(value))
+    return value;
+  const result = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "_resolver")
+      continue;
+    const cloned = cloneSerializableIdentityValue(child);
+    if (typeof cloned !== "undefined")
+      result[key] = cloned;
+  }
+  return result;
+}
+function resolveSerializableIdentityConfig(identity) {
+  if (!isPlainObject(identity))
+    return identity;
+  const identityNode = identity;
+  const cloned = cloneSerializableIdentityValue(identityNode);
+  const resolverDefaults = isPlainObject(identityNode._resolver?.defaults) ? identityNode._resolver.defaults : {};
+  const resolvedType = Array.isArray(resolverDefaults["@type"]) ? resolverDefaults["@type"].at(-1) : resolverDefaults["@type"];
+  if (resolvedType && !cloned.type && !cloned["@type"])
+    cloned.type = resolvedType;
+  return cloned;
+}
+function schemaOrgVendor(major, resolve) {
+  const dir = resolve(`./vendor/schema-org-v${major}`);
+  if (node_fs.existsSync(dir))
+    return { vendored: true, dir, main: `${dir}/index.mjs`, vue: `${dir}/vue.mjs` };
+  const pkg = major === 2 ? "@unhead/schema-org-v2" : "@unhead/schema-org";
+  return { vendored: false, main: pkg, vue: `${pkg}/vue` };
+}
+
+const module$1 = kit.defineNuxtModule({
+  meta: {
+    name: "nuxt-schema-org",
+    configKey: "schemaOrg",
+    compatibility: {
+      nuxt: ">=3.16.0"
+    },
+    moduleDependencies: {
+      "@nuxtjs/i18n": {
+        version: ">=8",
+        optional: true
+      },
+      "nuxt-i18n-micro": {
+        version: ">=1",
+        optional: true
+      },
+      "nuxt-site-config": {
+        version: ">=3.2"
+      },
+      "@harlan-zw/comark-content": {
+        version: ">=0.1.2",
+        optional: true
+      },
+      "@nuxt/content": {
+        version: ">=2",
+        optional: true
+      }
+    }
+  },
+  defaults(nuxt) {
+    return {
+      enabled: true,
+      defaults: true,
+      reactive: nuxt.options.dev || !nuxt.options.ssr,
+      minify: !nuxt.options.dev,
+      scriptAttributes: {
+        "data-nuxt-schema-org": true
+      }
+    };
+  },
+  async setup(config, nuxt) {
+    const { resolve } = kit.createResolver((typeof document === 'undefined' ? require('u' + 'rl').pathToFileURL(__filename).href : (_documentCurrentScript && _documentCurrentScript.tagName.toUpperCase() === 'SCRIPT' && _documentCurrentScript.src || new URL('module.cjs', document.baseURI).href)));
+    const { name, version } = await pkgTypes.readPackageJSON(resolve("../package.json"));
+    const logger = kit$1.useModuleLogger(name, config, nuxt);
+    if (config.enabled === false) {
+      logger.debug("The module is disabled, skipping setup.");
+      return;
+    }
+    kit$1.setupNitroRuntimeCompatibility(nuxt);
+    if (!nuxt.options.ssr && nuxt.options.dev)
+      logger.warn("You are using Schema.org with SSR disabled. This is not recommended, Google may not detect your Schema.org, and it adds extra page weight");
+    const unheadMajor = await kit$1.resolveHostUnheadMajor(nuxt.options.rootDir);
+    const vendor = schemaOrgVendor(unheadMajor, resolve);
+    const { defineWebPage } = await (vendor.vendored ? import(node_url.pathToFileURL(vendor.main).href) : import(vendor.main));
+    const { schemaOrgAutoImports, schemaOrgComponents } = await (vendor.vendored ? import(node_url.pathToFileURL(vendor.vue).href) : import(vendor.vue));
+    if (vendor.vendored) {
+      logger.debug(`Detected unhead v${unheadMajor}, aliasing @unhead/schema-org -> ${vendor.dir}`);
+      nuxt.options.alias["@unhead/schema-org/vue"] = vendor.vue;
+      nuxt.options.alias["@unhead/schema-org"] = vendor.main;
+      nuxt.options.build.transpile.push(vendor.dir);
+      nuxt.hooks.hook("nitro:config", (nitroConfig) => {
+        nitroConfig.alias = nitroConfig.alias || {};
+        nitroConfig.alias["@unhead/schema-org/vue"] = vendor.vue;
+        nitroConfig.alias["@unhead/schema-org"] = vendor.main;
+        nitroConfig.externals = nitroConfig.externals || {};
+        nitroConfig.externals.inline = nitroConfig.externals.inline || [];
+        nitroConfig.externals.inline.push(vendor.dir);
+      });
+    } else if (vendor.main !== "@unhead/schema-org") {
+      logger.debug(`Detected unhead v${unheadMajor}, aliasing @unhead/schema-org -> ${vendor.main}`);
+      nuxt.options.alias["@unhead/schema-org"] = vendor.main;
+      nuxt.options.build.transpile.push(vendor.main);
+      nuxt.hooks.hook("nitro:config", (nitroConfig) => {
+        nitroConfig.alias = nitroConfig.alias || {};
+        nitroConfig.alias["@unhead/schema-org"] = vendor.main;
+        nitroConfig.externals = nitroConfig.externals || {};
+        nitroConfig.externals.inline = nitroConfig.externals.inline || [];
+        nitroConfig.externals.inline.push(vendor.main);
+      });
+    }
+    await kit$2.installNuxtSiteConfig();
+    const runtimeConfig = {
+      reactive: config.reactive,
+      minify: config.minify,
+      scriptAttributes: config.scriptAttributes,
+      identity: resolveSerializableIdentityConfig(config.identity),
+      version
+    };
+    if (config.reactive)
+      nuxt.options.runtimeConfig.public["nuxt-schema-org"] = runtimeConfig;
+    nuxt.options.runtimeConfig["nuxt-schema-org"] = runtimeConfig;
+    const hasI18n = kit.hasNuxtModule("@nuxtjs/i18n") && nuxt.options.i18n?.locales;
+    const pluginPath = hasI18n ? "./runtime/app/plugins/i18n" : "./runtime/app/plugins";
+    kit.addPlugin({
+      src: resolve(pluginPath, "init"),
+      mode: config.reactive ? "all" : "server"
+    });
+    if (hasI18n) {
+      kit.addPlugin({
+        src: resolve(pluginPath, "meta"),
+        mode: config.reactive ? "all" : "server"
+      });
+    }
+    if (config.defaults) {
+      kit.addPlugin({
+        src: resolve(pluginPath, "defaults"),
+        mode: config.reactive ? "all" : "server"
+      });
+    }
+    nuxt.options.alias["#schema-org"] = resolve("./runtime");
+    const contentProvider = await kit$1.resolveContentProvider(nuxt);
+    const isNuxtContentV2 = contentProvider._tag === "NuxtContent" && contentProvider.version === 2;
+    if (kit$1.hasContentFileHooks(contentProvider)) {
+      nuxt.hooks.hook("content:file:afterParse", (ctx) => {
+        if (typeof ctx.content.schemaOrg === "undefined") {
+          return;
+        }
+        const content = ctx.content;
+        const script = content_js.buildSchemaOrgContentScript(content.schemaOrg, defineWebPage, config.scriptAttributes);
+        content.head = defu.defu({ script: [script] }, content.head);
+        ctx.content = content;
+      });
+    } else if (isNuxtContentV2) {
+      kit.addServerPlugin(resolve("./runtime/server/plugins/nuxt-content-v2"));
+    }
+    if (!config.reactive)
+      nuxt.options.optimization.treeShake.composables.client["nuxt-schema-org"] = schemaOrgAutoImports[0].imports;
+    for (const component of schemaOrgComponents) {
+      await kit.addComponent({
+        name: component,
+        export: component,
+        chunkName: "nuxt-schema-org/components",
+        filePath: "@unhead/schema-org/vue"
+      });
+    }
+    kit.addImports({
+      from: resolve("./runtime/app/composables/useSchemaOrg"),
+      name: "useSchemaOrg"
+    });
+    nuxt.hooks.hook("imports:sources", (autoImports) => {
+      schemaOrgAutoImports[0].imports = schemaOrgAutoImports[0].imports.filter((i) => i !== "useSchemaOrg");
+      autoImports.unshift(...schemaOrgAutoImports);
+    });
+    kit$1.extendTypes("nuxt-schema-org", ({ typesPath }) => {
+      return `
+declare module '@nuxt/schema' {
+  export interface RuntimeNuxtHooks {
+    'schema-org:meta': (meta: import('${typesPath}').MetaInput) => void | Promise<void>
+  }
+}
+declare module '#app' {
+  export interface RuntimeNuxtHooks {
+    'schema-org:meta': (meta: import('${typesPath}').MetaInput) => void | Promise<void>
+  }
+}
+`;
+    });
+    if (config.debug || nuxt.options.dev) {
+      kit.addServerHandler({
+        route: "/__schema-org__/debug.json",
+        handler: resolve("./runtime/server/routes/__schema-org__/debug")
+      });
+    }
+    if (nuxt.options.dev)
+      setupDevToolsUI(config, resolve);
+  }
+});
+
+module.exports = module$1;

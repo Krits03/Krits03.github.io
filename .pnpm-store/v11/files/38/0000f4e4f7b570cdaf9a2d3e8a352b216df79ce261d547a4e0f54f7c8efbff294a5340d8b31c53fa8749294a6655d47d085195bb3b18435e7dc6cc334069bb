@@ -1,0 +1,12 @@
+{
+  "name": "nuxt-seo-utils",
+  "configKey": "seo",
+  "compatibility": {
+    "nuxt": ">=3.16.0"
+  },
+  "version": "8.5.0",
+  "builder": {
+    "@nuxt/module-builder": "1.0.3",
+    "unbuild": "3.6.1"
+  }
+}

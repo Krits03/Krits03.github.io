@@ -1,0 +1,534 @@
+import type { NuxtI18nOptions } from '@nuxtjs/i18n';
+import type { H3Event } from 'h3';
+import type { FetchOptions } from 'ofetch';
+import type { ParsedURL } from 'ufo';
+export interface ModuleOptions extends SitemapDefinition {
+    /**
+     * Whether the sitemap.xml should be generated.
+     *
+     * @default true
+     */
+    enabled: boolean;
+    /**
+     * Enables debug logs and a debug endpoint.
+     *
+     * @default false
+     */
+    debug: boolean;
+    /**
+     * Minify the sitemap xml
+     *
+     * @default false
+     */
+    minify: boolean;
+    /**
+     * Should lastmod be automatically added to the sitemap.
+     *
+     * Warning: This may not be following best practices for sitemaps.
+     *
+     * @see https://nuxtseo.com/sitemap/guides/best-practices.
+     * @default false
+     */
+    autoLastmod: boolean;
+    /**
+     * Sources to exclude from the sitemap.
+     */
+    excludeAppSources: true | (AppSourceContext[]);
+    /**
+     * Multiple sitemap support for large sites.
+     *
+     * @default false
+     */
+    sitemaps?: boolean | MultiSitemapsInput;
+    /**
+     * The path prefix for the sitemaps.
+     *
+     * @default /__sitemap__/
+     */
+    sitemapsPathPrefix: string | false;
+    /**
+     * Sitemaps to append to the sitemap index.
+     *
+     * This will only do anything when using multiple sitemaps.
+     */
+    appendSitemaps?: (string | SitemapIndexEntry)[];
+    /**
+     * Path to the xsl that styles sitemap.xml.
+     *
+     * Set to `false` to disable styling.
+     *
+     * @default /__sitemap__/style.xsl
+     */
+    xsl: string | false;
+    /**
+     * Toggle the tips displayed in the xsl.
+     *
+     * @default true
+     */
+    xslTips: boolean;
+    /**
+     * Customised the columns displayed in the xsl.
+     *
+     * @default [{ label: 'URL', width: '50%' }, { label: 'Images', width: '25%', select: 'count(image:image)' }, { label: 'Last Updated', width: '25%', select: 'concat(substring(sitemap:lastmod,0,11),concat(\' \', substring(sitemap:lastmod,12,5)),concat(\' \', substring(sitemap:lastmod,20,6)))' }]
+     */
+    xslColumns?: {
+        label: string;
+        width: `${string}%`;
+        select?: string;
+    }[];
+    /**
+     * When prerendering, should images be automatically be discovered and added to the sitemap.
+     *
+     * @default true
+     */
+    discoverImages: boolean;
+    /**
+     * When prerendering, should videos be automatically be discovered and added to the sitemap.
+     *
+     * @default true
+     */
+    discoverVideos: boolean;
+    /**
+     * When chunking the sitemaps into multiple files, how many entries should each file contain.
+     *
+     * Set to `false` to disabling chunking completely.
+     *
+     * @default 1000
+     */
+    defaultSitemapsChunkSize: number | false;
+    /**
+     * Modify the cache behavior.
+     *
+     * Passing a boolean will enable or disable the runtime cache with the default options.
+     *
+     * Providing a record will allow you to configure the runtime cache fully.
+     *
+     * @default true
+     * @see https://nitro.unjs.io/guide/storage#mountpoints
+     * @example { driver: 'redis', host: 'localhost', port: 6379, password: 'password' }
+     */
+    runtimeCacheStorage: boolean | (Record<string, any> & {
+        driver: string;
+    });
+    /**
+     * Automatically add alternative links to the sitemap based on a prefix list.
+     * Is used by @nuxtjs/i18n to automatically add alternative links to the sitemap.
+     */
+    autoI18n?: boolean | AutoI18nConfig;
+    /**
+     * Enable when your nuxt/content files match your pages. This will automatically add sitemap content to the sitemap.
+     *
+     * This is similar behavior to using `nuxt/content` with `documentDriven: true`.
+     */
+    strictNuxtContentPaths: boolean;
+    /**
+     * Should the sitemap.xml display credits for the module.
+     *
+     * @default true
+     */
+    credits: boolean;
+    /**
+     * How long, in seconds, should the sitemap be cached for.
+     *
+     * @default 600
+     */
+    cacheMaxAgeSeconds: number | false;
+    /**
+     * Should the entries be sorted by loc.
+     *
+     * @default true
+     */
+    sortEntries: boolean;
+    /**
+     * Warm up the sitemap route(s) cache when Nitro starts.
+     *
+     * May be implemented by default in a future minor version.
+     *
+     * @experimental Will be enabled by default in v5 (if stable)
+     */
+    experimentalWarmUp?: boolean;
+    /**
+     * Compress sitemap responses with gzip or deflate when supported by the client.
+     *
+     * @experimental This option may change in a future release.
+     */
+    experimentalCompression?: boolean;
+    /**
+     * Serialize dynamic sitemap responses as a pull-driven stream instead of building
+     * the complete XML string in memory first. Prerendered sitemaps remain buffered.
+     *
+     * Accessing `ctx.sitemap` in the `sitemap:output` hook buffers that response for
+     * backwards compatibility.
+     *
+     * @default false
+     * @experimental This option may change in a future release.
+     */
+    experimentalStreaming?: boolean;
+    /**
+     * When enabled, sitemap generation only runs during prerendering.
+     * The sitemap building code is tree-shaken from the runtime bundle.
+     *
+     * Requires sitemaps to be prerendered (e.g., `nuxt generate` or `nitro.prerender.routes` includes sitemap).
+     *
+     * @default false
+     */
+    zeroRuntime?: boolean;
+}
+export interface IndexSitemapRemotes {
+    index?: (string | SitemapIndexEntry)[];
+}
+export interface MultiSitemapEntry {
+    [key: string]: Partial<SitemapDefinition>;
+}
+export type MultiSitemapsInput = Partial<MultiSitemapEntry> & Partial<IndexSitemapRemotes>;
+export type MaybeFunction<T> = T | (() => T);
+export type MaybePromise<T> = T | Promise<T>;
+export type SitemapUrlInput = SitemapUrl | string;
+export interface SitemapSourceBase {
+    context: {
+        name: string;
+        description?: string;
+        tips?: string[];
+    };
+    fetch?: string | [string, FetchOptions];
+    urls?: SitemapUrlInput[];
+    sourceType?: 'app' | 'user';
+}
+export interface SitemapSourceResolved extends Omit<SitemapSourceBase, 'urls'> {
+    urls: SitemapUrlInput[];
+    error?: any;
+    timeTakenMs?: number;
+    _isFailure?: boolean;
+    _urlWarnings?: {
+        loc: string;
+        message: string;
+    }[];
+}
+export type AppSourceContext = 'nuxt:pages' | 'nuxt:prerender' | 'nuxt:route-rules' | '@nuxtjs/i18n:pages' | 'nuxt-i18n-micro:pages' | '@nuxt/content@v2:urls' | '@nuxt/content@v3:urls' | '@harlan-zw/comark-content:urls';
+export type SitemapSourceInput = string | [string, FetchOptions] | SitemapSourceBase | SitemapSourceResolved;
+interface LocaleObject extends Record<string, any> {
+    code: string;
+    name?: string;
+    dir?: 'ltr' | 'rtl' | 'auto';
+    domain?: string;
+    domains?: string[];
+    defaultForDomains?: string[];
+    file?: string | {
+        path: string;
+        cache?: boolean;
+    };
+    files?: (string | {
+        path: string;
+        cache?: boolean;
+    })[];
+    isCatchallLocale?: boolean;
+    /**
+     * @deprecated in v9, use `language` instead
+     */
+    iso?: string;
+    language?: string;
+}
+export interface AutoI18nConfig {
+    differentDomains?: boolean;
+    locales: (LocaleObject & {
+        _sitemap: string;
+        _hreflang: string;
+    })[];
+    defaultLocale: string;
+    strategy: 'prefix' | 'prefix_except_default' | 'prefix_and_default' | 'no_prefix';
+    pages?: Record<string, Record<string, string | false>>;
+}
+export interface ModuleRuntimeConfig extends Pick<ModuleOptions, 'sitemapsPathPrefix' | 'cacheMaxAgeSeconds' | 'sitemapName' | 'excludeAppSources' | 'sortEntries' | 'defaultSitemapsChunkSize' | 'xslColumns' | 'xslTips' | 'debug' | 'discoverImages' | 'discoverVideos' | 'autoLastmod' | 'xsl' | 'credits' | 'minify' | 'experimentalStreaming'> {
+    version: string;
+    isNuxtContentDocumentDriven: boolean;
+    sitemaps: {
+        index?: Pick<SitemapDefinition, 'sitemapName' | '_route'> & {
+            sitemaps: SitemapIndexEntry[];
+        };
+    } & Record<string, SitemapDefinition & {
+        _hasSourceChunk?: boolean;
+    }>;
+    autoI18n?: AutoI18nConfig;
+    hasDisabledAutoI18n?: boolean;
+    isMultiSitemap: boolean;
+    isI18nMapped: boolean;
+}
+export interface SitemapIndexEntry {
+    sitemap: string;
+    lastmod?: string;
+    /**
+     * @internal
+     */
+    _sitemapName?: string;
+}
+export type FilterInput = (string | RegExp | {
+    regex: string;
+});
+export type ResolvedSitemapUrl = Omit<SitemapUrl, 'url'> & Required<Pick<SitemapUrl, 'loc'>> & {
+    /**
+     * @internal
+     */
+    _key: string;
+    /**
+     * @internal
+     */
+    _path: ParsedURL | null;
+    /**
+     * @internal
+     */
+    _relativeLoc: string;
+    /**
+     * @internal
+     */
+    _abs: boolean;
+    /**
+     * @internal
+     */
+    _warnings?: string[];
+};
+export interface SitemapDefinition {
+    /**
+     * A collection include patterns for filtering which URLs end up in the sitemap.
+     */
+    include?: FilterInput[];
+    /**
+     * A collection exclude patterns for filtering which URLs end up in the sitemap.
+     */
+    exclude?: FilterInput[];
+    /**
+     * Should the sitemap be generated using global sources.
+     *
+     * This is enabled by default when using a single sitemap. Otherwise, it will be opt-in.
+     */
+    includeAppSources?: boolean;
+    /**
+     * The root sitemap name.
+     * Only works when multiple sitemaps option `sitemaps` isn't used.
+     *
+     * @default `sitemap.xml`
+     */
+    sitemapName: string;
+    /**
+     * A resolvable collection of URLs to include in the sitemap.
+     *
+     * Will be resolved when the sitemap is generated.
+     */
+    urls?: MaybeFunction<MaybePromise<SitemapUrlInput[]>>;
+    /**
+     * Default options for all URLs in the sitemap.
+     */
+    defaults?: Omit<SitemapUrl, 'loc'>;
+    /**
+     * Additional sources of URLs to include in the sitemap.
+     */
+    sources?: SitemapSourceInput[];
+    /**
+     * Whether to enable chunking for this sitemap.
+     *
+     * - `true`: Enable with default chunk size from `defaultSitemapsChunkSize`
+     * - `number`: Enable with specific chunk size (must be > 0)
+     * - `false` or `undefined`: Disable chunking
+     *
+     * Note: Chunking only applies to sitemaps with sources. URLs provided directly
+     * are not chunked.
+     *
+     * @default false
+     * @example true
+     * @example 5000
+     */
+    chunks?: boolean | number;
+    /**
+     * The maximum number of URLs per chunk when chunking is enabled.
+     * Takes precedence over the `chunks` property when both are specified.
+     * Also overrides the global `defaultSitemapsChunkSize`.
+     *
+     * Must be a positive integer.
+     *
+     * @default 1000
+     * @example 500
+     * @example 10000
+     */
+    chunkSize?: number;
+    /**
+     * Pre-declare the number of chunks this sitemap will produce. When set, the sitemap index
+     * renders this many chunk entries without fetching the source data — useful at very large
+     * scale where the cold-start fetch is the bottleneck. Per-chunk renders still fetch on
+     * demand and slice. If the actual data produces fewer URLs than declared, tail chunks render
+     * empty; if more, the extras are unreachable. Update this when your data set grows.
+     *
+     * @example 100
+     */
+    chunkCount?: number;
+    /**
+     * @internal
+     */
+    _route?: string;
+    /**
+     * @internal
+     */
+    _isChunking?: boolean;
+    /**
+     * @internal
+     */
+    _chunkSize?: number;
+    /**
+     * @internal
+     */
+    _chunkCount?: number;
+}
+interface NitroBaseHook<Event = H3Event> {
+    event: Event;
+}
+export interface SitemapIndexRenderCtx<Event = H3Event> extends NitroBaseHook<Event> {
+    sitemaps: SitemapIndexEntry[];
+}
+export interface SitemapRenderCtx<Event = H3Event> extends NitroBaseHook<Event> {
+    sitemapName: string;
+    urls: ResolvedSitemapUrl[];
+}
+export interface SitemapInputCtx<Event = H3Event> extends NitroBaseHook<Event> {
+    sitemapName: string;
+    urls: SitemapUrlInput[];
+}
+export interface SitemapOutputHookCtx<Event = H3Event> extends NitroBaseHook<Event> {
+    sitemapName: string;
+    sitemap: string;
+}
+export interface SitemapSourcesHookCtx<Event = H3Event> extends NitroBaseHook<Event> {
+    sitemapName: string;
+    sources: SitemapSourceInput[];
+}
+export interface SitemapsResolvedCtx<Event = H3Event> extends NitroBaseHook<Event> {
+    /**
+     * The sitemaps config about to be used to build the sitemap index and serve child
+     * sitemaps. Static definitions from nuxt.config are already present.
+     *
+     * Push definitions here to register sitemaps at runtime, for example when the data set
+     * grows while the server is running. Delete a key to remove its sitemap from the index
+     * and stop serving it. Registered sitemaps accept the same fields as nuxt.config
+     * definitions (`sources`, `urls`, `include`, `exclude`, `defaults`, `chunks`) and are
+     * served, listed in the sitemap index, and passed the `sitemap:sources` hook like
+     * static ones.
+     */
+    sitemaps: ModuleRuntimeConfig['sitemaps'];
+}
+export type Changefreq = 'always' | 'hourly' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'never';
+export interface SitemapUrl {
+    loc: string;
+    /**
+     * Alias for `loc`. Will be normalized to `loc`.
+     */
+    url?: string;
+    lastmod?: string | Date;
+    changefreq?: Changefreq;
+    priority?: 0 | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1;
+    alternatives?: Array<AlternativeEntry>;
+    news?: GoogleNewsEntry;
+    images?: Array<ImageEntry>;
+    videos?: Array<VideoEntry>;
+    _i18nTransform?: boolean;
+    /**
+     * Route this URL to a specific sitemap. The name must exist in the sitemap config,
+     * either set in `nuxt.config` or registered with the `sitemap:sitemaps-resolved` hook.
+     */
+    _sitemap?: string | false;
+    /**
+     * Mark the URL as already encoded.
+     *
+     * When true, the loc will not be automatically encoded, preventing double-encoding
+     * when you've already applied encodeURIComponent() to path segments.
+     *
+     * @example
+     * ```ts
+     * {
+     *   loc: `/${encodeURIComponent('$pecial-char')}`,
+     *   _encoded: true
+     * }
+     * ```
+     */
+    _encoded?: boolean;
+}
+export type SitemapItemDefaults = Omit<SitemapUrl, 'loc'>;
+export type SitemapStrict = Required<SitemapUrl>;
+export interface AlternativeEntry {
+    hreflang: string;
+    href: string | URL;
+}
+export interface GoogleNewsEntry {
+    /**
+     * The title of the news article.
+     * @example "Companies A, B in Merger Talks"
+     */
+    title: string;
+    /**
+     * The article publication date in W3C format. Specify the original date and time when the article was first
+     * published on your site. Don't specify the time when you added the article to your sitemap.
+     * @example "2008-12-23"
+     */
+    publication_date: Date | string;
+    publication: {
+        /**
+         * The <news:name> tag is the name of the news publication.
+         * It must exactly match the name as it appears on your articles on news.google.com, omitting anything in parentheses.
+         * @example "The Example Times"
+         */
+        name: string;
+        /**
+         * The <news:language> tag is the language of your publication. Use an ISO 639 language code (two or three letters).
+         * @example en
+         */
+        language: string;
+    };
+}
+export interface ImageEntry {
+    loc: string | URL;
+    caption?: string;
+    geo_location?: string;
+    title?: string;
+    license?: string | URL;
+}
+export interface VideoEntry {
+    title: string;
+    thumbnail_loc: string | URL;
+    description: string;
+    content_loc?: string | URL;
+    player_loc?: string | URL;
+    duration?: number;
+    expiration_date?: Date | string;
+    rating?: number;
+    view_count?: number;
+    publication_date?: Date | string;
+    family_friendly?: 'yes' | 'no' | boolean;
+    restriction?: Restriction;
+    platform?: Platform;
+    price?: ({
+        price?: number | string;
+        currency?: string;
+        type?: 'rent' | 'purchase' | 'package' | 'subscription';
+    })[];
+    requires_subscription?: 'yes' | 'no' | boolean;
+    uploader?: {
+        uploader: string;
+        info?: string | URL;
+    };
+    live?: 'yes' | 'no' | boolean;
+    tag?: string | string[];
+    category?: string;
+    gallery_loc?: string | URL;
+}
+export interface Restriction {
+    relationship: 'allow' | 'deny';
+    restriction: string;
+}
+export interface Platform {
+    relationship: 'allow' | 'deny';
+    platform: string;
+}
+export interface NitroUrlResolvers {
+    event: H3Event;
+    canonicalUrlResolver: (path: string) => string;
+    relativeBaseUrlResolver: (path: string) => string;
+    fixSlashes: (path: string) => string;
+}
+export type I18nIntegrationOptions = NuxtI18nOptions;
+export {};

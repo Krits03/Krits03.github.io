@@ -1,0 +1,56 @@
+import { Linter } from "eslint";
+import { CSSRuleDefinition } from "@eslint/css";
+
+//#region src/lib/order.d.ts
+/**
+ * Pure ordering logic for the properties-order rule.
+ *
+ * Ported from stylelint-order's order/properties-order rule:
+ * https://github.com/hudochenkov/stylelint-order/tree/master/rules/properties-order
+ */
+/**
+ * A group of properties in the expected order.
+ */
+type PropertyGroup = {
+  properties: readonly string[];
+  groupName?: string;
+  order?: "flexible";
+};
+/**
+ * The primary option: a list of property names and/or property groups.
+ */
+type PrimaryOption = readonly (string | PropertyGroup)[];
+/**
+ * How properties not listed in the primary option are treated.
+ */
+type UnspecifiedOption = "ignore" | "top" | "bottom" | "bottomAlphabetical";
+//#endregion
+//#region src/rules/properties-order.d.ts
+type SecondaryOptions = {
+  unspecified?: UnspecifiedOption;
+};
+type PropertiesOrderRuleDefinition = CSSRuleDefinition<{
+  RuleOptions: [PrimaryOption?, SecondaryOptions?];
+  MessageIds: "expectedOrder";
+}>;
+//#endregion
+//#region src/index.d.ts
+/**
+ * The plugin object shape. Annotated explicitly so declaration emit does not
+ * have to name internal types from transitive dependencies.
+ */
+type CssOrderPlugin = {
+  meta: {
+    name: string;
+    version: string;
+  };
+  rules: {
+    "properties-order": PropertiesOrderRuleDefinition;
+  };
+  configs: {
+    recommended: Linter.Config;
+  };
+};
+declare const plugin: CssOrderPlugin;
+//#endregion
+export { type PrimaryOption, type PropertyGroup, type UnspecifiedOption, plugin as default };

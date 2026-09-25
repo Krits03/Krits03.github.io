@@ -1,0 +1,26 @@
+import { defineRule, isNonFetchableLink } from "./util.js";
+export default function RuleNoErrorResponse() {
+  return defineRule({
+    id: "no-error-response",
+    externalLinks: true,
+    test({ link, response, report, pageSearch }) {
+      if (!response?.status || response.status.toString().startsWith("2") || response.status.toString().startsWith("3") || isNonFetchableLink(link))
+        return;
+      const payload = {
+        name: "no-error-response",
+        scope: "error",
+        message: `Should not respond with status code ${response.status}${response.statusText ? ` (${response.statusText})` : ""}.`
+      };
+      if (link.startsWith("/") && pageSearch) {
+        const related = pageSearch.search(link)?.[0]?.item;
+        if (related?.link && related.link !== link) {
+          payload.fix = related.link;
+          payload.fixDescription = `Did you mean ${related.link}?`;
+        }
+      } else {
+        payload.canRetry = true;
+      }
+      report(payload);
+    }
+  });
+}

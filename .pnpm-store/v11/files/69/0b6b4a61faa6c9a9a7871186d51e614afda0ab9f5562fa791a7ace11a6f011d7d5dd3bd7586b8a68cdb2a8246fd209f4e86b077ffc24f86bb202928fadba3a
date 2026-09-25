@@ -1,0 +1,65 @@
+import type { H3Event } from '#nuxtseo/h3';
+import type { OgImageRenderEventContext, RuntimeFontConfig } from '../../types.js';
+import type { FontFormat } from './font-source.js';
+export { buildSubsetFamilyChain, renameSubsetFonts, resolveSubsetChain } from './font-subsets.js';
+export { codepointsIntersectRanges, extractCodepoints, parseUnicodeRange } from './unicode-range.js';
+export interface LoadFontsOptions {
+    /**
+     * Font formats the renderer can parse.
+     * Satori: ttf, otf, woff
+     * Takumi: ttf, woff2
+     */
+    supportedFormats: Set<FontFormat>;
+    /** Component pascalName — filters fonts to only what this component needs */
+    component?: string;
+    /** When set, ensures this font family is included even if not in requirements */
+    fontFamilyOverride?: string;
+    /** Codepoints present in the template — fonts whose unicodeRange doesn't intersect are skipped */
+    codepoints?: Set<number>;
+}
+export declare function loadAllFontsDebug(component?: string): {
+    component: string | undefined;
+    componentReqs: {
+        families: any;
+        weights: any;
+        hasDynamicBindings: any;
+    } | null;
+    globalReqs: {
+        families: any;
+        weights: any;
+    };
+    componentFontMapKeys: string[];
+    resolvedFontFamilies: string[];
+};
+export declare function loadAllFonts(event: H3Event, options: LoadFontsOptions): Promise<RuntimeFontConfig[]>;
+/**
+ * Load additional fonts specified via defineOgImage({ fonts: [...] }).
+ * Only object format ({ name, weight, path }) with a path is supported.
+ *
+ * Field values arrive from the attacker-controlled `fonts` URL param, so each is
+ * parsed at this boundary (require string name/path, coerce weight) and the
+ * array is bounded before any font is fetched.
+ */
+export declare function loadDefinedFonts(event: OgImageRenderEventContext, fontDefs: any[]): Promise<RuntimeFontConfig[]>;
+export interface LoadFontsForRendererOptions extends LoadFontsOptions {
+    /** Custom font definitions from defineOgImage({ fonts: [...] }) — satori only */
+    fontDefs?: any[];
+}
+/**
+ * Shared font loading sequence used by both renderers.
+ * Loads base fonts via loadAllFonts, then appends any custom font definitions.
+ *
+ * When a font family has multiple unicode-range subsets loaded (e.g., CJK fonts
+ * split into many small chunks), renames each subset to a unique family name
+ * (e.g., "Noto Sans SC__0", "Noto Sans SC__1") so renderers use font-family
+ * fallback chains for per-character glyph coverage. Without this, both Satori
+ * and Takumi pick the first font file and show .notdef for characters in other subsets.
+ */
+export declare function loadFontsForRenderer(event: OgImageRenderEventContext, options: LoadFontsForRendererOptions): Promise<RuntimeFontConfig[]>;
+/** Get the default font family override from options or first resolved font */
+export declare function getDefaultFontFamily(options: {
+    props?: Record<string, any>;
+}): {
+    fontFamilyOverride: string | undefined;
+    defaultFont: string | undefined;
+};

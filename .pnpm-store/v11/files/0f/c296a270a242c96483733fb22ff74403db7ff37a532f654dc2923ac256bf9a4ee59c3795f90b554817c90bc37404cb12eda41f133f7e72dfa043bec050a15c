@@ -1,0 +1,24 @@
+import { n as YamlOptions } from "./types-B7uJ6cLU.mjs";
+
+//#region src/vite.d.ts
+/**
+ * This entry file is for Vite plugin.
+ *
+ * @module
+ */
+/**
+ * Vite plugin
+ *
+ * @example
+ * ```ts
+ * // vite.config.ts
+ * import yaml from "unplugin-yaml/vite"
+ *
+ * export default defineConfig({
+ *   plugins: [yaml()],
+ * })
+ * ```
+ */
+declare const _default: (options?: YamlOptions | undefined) => import("vite").Plugin<any> | import("vite").Plugin<any>[];
+//#endregion
+export { _default as default };

@@ -1,0 +1,12 @@
+const takumiInstance = { instance: void 0 };
+async function ensureInstance() {
+  takumiInstance.instance = takumiInstance.instance || await import("#og-image/bindings/takumi").then((m) => m.default);
+  await takumiInstance.instance.initWasmPromise;
+  return takumiInstance.instance;
+}
+export async function getTakumi() {
+  return (await ensureInstance()).Renderer;
+}
+export async function getExtractResourceUrls() {
+  return (await ensureInstance()).extractResourceUrls;
+}

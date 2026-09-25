@@ -1,0 +1,45 @@
+{
+  "name": "plain-shiki",
+  "type": "module",
+  "version": "0.3.2",
+  "description": "Highlight your plaintext via Shiki",
+  "author": "KazariEX",
+  "license": "MIT",
+  "repository": "KazariEX/plain-shiki",
+  "keywords": [
+    "shiki",
+    "highlight",
+    "plaintext"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "shiki": ">=1.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.2",
+    "@zinkawaii/eslint-config": "^0.4.1",
+    "@zinkawaii/stylelint-config": "^0.3.3",
+    "@zinkawaii/tsconfig": "^0.0.2",
+    "bumpp": "^10.3.1",
+    "eslint": "^9.39.0",
+    "shiki": "^3.14.0",
+    "stylelint": "^16.25.0",
+    "tsdown": "^0.15.12",
+    "vitest": "^4.0.6"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "build:playground": "pnpm -C playground run generate",
+    "dev": "tsdown -w",
+    "release": "bumpp --no-push -c \"release: v%s\"",
+    "test": "vitest"
+  }
+}

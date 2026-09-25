@@ -1,0 +1,102 @@
+export { UnheadSchemaOrg } from './index.mjs';
+export { P as PluginSchemaOrg, S as SchemaOrgUnheadPlugin } from './shared/schema-org.BR4WcSqZ.js';
+import type { Dataset, MusicAlbum, MusicGroup, MusicPlaylist, MusicRecording, PodcastEpisode, PodcastSeason, PodcastSeries, Service, TVEpisode, TVSeason, TVSeries } from './index.mjs';
+import { ComponentResolver } from 'unplugin-vue-components';
+import { defineComponent } from 'vue';
+import { aJ as PostalAddress, aH as PostalAddressStrict, aI as PostalAddressName, i as AggregateOffer, l as AggregateRating, o as Article, x as BreadcrumbList, D as Comment, K as Event, a1 as FoodEstablishment, _ as VirtualLocation, X as Place, a4 as HowTo, a8 as HowToStep, ad as ImageObject, aj as JobPosting, ap as LocalBusiness, av as Offer, ay as OpeningHoursSpecification, aB as Organization, aE as Person, aM as Product, aQ as Question, aW as Recipe, a$ as Review, b5 as VideoObject, b8 as WebPage, bf as WebSite, q as Book, G as Course, ag as ItemList, am as ListItem, as as Movie, bj as SearchAction, bc as ReadAction, b2 as SoftwareApp, s as BookEdition, A as Arrayable, T as Thing } from './shared/schema-org.CFcsqFfN.js';
+export { M as MetaInput, U as UserConfig } from './shared/schema-org.CFcsqFfN.js';
+import { DeepResolvableProperties, UseHeadOptions } from '@unhead/vue';
+import { ActiveHeadEntry } from 'unhead/types';
+
+interface SchemaOrgResolverOptions {
+    /**
+     * prefix for headless ui components used in templates
+     *
+     * @default ""
+     */
+    prefix?: string;
+}
+declare const schemaOrgAutoImports: {
+    from: string;
+    imports: string[];
+}[];
+declare const schemaOrgComponents: string[];
+declare function SchemaOrgResolver(options?: SchemaOrgResolverOptions): ComponentResolver;
+
+declare function defineSchemaOrgComponent(name: string, defineFn: (input: any) => any): ReturnType<typeof defineComponent>;
+declare const SchemaOrgArticle: any;
+declare const SchemaOrgBreadcrumb: any;
+declare const SchemaOrgComment: any;
+declare const SchemaOrgEvent: any;
+declare const SchemaOrgFoodEstablishment: any;
+declare const SchemaOrgHowTo: any;
+declare const SchemaOrgImage: any;
+declare const SchemaOrgJobPosting: any;
+declare const SchemaOrgLocalBusiness: any;
+declare const SchemaOrgOrganization: any;
+declare const SchemaOrgPerson: any;
+declare const SchemaOrgProduct: any;
+declare const SchemaOrgQuestion: any;
+declare const SchemaOrgRecipe: any;
+declare const SchemaOrgReview: any;
+declare const SchemaOrgVideo: any;
+declare const SchemaOrgWebPage: any;
+declare const SchemaOrgWebSite: any;
+declare const SchemaOrgMovie: any;
+declare const SchemaOrgCourse: any;
+declare const SchemaOrgItemList: any;
+declare const SchemaOrgBook: any;
+declare const SchemaOrgSoftwareApp: any;
+
+declare function defineAddress<T extends Record<string, any>>(input?: DeepResolvableProperties<PostalAddress & T>): DeepResolvableProperties<PostalAddressStrict & T> | DeepResolvableProperties<PostalAddressName & T>;
+declare function defineAggregateOffer<T extends Record<string, any>>(input?: DeepResolvableProperties<AggregateOffer & T>): DeepResolvableProperties<AggregateOffer & T>;
+declare function defineAggregateRating<T extends Record<string, any>>(input?: DeepResolvableProperties<AggregateRating & T>): DeepResolvableProperties<AggregateRating & T>;
+declare function defineArticle<T extends Record<string, any>>(input?: DeepResolvableProperties<Article & T>): DeepResolvableProperties<Article & T>;
+declare function defineBreadcrumb<T extends Record<string, any>>(input?: DeepResolvableProperties<BreadcrumbList & T>): DeepResolvableProperties<BreadcrumbList & T>;
+declare function defineComment<T extends Record<string, any>>(input?: DeepResolvableProperties<Comment & T>): DeepResolvableProperties<Comment & T>;
+declare function defineEvent<T extends Record<string, any>>(input?: DeepResolvableProperties<Event & T>): DeepResolvableProperties<Event & T>;
+declare function defineFoodEstablishment<T extends Record<string, any>>(input?: DeepResolvableProperties<FoodEstablishment & T>): DeepResolvableProperties<FoodEstablishment & T>;
+declare function defineVirtualLocation<T extends Record<string, any>>(input?: DeepResolvableProperties<VirtualLocation & T>): DeepResolvableProperties<VirtualLocation & T>;
+declare function definePlace<T extends Record<string, any>>(input?: DeepResolvableProperties<Place & T>): DeepResolvableProperties<Place & T>;
+declare function defineHowTo<T extends Record<string, any>>(input?: DeepResolvableProperties<HowTo & T>): DeepResolvableProperties<HowTo & T>;
+declare function defineHowToStep<T extends Record<string, any>>(input?: DeepResolvableProperties<HowToStep & T>): DeepResolvableProperties<HowToStep & T>;
+declare function defineImage<T extends Record<string, any>>(input?: DeepResolvableProperties<ImageObject & T>): DeepResolvableProperties<ImageObject & T>;
+declare function defineJobPosting<T extends Record<string, any>>(input?: DeepResolvableProperties<JobPosting & T>): DeepResolvableProperties<JobPosting & T>;
+declare function defineLocalBusiness<T extends Record<string, any>>(input?: DeepResolvableProperties<LocalBusiness & T>): DeepResolvableProperties<LocalBusiness & T>;
+declare function defineOffer<T extends Record<string, any>>(input?: DeepResolvableProperties<Offer & T>): DeepResolvableProperties<Offer & T>;
+declare function defineOpeningHours<T extends Record<string, any>>(input?: DeepResolvableProperties<OpeningHoursSpecification & T>): DeepResolvableProperties<OpeningHoursSpecification & T>;
+declare function defineOrganization<T extends Record<string, any>>(input?: DeepResolvableProperties<Organization & T>): DeepResolvableProperties<Organization & T>;
+declare function definePerson<T extends Record<string, any>>(input?: DeepResolvableProperties<Person & T>): DeepResolvableProperties<Person & T>;
+declare function defineProduct<T extends Record<string, any>>(input?: DeepResolvableProperties<Product & T>): DeepResolvableProperties<Product & T>;
+declare function defineQuestion<T extends Record<string, any>>(input?: DeepResolvableProperties<Question & T>): DeepResolvableProperties<Question & T>;
+declare function defineRecipe<T extends Record<string, any>>(input?: DeepResolvableProperties<Recipe & T>): DeepResolvableProperties<Recipe & T>;
+declare function defineReview<T extends Record<string, any>>(input?: DeepResolvableProperties<Review & T>): DeepResolvableProperties<Review & T>;
+declare function defineVideo<T extends Record<string, any>>(input?: DeepResolvableProperties<VideoObject & T>): DeepResolvableProperties<VideoObject & T>;
+declare function defineWebPage<T extends Record<string, any>>(input?: DeepResolvableProperties<WebPage & T>): DeepResolvableProperties<WebPage & T>;
+declare function defineWebSite<T extends Record<string, any>>(input?: DeepResolvableProperties<WebSite & T>): DeepResolvableProperties<WebSite & T>;
+declare function defineBook<T extends Record<string, any>>(input?: DeepResolvableProperties<Book & T>): DeepResolvableProperties<Book & T>;
+declare function defineCourse<T extends Record<string, any>>(input?: DeepResolvableProperties<Course & T>): DeepResolvableProperties<Course & T>;
+declare function defineItemList<T extends Record<string, any>>(input?: DeepResolvableProperties<ItemList & T>): DeepResolvableProperties<ItemList & T>;
+declare function defineListItem<T extends Record<string, any>>(input?: DeepResolvableProperties<ListItem & T>): DeepResolvableProperties<ListItem & T>;
+declare function defineMovie<T extends Record<string, any>>(input?: DeepResolvableProperties<Movie & T>): DeepResolvableProperties<Movie & T>;
+declare function defineSearchAction<T extends Record<string, any>>(input?: DeepResolvableProperties<SearchAction & T>): DeepResolvableProperties<SearchAction & T>;
+declare function defineReadAction<T extends Record<string, any>>(input?: DeepResolvableProperties<ReadAction & T>): DeepResolvableProperties<ReadAction & T>;
+declare function defineDataset<T extends Record<string, any>>(input?: DeepResolvableProperties<Dataset & T>): DeepResolvableProperties<Dataset & T>;
+declare function defineMusicAlbum<T extends Record<string, any>>(input?: DeepResolvableProperties<MusicAlbum & T>): DeepResolvableProperties<MusicAlbum & T>;
+declare function defineMusicGroup<T extends Record<string, any>>(input?: DeepResolvableProperties<MusicGroup & T>): DeepResolvableProperties<MusicGroup & T>;
+declare function defineMusicPlaylist<T extends Record<string, any>>(input?: DeepResolvableProperties<MusicPlaylist & T>): DeepResolvableProperties<MusicPlaylist & T>;
+declare function defineMusicRecording<T extends Record<string, any>>(input?: DeepResolvableProperties<MusicRecording & T>): DeepResolvableProperties<MusicRecording & T>;
+declare function definePodcastEpisode<T extends Record<string, any>>(input?: DeepResolvableProperties<PodcastEpisode & T>): DeepResolvableProperties<PodcastEpisode & T>;
+declare function definePodcastSeason<T extends Record<string, any>>(input?: DeepResolvableProperties<PodcastSeason & T>): DeepResolvableProperties<PodcastSeason & T>;
+declare function definePodcastSeries<T extends Record<string, any>>(input?: DeepResolvableProperties<PodcastSeries & T>): DeepResolvableProperties<PodcastSeries & T>;
+declare function defineService<T extends Record<string, any>>(input?: DeepResolvableProperties<Service & T>): DeepResolvableProperties<Service & T>;
+declare function defineTVEpisode<T extends Record<string, any>>(input?: DeepResolvableProperties<TVEpisode & T>): DeepResolvableProperties<TVEpisode & T>;
+declare function defineTVSeason<T extends Record<string, any>>(input?: DeepResolvableProperties<TVSeason & T>): DeepResolvableProperties<TVSeason & T>;
+declare function defineTVSeries<T extends Record<string, any>>(input?: DeepResolvableProperties<TVSeries & T>): DeepResolvableProperties<TVSeries & T>;
+declare function defineSoftwareApp<T extends Record<string, any>>(input?: DeepResolvableProperties<SoftwareApp & T>): DeepResolvableProperties<SoftwareApp & T>;
+declare function defineBookEdition<T extends Record<string, any>>(input?: DeepResolvableProperties<BookEdition & T>): DeepResolvableProperties<BookEdition & T>;
+type UseSchemaOrgInput = Arrayable<DeepResolvableProperties<Thing | Record<string, any>>>;
+declare function useSchemaOrg(input?: UseSchemaOrgInput, options?: UseHeadOptions): ActiveHeadEntry<UseSchemaOrgInput>;
+
+export { SchemaOrgArticle, SchemaOrgBook, SchemaOrgBreadcrumb, SchemaOrgComment, SchemaOrgCourse, SchemaOrgEvent, SchemaOrgFoodEstablishment, SchemaOrgHowTo, SchemaOrgImage, SchemaOrgItemList, SchemaOrgJobPosting, SchemaOrgLocalBusiness, SchemaOrgMovie, SchemaOrgOrganization, SchemaOrgPerson, SchemaOrgProduct, SchemaOrgQuestion, SchemaOrgRecipe, SchemaOrgResolver, SchemaOrgReview, SchemaOrgSoftwareApp, SchemaOrgVideo, SchemaOrgWebPage, SchemaOrgWebSite, defineAddress, defineAggregateOffer, defineAggregateRating, defineArticle, defineBook, defineBookEdition, defineBreadcrumb, defineComment, defineCourse, defineEvent, defineFoodEstablishment, defineHowTo, defineHowToStep, defineImage, defineItemList, defineJobPosting, defineListItem, defineLocalBusiness, defineMovie, defineOffer, defineOpeningHours, defineOrganization, definePerson, definePlace, defineProduct, defineQuestion, defineReadAction, defineRecipe, defineReview, defineSchemaOrgComponent, defineSearchAction, defineSoftwareApp, defineVideo, defineVirtualLocation, defineWebPage, defineWebSite, schemaOrgAutoImports, schemaOrgComponents, useSchemaOrg, defineDataset, defineMusicAlbum, defineMusicGroup, defineMusicPlaylist, defineMusicRecording, definePodcastEpisode, definePodcastSeason, definePodcastSeries, defineService, defineTVEpisode, defineTVSeason, defineTVSeries };
+export type { SchemaOrgResolverOptions, UseSchemaOrgInput };

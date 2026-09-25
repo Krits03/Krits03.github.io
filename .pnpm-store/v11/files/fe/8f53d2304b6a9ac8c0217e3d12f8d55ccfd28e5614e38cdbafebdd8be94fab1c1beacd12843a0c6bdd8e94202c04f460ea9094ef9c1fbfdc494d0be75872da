@@ -1,0 +1,276 @@
+import { U as UnheadSchemaOrg, aL as normalizeSchemaOrgInput, h as addressResolver, i as aggregateOfferResolver, j as aggregateRatingResolver, k as articleResolver, o as breadcrumbResolver, p as commentResolver, ao as discussionForumPostingResolver, ap as employerAggregateRatingResolver, aq as eventResolver, ar as foodEstablishmentResolver, be as virtualLocationResolver, aQ as placeResolver, at as howToResolver, aw as howToStepResolver, ax as imageResolver, aA as jobPostingResolver, aC as localBusinessResolver, aD as mathSolverResolver, aM as offerResolver, aN as openingHoursResolver, aO as organizationResolver, aP as personResolver, aU as productResolver, aV as questionResolver, aW as quizResolver, aZ as recipeResolver, b2 as reviewResolver, bd as videoResolver, bc as vacationRentalResolver, bg as webPageResolver, bh as webSiteResolver, m as bookResolver, q as courseResolver, az as itemListResolver, aB as listItemResolver, aG as movieResolver, b3 as searchActionResolver, aY as readActionResolver, b5 as softwareAppResolver, l as bookEditionResolver, s as datasetResolver, aK as musicRecordingResolver, aH as musicAlbumResolver, aI as musicGroupResolver, aJ as musicPlaylistResolver, aT as podcastSeriesResolver, aR as podcastEpisodeResolver, aS as podcastSeasonResolver, b9 as tvSeriesResolver, b8 as tvSeasonResolver, b7 as tvEpisodeResolver, b4 as serviceResolver } from './shared/schema-org.BKJGr5UQ.mjs';
+export { SchemaOrgResolver, schemaOrgAutoImports, schemaOrgComponents } from './vue/meta.mjs';
+import { isRef, computed, defineComponent, ref, unref, h } from 'vue';
+import { injectHead, useHead } from '@unhead/vue';
+import 'unhead/utils';
+import 'unhead/plugins';
+import './imports.mjs';
+
+function withResolver(input, resolver) {
+  return { ...input, _resolver: resolver };
+}
+function provideResolver(input, resolver) {
+  const resolvedInput = input || {};
+  if (isRef(resolvedInput)) {
+    return computed(() => {
+      const value = resolvedInput.value;
+      return value && typeof value === "object" ? withResolver(value, resolver) : value;
+    });
+  }
+  return withResolver(resolvedInput, resolver);
+}
+function defineAddress(input) {
+  return provideResolver(input, addressResolver);
+}
+function defineAggregateOffer(input) {
+  return provideResolver(input, aggregateOfferResolver);
+}
+function defineAggregateRating(input) {
+  return provideResolver(input, aggregateRatingResolver);
+}
+function defineArticle(input) {
+  return provideResolver(input, articleResolver);
+}
+function defineBreadcrumb(input) {
+  return provideResolver(input, breadcrumbResolver);
+}
+function defineComment(input) {
+  return provideResolver(input, commentResolver);
+}
+function defineDiscussionForumPosting(input) {
+  return provideResolver(input, discussionForumPostingResolver);
+}
+function defineEmployerAggregateRating(input) {
+  return provideResolver(input, employerAggregateRatingResolver);
+}
+function defineEvent(input) {
+  return provideResolver(input, eventResolver);
+}
+function defineFoodEstablishment(input) {
+  return provideResolver(input, foodEstablishmentResolver);
+}
+function defineVirtualLocation(input) {
+  return provideResolver(input, virtualLocationResolver);
+}
+function definePlace(input) {
+  return provideResolver(input, placeResolver);
+}
+function defineHowTo(input) {
+  return provideResolver(input, howToResolver);
+}
+function defineHowToStep(input) {
+  return provideResolver(input, howToStepResolver);
+}
+function defineImage(input) {
+  return provideResolver(input, imageResolver);
+}
+function defineJobPosting(input) {
+  return provideResolver(input, jobPostingResolver);
+}
+function defineLocalBusiness(input) {
+  return provideResolver(input, localBusinessResolver);
+}
+function defineMathSolver(input) {
+  return provideResolver(input, mathSolverResolver);
+}
+function defineOffer(input) {
+  return provideResolver(input, offerResolver);
+}
+function defineOpeningHours(input) {
+  return provideResolver(input, openingHoursResolver);
+}
+function defineOrganization(input) {
+  return provideResolver(input, organizationResolver);
+}
+function definePerson(input) {
+  return provideResolver(input, personResolver);
+}
+function defineProduct(input) {
+  return provideResolver(input, productResolver);
+}
+function defineQuestion(input) {
+  return provideResolver(input, questionResolver);
+}
+function defineQuiz(input) {
+  return provideResolver(input, quizResolver);
+}
+function defineRecipe(input) {
+  return provideResolver(input, recipeResolver);
+}
+function defineReview(input) {
+  return provideResolver(input, reviewResolver);
+}
+function defineVideo(input) {
+  return provideResolver(input, videoResolver);
+}
+function defineVacationRental(input) {
+  return provideResolver(input, vacationRentalResolver);
+}
+function defineWebPage(input) {
+  return provideResolver(input, webPageResolver);
+}
+function defineWebSite(input) {
+  return provideResolver(input, webSiteResolver);
+}
+function defineBook(input) {
+  return provideResolver(input, bookResolver);
+}
+function defineCourse(input) {
+  return provideResolver(input, courseResolver);
+}
+function defineItemList(input) {
+  return provideResolver(input, itemListResolver);
+}
+function defineListItem(input) {
+  return provideResolver(input, listItemResolver);
+}
+function defineMovie(input) {
+  return provideResolver(input, movieResolver);
+}
+function defineSearchAction(input) {
+  return provideResolver(input, searchActionResolver);
+}
+function defineReadAction(input) {
+  return provideResolver(input, readActionResolver);
+}
+function defineSoftwareApp(input) {
+  return provideResolver(input, softwareAppResolver);
+}
+function defineBookEdition(input) {
+  return provideResolver(input, bookEditionResolver);
+}
+function defineDataset(input) {
+  return provideResolver(input, datasetResolver);
+}
+function defineMusicRecording(input) {
+  return provideResolver(input, musicRecordingResolver);
+}
+function defineMusicAlbum(input) {
+  return provideResolver(input, musicAlbumResolver);
+}
+function defineMusicGroup(input) {
+  return provideResolver(input, musicGroupResolver);
+}
+function defineMusicPlaylist(input) {
+  return provideResolver(input, musicPlaylistResolver);
+}
+function definePodcastSeries(input) {
+  return provideResolver(input, podcastSeriesResolver);
+}
+function definePodcastEpisode(input) {
+  return provideResolver(input, podcastEpisodeResolver);
+}
+function definePodcastSeason(input) {
+  return provideResolver(input, podcastSeasonResolver);
+}
+function defineTVSeries(input) {
+  return provideResolver(input, tvSeriesResolver);
+}
+function defineTVSeason(input) {
+  return provideResolver(input, tvSeasonResolver);
+}
+function defineTVEpisode(input) {
+  return provideResolver(input, tvEpisodeResolver);
+}
+function defineService(input) {
+  return provideResolver(input, serviceResolver);
+}
+function useSchemaOrg(input = [], options = {}) {
+  const unhead = options.head || injectHead();
+  unhead.use(UnheadSchemaOrg());
+  const entry = useHead(normalizeSchemaOrgInput(input), options);
+  const corePatch = entry.patch;
+  const publicEntry = entry;
+  publicEntry.patch = (input2) => corePatch(normalizeSchemaOrgInput(input2));
+  return publicEntry;
+}
+
+const KEBAB_RE = /-./g;
+function shallowVNodesToText(nodes) {
+  let text = "";
+  for (const node of nodes) {
+    if (typeof node.children === "string")
+      text += node.children.trim();
+  }
+  return text;
+}
+function fixKey(s) {
+  let key = s.replace(KEBAB_RE, (x) => x[1].toUpperCase());
+  if (key === "type" || key === "id")
+    key = `@${key}`;
+  return key;
+}
+function ignoreKey(s) {
+  if (s.startsWith("aria-") || s.startsWith("data-"))
+    return false;
+  return s === "class" || s === "style";
+}
+function defineSchemaOrgComponent(name, defineFn) {
+  return defineComponent({
+    name,
+    props: {
+      as: String
+    },
+    setup(props, { slots, attrs }) {
+      const node = ref(null);
+      const nodePartial = computed(() => {
+        const val = {};
+        Object.entries(unref(attrs)).forEach(([key, value]) => {
+          if (!ignoreKey(key)) {
+            val[fixKey(key)] = unref(value);
+          }
+        });
+        if (!node.value) {
+          for (const [key, slot] of Object.entries(slots)) {
+            if (!slot || key === "default")
+              continue;
+            val[fixKey(key)] = shallowVNodesToText(slot(props));
+          }
+        }
+        return val;
+      });
+      if (defineFn) {
+        useSchemaOrg(defineFn(unref(nodePartial)));
+      }
+      return () => {
+        const data = unref(nodePartial);
+        if (!slots.default)
+          return null;
+        const childSlots = [];
+        if (slots.default)
+          childSlots.push(slots.default(data));
+        return h(props.as || "div", {}, childSlots);
+      };
+    }
+  });
+}
+const SchemaOrgArticle = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgArticle", defineArticle);
+const SchemaOrgBreadcrumb = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgBreadcrumb", defineBreadcrumb);
+const SchemaOrgComment = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgComment", defineComment);
+const SchemaOrgDiscussionForumPosting = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgDiscussionForumPosting", defineDiscussionForumPosting);
+const SchemaOrgEmployerAggregateRating = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgEmployerAggregateRating", defineEmployerAggregateRating);
+const SchemaOrgEvent = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgEvent", defineEvent);
+const SchemaOrgFoodEstablishment = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgFoodEstablishment", defineFoodEstablishment);
+const SchemaOrgHowTo = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgHowTo", defineHowTo);
+const SchemaOrgImage = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgImage", defineImage);
+const SchemaOrgJobPosting = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgJobPosting", defineJobPosting);
+const SchemaOrgLocalBusiness = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgLocalBusiness", defineLocalBusiness);
+const SchemaOrgMathSolver = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgMathSolver", defineMathSolver);
+const SchemaOrgOrganization = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgOrganization", defineOrganization);
+const SchemaOrgPerson = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgPerson", definePerson);
+const SchemaOrgProduct = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgProduct", defineProduct);
+const SchemaOrgQuestion = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgQuestion", defineQuestion);
+const SchemaOrgQuiz = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgQuiz", defineQuiz);
+const SchemaOrgRecipe = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgRecipe", defineRecipe);
+const SchemaOrgReview = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgReview", defineReview);
+const SchemaOrgVideo = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgVideo", defineVideo);
+const SchemaOrgVacationRental = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgVacationRental", defineVacationRental);
+const SchemaOrgWebPage = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgWebPage", defineWebPage);
+const SchemaOrgWebSite = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgWebSite", defineWebSite);
+const SchemaOrgMovie = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgMovie", defineMovie);
+const SchemaOrgCourse = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgCourse", defineCourse);
+const SchemaOrgItemList = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgItemList", defineItemList);
+const SchemaOrgBook = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgBook", defineBook);
+const SchemaOrgSoftwareApp = /* @__PURE__ */ defineSchemaOrgComponent("SchemaOrgSoftwareApp", defineSoftwareApp);
+
+export { SchemaOrgArticle, SchemaOrgBook, SchemaOrgBreadcrumb, SchemaOrgComment, SchemaOrgCourse, SchemaOrgDiscussionForumPosting, SchemaOrgEmployerAggregateRating, SchemaOrgEvent, SchemaOrgFoodEstablishment, SchemaOrgHowTo, SchemaOrgImage, SchemaOrgItemList, SchemaOrgJobPosting, SchemaOrgLocalBusiness, SchemaOrgMathSolver, SchemaOrgMovie, SchemaOrgOrganization, SchemaOrgPerson, SchemaOrgProduct, SchemaOrgQuestion, SchemaOrgQuiz, SchemaOrgRecipe, SchemaOrgReview, SchemaOrgSoftwareApp, SchemaOrgVacationRental, SchemaOrgVideo, SchemaOrgWebPage, SchemaOrgWebSite, UnheadSchemaOrg, defineAddress, defineAggregateOffer, defineAggregateRating, defineArticle, defineBook, defineBookEdition, defineBreadcrumb, defineComment, defineCourse, defineDataset, defineDiscussionForumPosting, defineEmployerAggregateRating, defineEvent, defineFoodEstablishment, defineHowTo, defineHowToStep, defineImage, defineItemList, defineJobPosting, defineListItem, defineLocalBusiness, defineMathSolver, defineMovie, defineMusicAlbum, defineMusicGroup, defineMusicPlaylist, defineMusicRecording, defineOffer, defineOpeningHours, defineOrganization, definePerson, definePlace, definePodcastEpisode, definePodcastSeason, definePodcastSeries, defineProduct, defineQuestion, defineQuiz, defineReadAction, defineRecipe, defineReview, defineSchemaOrgComponent, defineSearchAction, defineService, defineSoftwareApp, defineTVEpisode, defineTVSeason, defineTVSeries, defineVacationRental, defineVideo, defineVirtualLocation, defineWebPage, defineWebSite, useSchemaOrg };

@@ -1,0 +1,49 @@
+import { fetchWithRedirectValidation } from "../../../util/ssrf.js";
+const SENTINEL_ORIGIN = "http://font-asset.invalid/";
+const SENTINEL_HOST = "font-asset.invalid";
+export function isDataFontUrl(path) {
+  return path.trimStart().toLowerCase().startsWith("data:");
+}
+export function isExternalFontUrl(path) {
+  let resolved;
+  try {
+    resolved = new URL(path, SENTINEL_ORIGIN);
+  } catch {
+    return true;
+  }
+  return resolved.protocol !== "http:" || resolved.host !== SENTINEL_HOST;
+}
+export function resolveSameOriginFontUrl(path, siteUrl) {
+  if (!siteUrl)
+    return null;
+  let siteOrigin;
+  try {
+    siteOrigin = new URL(siteUrl).origin;
+  } catch {
+    return null;
+  }
+  let target;
+  try {
+    target = new URL(path, siteOrigin);
+  } catch {
+    return null;
+  }
+  return target.origin === siteOrigin ? target.href : null;
+}
+export async function fetchSpecialFontUrl(path, siteUrl, timeout) {
+  if (isDataFontUrl(path)) {
+    const res = await fetch(path.trimStart(), { signal: AbortSignal.timeout(timeout) }).catch(() => {
+      return null;
+    });
+    if (res?.ok)
+      return Buffer.from(await res.arrayBuffer());
+    throw new Error("[Nuxt OG Image] Invalid data: font URL.");
+  }
+  const href = resolveSameOriginFontUrl(path, siteUrl);
+  if (!href)
+    throw new Error("[Nuxt OG Image] External font URLs are not supported. Load custom fonts via @nuxt/fonts.");
+  const ab = await fetchWithRedirectValidation(href, { timeout });
+  if (!ab)
+    throw new Error("[Nuxt OG Image] Font URL blocked or unreachable.");
+  return Buffer.from(ab);
+}

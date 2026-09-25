@@ -1,0 +1,24 @@
+import { n as YamlOptions } from "./types-B7uJ6cLU.mjs";
+
+//#region src/rollup.d.ts
+/**
+ * This entry file is for Rollup plugin.
+ *
+ * @module
+ */
+/**
+ * Rollup plugin
+ *
+ * @example
+ * ```ts
+ * // rollup.config.js
+ * import yaml from "unplugin-yaml/rollup"
+ *
+ * export default {
+ *   plugins: [yaml()],
+ * }
+ * ```
+ */
+declare const _default: (options?: YamlOptions | undefined) => import("rollup").Plugin<any> | import("rollup").Plugin<any>[];
+//#endregion
+export { _default as default };

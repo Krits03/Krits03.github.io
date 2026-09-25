@@ -1,0 +1,107 @@
+import { readFile } from "node:fs/promises";
+import { join } from "pathe";
+import { withBase } from "ufo";
+import { getRequestURL } from "#nuxtseo/h3";
+import { fetchWithEvent, useRuntimeConfig } from "#nuxtseo/nitro";
+import { buildDir, rootDir, staticFontCacheDir } from "#og-image-virtual/build-dir.mjs";
+import { getSiteConfig } from "#site-config/server/composables";
+import { getFetchTimeout } from "../../../util/fetchTimeout.js";
+import { fetchWithRedirectValidation } from "../../../util/ssrf.js";
+import { useOgImageRuntimeConfig } from "../../../utils.js";
+import { fetchSpecialFontUrl, isDataFontUrl, isExternalFontUrl } from "./external-url.js";
+let fontUrlMapping;
+async function readOptionalFile(path) {
+  return readFile(path).catch((error) => {
+    if (error.code === "ENOENT")
+      return null;
+    throw error;
+  });
+}
+async function fetchOptionalFont(url, timeout) {
+  return fetch(url, { signal: AbortSignal.timeout(timeout) }).catch(() => {
+    return null;
+  });
+}
+async function loadFontUrlMapping() {
+  if (fontUrlMapping)
+    return fontUrlMapping;
+  const content = await readOptionalFile(join(buildDir, "cache", "og-image", "font-urls.json"));
+  fontUrlMapping = content ? JSON.parse(content.toString("utf-8")) : {};
+  return fontUrlMapping;
+}
+export async function resolve(event, font) {
+  const path = font.src || font.localPath;
+  const runtimeConfig = useOgImageRuntimeConfig();
+  const timeout = getFetchTimeout(runtimeConfig);
+  if (font.absolutePath) {
+    const data = await readOptionalFile(font.absolutePath);
+    if (data?.length)
+      return data;
+  }
+  if (path && (isDataFontUrl(path) || isExternalFontUrl(path)))
+    return fetchSpecialFontUrl(path, getSiteConfig(event).url, timeout);
+  if (import.meta.prerender) {
+    if (path.startsWith("/_og-static-fonts/")) {
+      const filename2 = path.slice("/_og-static-fonts/".length);
+      const cached = await readOptionalFile(join(staticFontCacheDir, filename2)) || await readOptionalFile(join(rootDir, ".output", "public", "_og-static-fonts", filename2));
+      if (cached?.length)
+        return cached;
+    }
+    if (path.startsWith("/_fonts/")) {
+      const filename2 = path.slice("/_fonts/".length);
+      const cached = await readOptionalFile(join(rootDir, ".output", "public", "_fonts", filename2));
+      if (cached?.length)
+        return cached;
+      const mapping = await loadFontUrlMapping();
+      if (mapping[filename2]) {
+        const res = await fetchOptionalFont(mapping[filename2], timeout);
+        if (res?.ok)
+          return Buffer.from(await res.arrayBuffer());
+      }
+      throw new Error(`Font ${filename2} not found in mapping or cache`);
+    }
+    const filename = path.slice(1);
+    const data = await readOptionalFile(join(rootDir, "public", filename)) || await readOptionalFile(join(rootDir, ".output", "public", filename));
+    if (data?.length)
+      return data;
+  }
+  if (path.startsWith("/_og-static-fonts/")) {
+    const filename = path.slice("/_og-static-fonts/".length);
+    const cached = await readOptionalFile(join(staticFontCacheDir, filename));
+    if (cached?.length)
+      return cached;
+  }
+  if (import.meta.dev && path.startsWith("/_fonts/")) {
+    const filename = path.slice("/_fonts/".length);
+    const mapping = await loadFontUrlMapping();
+    if (mapping[filename]) {
+      const res = await fetchOptionalFont(mapping[filename], timeout);
+      if (res?.ok)
+        return Buffer.from(await res.arrayBuffer());
+    }
+  }
+  if (import.meta.dev) {
+    const filename = path.slice(1);
+    const data = await readOptionalFile(join(rootDir, "public", filename));
+    if (data?.length)
+      return data;
+  }
+  const { app } = useRuntimeConfig();
+  if (import.meta.dev) {
+    const reqUrl = getRequestURL(event);
+    const origin = `${reqUrl.protocol}//${reqUrl.host}`;
+    const target = new URL(withBase(path, app.baseURL), origin);
+    const ab = await fetchWithRedirectValidation(target.href, { timeout, trustedHost: target.host }).catch(() => {
+      return null;
+    });
+    if (ab) {
+      return Buffer.from(ab);
+    }
+  }
+  const fullPath = withBase(path, app.baseURL);
+  const arrayBuffer = await fetchWithEvent(event, fullPath, {
+    responseType: "arrayBuffer",
+    timeout
+  });
+  return Buffer.from(arrayBuffer);
+}

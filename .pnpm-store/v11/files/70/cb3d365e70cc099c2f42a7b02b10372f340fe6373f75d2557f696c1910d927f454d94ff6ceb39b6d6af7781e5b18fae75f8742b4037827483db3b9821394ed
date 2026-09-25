@@ -1,0 +1,74 @@
+import { parse } from "devalue";
+import { createError } from "#nuxtseo/h3";
+import { htmlPayloadCache } from "#og-image-cache";
+import { extractSocialPreviewTags } from "../../pure.js";
+import { logger } from "../util/logger.js";
+const PAYLOAD_REGEX = /<script.+id="nuxt-og-image-options"[^>]*>(.+?)<\/script>/;
+function extractOptionsFromHtml(html) {
+  const match = String(html).match(PAYLOAD_REGEX);
+  if (!match?.[1])
+    return [];
+  return parse(match[1]);
+}
+async function doFetchWithErrorHandling(fetch, path) {
+  const res = await fetch(path, {
+    redirect: "follow",
+    headers: {
+      accept: "text/html"
+    }
+  }).catch((err) => {
+    return err;
+  });
+  let errorDescription;
+  if (res.status >= 300 && res.status < 400) {
+    if (res.headers.has("location")) {
+      return await doFetchWithErrorHandling(fetch, res.headers.get("location") || "");
+    }
+    errorDescription = `${res.status} redirected to ${res.headers.get("location") || "unknown"}`;
+  } else if (res.status >= 400) {
+    errorDescription = `${res.status} error: ${res.statusText}`;
+  }
+  if (errorDescription) {
+    return [null, createError({
+      statusCode: 500,
+      statusMessage: `[Nuxt OG Image] Failed to parse \`${path}\` for og-image extraction. ${errorDescription}`
+    })];
+  }
+  return [res._data || await res.text(), null];
+}
+export async function fetchPathHtmlAndExtractOptions(e, path, cacheKey) {
+  const cachedHtmlPayload = await htmlPayloadCache.getItem(cacheKey);
+  if (!import.meta.dev && cachedHtmlPayload && cachedHtmlPayload.expiresAt > Date.now())
+    return cachedHtmlPayload.value;
+  let [html, err] = await doFetchWithErrorHandling(e.fetch, path);
+  if (err) {
+    logger.warn(err);
+  }
+  if (!html) {
+    const [fallbackHtml, err2] = await doFetchWithErrorHandling(globalThis.$fetch.raw, path);
+    if (err2) {
+      return err2;
+    }
+    html = fallbackHtml;
+  }
+  if (!html) {
+    return createError({
+      statusCode: 500,
+      statusMessage: `[Nuxt OG Image] Failed to read the path ${path} for og-image extraction, returning no HTML.`
+    });
+  }
+  const [root, images] = extractSocialPreviewTags(html);
+  const options = extractOptionsFromHtml(html);
+  const payload = {
+    options,
+    socialPreview: { root, images }
+  };
+  if (!import.meta.dev && payload) {
+    await htmlPayloadCache.setItem(cacheKey, {
+      // 60 minutes for prerender, 10 seconds for runtime
+      expiresAt: Date.now() + 1e3 * (import.meta.prerender ? 60 * 60 : 10),
+      value: payload
+    });
+  }
+  return payload;
+}

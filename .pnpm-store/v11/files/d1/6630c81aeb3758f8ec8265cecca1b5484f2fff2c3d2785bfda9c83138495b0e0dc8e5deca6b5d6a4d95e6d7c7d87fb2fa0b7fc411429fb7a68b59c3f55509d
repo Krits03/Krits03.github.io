@@ -1,0 +1,128 @@
+import { createError } from "#nuxtseo/h3";
+import { componentNames } from "#og-image-virtual/component-names.mjs";
+const RENDERER_SUFFIXES = ["satori", "browser", "takumi"];
+const RE_RENDERER_SUFFIX_DOT = /\.?(satori|browser|takumi)$/i;
+const RE_RENDERER_SUFFIX_PASCAL = /(Satori|Browser|Takumi)$/;
+const RE_OG_IMAGE_PREFIX = /^OgImage/;
+function parseInputName(name) {
+  for (const suffix of RENDERER_SUFFIXES) {
+    if (name.endsWith(`.${suffix}`))
+      return { baseName: name.slice(0, -(suffix.length + 1)), renderer: suffix };
+  }
+  for (const suffix of RENDERER_SUFFIXES) {
+    const pascal = suffix.charAt(0).toUpperCase() + suffix.slice(1);
+    if (name.endsWith(pascal))
+      return { baseName: name.slice(0, -pascal.length), renderer: suffix };
+  }
+  return { baseName: name, renderer: null };
+}
+function stripRenderer(name) {
+  return name.replace(RE_RENDERER_SUFFIX_DOT, "").replace(RE_RENDERER_SUFFIX_PASCAL, "");
+}
+const OGIMAGE_PREFIXES = [
+  { prefix: "OgImageCommunity", overlapWord: "Community" },
+  { prefix: "OgImageTemplate", overlapWord: "Template" },
+  { prefix: "OgImage", overlapWord: "Image" }
+];
+function getComponentBaseNames(component) {
+  const names = [];
+  const stripped = stripRenderer(component.pascalName);
+  for (const { prefix, overlapWord } of OGIMAGE_PREFIXES) {
+    if (!stripped.startsWith(prefix))
+      continue;
+    const withoutPrefix = stripped.slice(prefix.length);
+    if (withoutPrefix) {
+      names.push(withoutPrefix);
+      if (withoutPrefix !== overlapWord)
+        names.push(overlapWord + withoutPrefix);
+    } else {
+      names.push(overlapWord);
+    }
+    break;
+  }
+  if (names.length === 0)
+    names.push(stripped);
+  return names;
+}
+function resolveComponent(name) {
+  const exactMatch = componentNames.find((c) => c.pascalName === name);
+  if (exactMatch)
+    return { component: exactMatch, renderer: exactMatch.renderer };
+  const { baseName, renderer } = parseInputName(name);
+  const strippedBaseName = baseName.replace(RE_OG_IMAGE_PREFIX, "");
+  const matches = componentNames.filter((c) => {
+    const baseNames = getComponentBaseNames(c);
+    return baseNames.some(
+      (cBase) => cBase === baseName || cBase === strippedBaseName || cBase === `OgImage${baseName}` || cBase === `OgImage${strippedBaseName}`
+    );
+  });
+  const filtered = renderer ? matches.filter((c) => c.renderer === renderer) : matches;
+  if (filtered.length === 0) {
+    if (renderer && matches.length > 0) {
+      const available = matches.map((c) => `${getComponentBaseNames(c)[0]}.${c.renderer}`).join(", ");
+      throw createError({
+        statusCode: 500,
+        message: `[Nuxt OG Image] Component "${name}" not found. Available variants: ${available}`
+      });
+    }
+    throw createError({
+      statusCode: 500,
+      message: `[Nuxt OG Image] Component "${name}" not found. Create a component in components/OgImage/ with a renderer suffix (e.g., ${baseName}.satori.vue)`
+    });
+  }
+  const appComponents = filtered.filter((c) => c.category !== "community");
+  if (appComponents.length > 0) {
+    const resolved2 = appComponents[0];
+    return { component: resolved2, renderer: resolved2.renderer };
+  }
+  const resolved = filtered[0];
+  return { component: resolved, renderer: resolved.renderer };
+}
+export function normaliseOptions(_options) {
+  const options = { ..._options };
+  if (options.component === "PageScreenshot") {
+    return {
+      options,
+      renderer: options.renderer || "browser",
+      component: void 0
+    };
+  }
+  if (!componentNames?.length) {
+    throw createError({
+      statusCode: 500,
+      message: `[Nuxt OG Image] No OG Image components found. Create a component in components/OgImage/ with a renderer suffix (e.g., Default.satori.vue)`
+    });
+  }
+  let resolved;
+  let renderer;
+  if (options.component) {
+    const result = resolveComponent(options.component);
+    resolved = result.component;
+    renderer = result.renderer;
+  } else {
+    resolved = componentNames.find((c) => c.category !== "community") || componentNames[0];
+    renderer = resolved.renderer;
+  }
+  options.component = resolved.pascalName;
+  if (resolved.category === "community") {
+    if (!import.meta.dev) {
+      const appComponent = componentNames.find((c) => c.category !== "community");
+      if (appComponent) {
+        resolved = appComponent;
+        renderer = resolved.renderer;
+        options.component = resolved.pascalName;
+      } else {
+        throw createError({
+          statusCode: 500,
+          message: `Community template "${resolved.pascalName}" must be ejected before production use. Run: npx nuxt-og-image eject ${resolved.pascalName}
+  No app components found \u2014 create one in components/OgImage/`
+        });
+      }
+    }
+  }
+  return {
+    options,
+    renderer,
+    component: resolved
+  };
+}

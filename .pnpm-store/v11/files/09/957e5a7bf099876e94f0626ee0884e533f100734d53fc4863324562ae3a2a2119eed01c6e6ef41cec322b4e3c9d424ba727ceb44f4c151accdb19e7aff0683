@@ -1,0 +1,259 @@
+import { CSSRuleDefinition } from "@eslint/css";
+//#region src/core/rule.d.ts
+type RuleOptions = unknown[];
+type StylisticRule<Options extends RuleOptions> = CSSRuleDefinition<{
+  MessageIds: "expected";
+  RuleOptions: Options;
+}>;
+//#endregion
+//#region src/core/options.d.ts
+type OneOrMany<Value> = Value | Value[];
+//#endregion
+//#region src/rules/block-closing-brace-empty-line-before/index.d.ts
+interface SecondaryOptions$12 {
+  except?: OneOrMany<"after-closing-brace">;
+}
+//#endregion
+//#region src/rules/block-closing-brace-newline-after/index.d.ts
+type Pattern$3 = RegExp | string;
+interface SecondaryOptions$11 {
+  ignoreAtRules?: OneOrMany<Pattern$3>;
+}
+//#endregion
+//#region src/rules/block-opening-brace-newline-after/index.d.ts
+interface SecondaryOptions$10 {
+  ignore?: OneOrMany<"rules">;
+}
+//#endregion
+//#region src/rules/block-opening-brace-space-after/index.d.ts
+interface SecondaryOptions$9 {
+  ignore?: OneOrMany<"at-rules">;
+}
+//#endregion
+//#region src/rules/block-opening-brace-space-before/index.d.ts
+type Pattern$2 = RegExp | string;
+interface SecondaryOptions$8 {
+  ignoreAtRules?: OneOrMany<Pattern$2>;
+  ignoreSelectors?: OneOrMany<Pattern$2>;
+}
+//#endregion
+//#region src/rules/declaration-block-trailing-semicolon/index.d.ts
+interface SecondaryOptions$7 {
+  ignore?: OneOrMany<"single-declaration">;
+}
+//#endregion
+//#region src/rules/indentation/index.d.ts
+type Except = "block" | "param" | "value";
+type Ignore = "inside-parens" | "param" | "value";
+interface SecondaryOptions$6 {
+  baseIndentLevel?: number | "auto";
+  except?: OneOrMany<Except>;
+  ignore?: OneOrMany<Ignore>;
+  indentClosingBrace?: boolean;
+  indentInsideParens?: "once-at-root-twice-in-block" | "twice";
+}
+//#endregion
+//#region src/rules/max-empty-lines/index.d.ts
+interface SecondaryOptions$5 {
+  ignore?: OneOrMany<"comments">;
+}
+//#endregion
+//#region src/rules/max-line-length/index.d.ts
+type Pattern$1 = RegExp | string;
+interface SecondaryOptions$4 {
+  ignore?: OneOrMany<"comments" | "non-comments">;
+  ignorePattern?: OneOrMany<Pattern$1>;
+}
+//#endregion
+//#region src/rules/named-grid-areas-alignment/index.d.ts
+interface SecondaryOptions$3 {
+  alignQuotes?: boolean;
+  gap?: number;
+}
+//#endregion
+//#region src/rules/no-eol-whitespace/index.d.ts
+interface SecondaryOptions$2 {
+  ignore?: OneOrMany<"empty-lines">;
+}
+//#endregion
+//#region src/rules/property-case/index.d.ts
+type Pattern = RegExp | string;
+interface SecondaryOptions$1 {
+  ignoreProperties?: Pattern[];
+  ignoreSelectors?: OneOrMany<Pattern>;
+}
+//#endregion
+//#region src/rules/string-quotes/index.d.ts
+interface SecondaryOptions {
+  avoidEscape?: boolean;
+}
+//#endregion
+//#region src/rules/index.d.ts
+declare const rules: {
+  "at-rule-name-case": StylisticRule<[expectation: "lower" | "upper"]>;
+  "at-rule-name-newline-after": StylisticRule<[expectation: "always" | "always-multi-line"]>;
+  "at-rule-name-space-after": StylisticRule<[expectation: "always" | "always-single-line"]>;
+  "at-rule-semicolon-newline-after": StylisticRule<[expectation: "always"]>;
+  "at-rule-semicolon-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "block-closing-brace-empty-line-before": StylisticRule<[expectation: "always-multi-line" | "never", secondary: SecondaryOptions$12]>;
+  "block-closing-brace-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never-single-line" | "never-multi-line", secondary: SecondaryOptions$11]>;
+  "block-closing-brace-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "block-closing-brace-space-after": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line"]>;
+  "block-closing-brace-space-before": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line"]>;
+  "block-opening-brace-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line" | "rules", secondary: SecondaryOptions$10]>;
+  "block-opening-brace-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never-single-line" | "never-multi-line"]>;
+  "block-opening-brace-space-after": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line", secondary: SecondaryOptions$9]>;
+  "block-opening-brace-space-before": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line", secondary: SecondaryOptions$8]>;
+  "color-hex-case": StylisticRule<[expectation: "lower" | "upper"]>;
+  "declaration-bang-space-after": StylisticRule<[expectation: "always" | "never"]>;
+  "declaration-bang-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "declaration-block-semicolon-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "declaration-block-semicolon-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "declaration-block-semicolon-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "declaration-block-semicolon-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "declaration-block-trailing-semicolon": StylisticRule<[expectation: "always" | "never", secondary: SecondaryOptions$7]>;
+  "declaration-colon-newline-after": StylisticRule<[expectation: "always" | "always-multi-line"]>;
+  "declaration-colon-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never"]>;
+  "declaration-colon-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "function-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "function-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "function-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "function-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "function-max-empty-lines": StylisticRule<[maximum: number]>;
+  "function-parentheses-newline-inside": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "function-parentheses-space-inside": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "function-whitespace-after": StylisticRule<[expectation: "always" | "never"]>;
+  indentation: StylisticRule<[indentation: number | "tab", secondary: SecondaryOptions$6]>;
+  linebreaks: StylisticRule<[expectation: "unix" | "windows"]>;
+  "max-empty-lines": StylisticRule<[maximum: number, secondary: SecondaryOptions$5]>;
+  "max-line-length": StylisticRule<[maximum: number, secondary: SecondaryOptions$4]>;
+  "media-feature-colon-space-after": StylisticRule<[expectation: "always" | "never"]>;
+  "media-feature-colon-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "media-feature-name-case": StylisticRule<[expectation: "lower" | "upper"]>;
+  "media-feature-parentheses-space-inside": StylisticRule<[expectation: "always" | "never"]>;
+  "media-feature-range-operator-space-after": StylisticRule<[expectation: "always" | "never"]>;
+  "media-feature-range-operator-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "media-query-list-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "media-query-list-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "media-query-list-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "media-query-list-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "named-grid-areas-alignment": StylisticRule<[enabled: true, secondary: SecondaryOptions$3]>;
+  "no-empty-first-line": StylisticRule<[enabled: true]>;
+  "no-eol-whitespace": StylisticRule<[enabled: true, secondary: SecondaryOptions$2]>;
+  "no-extra-semicolons": StylisticRule<[enabled: true]>;
+  "no-missing-end-of-source-newline": StylisticRule<[enabled: true]>;
+  "no-multiple-whitespaces": StylisticRule<[enabled: true]>;
+  "number-leading-zero": StylisticRule<[expectation: "always" | "never"]>;
+  "number-no-trailing-zeros": StylisticRule<[enabled: true]>;
+  "property-case": StylisticRule<[expectation: "lower" | "upper", secondary: SecondaryOptions$1]>;
+  "selector-attribute-brackets-space-inside": StylisticRule<[expectation: "always" | "never"]>;
+  "selector-attribute-operator-space-after": StylisticRule<[expectation: "always" | "never"]>;
+  "selector-attribute-operator-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "selector-combinator-space-after": StylisticRule<[expectation: "always" | "never"]>;
+  "selector-combinator-space-before": StylisticRule<[expectation: "always" | "never"]>;
+  "selector-descendant-combinator-no-non-space": StylisticRule<[enabled: true]>;
+  "selector-list-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "selector-list-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "selector-list-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "selector-list-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "selector-max-empty-lines": StylisticRule<[maximum: number]>;
+  "selector-pseudo-class-case": StylisticRule<[expectation: "lower" | "upper"]>;
+  "selector-pseudo-class-parentheses-space-inside": StylisticRule<[expectation: "always" | "never"]>;
+  "selector-pseudo-element-case": StylisticRule<[expectation: "lower" | "upper"]>;
+  "string-quotes": StylisticRule<[expectation: "single" | "double", secondary: SecondaryOptions]>;
+  "unit-case": StylisticRule<[expectation: "lower" | "upper"]>;
+  "value-list-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "value-list-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+  "value-list-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "value-list-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+  "value-list-max-empty-lines": StylisticRule<[maximum: number]>;
+};
+//#endregion
+//#region src/index.d.ts
+declare const plugin: {
+  meta: {
+    name: string;
+    version: string;
+  };
+  rules: {
+    "at-rule-name-case": StylisticRule<[expectation: "lower" | "upper"]>;
+    "at-rule-name-newline-after": StylisticRule<[expectation: "always" | "always-multi-line"]>;
+    "at-rule-name-space-after": StylisticRule<[expectation: "always" | "always-single-line"]>;
+    "at-rule-semicolon-newline-after": StylisticRule<[expectation: "always"]>;
+    "at-rule-semicolon-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "block-closing-brace-empty-line-before": StylisticRule<[expectation: "always-multi-line" | "never", secondary: SecondaryOptions$12]>;
+    "block-closing-brace-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never-single-line" | "never-multi-line", secondary: SecondaryOptions$11]>;
+    "block-closing-brace-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "block-closing-brace-space-after": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line"]>;
+    "block-closing-brace-space-before": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line"]>;
+    "block-opening-brace-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line" | "rules", secondary: SecondaryOptions$10]>;
+    "block-opening-brace-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never-single-line" | "never-multi-line"]>;
+    "block-opening-brace-space-after": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line", secondary: SecondaryOptions$9]>;
+    "block-opening-brace-space-before": StylisticRule<[expectation: "always" | "always-multi-line" | "always-single-line" | "never" | "never-single-line" | "never-multi-line", secondary: SecondaryOptions$8]>;
+    "color-hex-case": StylisticRule<[expectation: "lower" | "upper"]>;
+    "declaration-bang-space-after": StylisticRule<[expectation: "always" | "never"]>;
+    "declaration-bang-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "declaration-block-semicolon-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "declaration-block-semicolon-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "declaration-block-semicolon-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "declaration-block-semicolon-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "declaration-block-trailing-semicolon": StylisticRule<[expectation: "always" | "never", secondary: SecondaryOptions$7]>;
+    "declaration-colon-newline-after": StylisticRule<[expectation: "always" | "always-multi-line"]>;
+    "declaration-colon-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never"]>;
+    "declaration-colon-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "function-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "function-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "function-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "function-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "function-max-empty-lines": StylisticRule<[maximum: number]>;
+    "function-parentheses-newline-inside": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "function-parentheses-space-inside": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "function-whitespace-after": StylisticRule<[expectation: "always" | "never"]>;
+    indentation: StylisticRule<[indentation: number | "tab", secondary: SecondaryOptions$6]>;
+    linebreaks: StylisticRule<[expectation: "unix" | "windows"]>;
+    "max-empty-lines": StylisticRule<[maximum: number, secondary: SecondaryOptions$5]>;
+    "max-line-length": StylisticRule<[maximum: number, secondary: SecondaryOptions$4]>;
+    "media-feature-colon-space-after": StylisticRule<[expectation: "always" | "never"]>;
+    "media-feature-colon-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "media-feature-name-case": StylisticRule<[expectation: "lower" | "upper"]>;
+    "media-feature-parentheses-space-inside": StylisticRule<[expectation: "always" | "never"]>;
+    "media-feature-range-operator-space-after": StylisticRule<[expectation: "always" | "never"]>;
+    "media-feature-range-operator-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "media-query-list-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "media-query-list-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "media-query-list-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "media-query-list-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "named-grid-areas-alignment": StylisticRule<[enabled: true, secondary: SecondaryOptions$3]>;
+    "no-empty-first-line": StylisticRule<[enabled: true]>;
+    "no-eol-whitespace": StylisticRule<[enabled: true, secondary: SecondaryOptions$2]>;
+    "no-extra-semicolons": StylisticRule<[enabled: true]>;
+    "no-missing-end-of-source-newline": StylisticRule<[enabled: true]>;
+    "no-multiple-whitespaces": StylisticRule<[enabled: true]>;
+    "number-leading-zero": StylisticRule<[expectation: "always" | "never"]>;
+    "number-no-trailing-zeros": StylisticRule<[enabled: true]>;
+    "property-case": StylisticRule<[expectation: "lower" | "upper", secondary: SecondaryOptions$1]>;
+    "selector-attribute-brackets-space-inside": StylisticRule<[expectation: "always" | "never"]>;
+    "selector-attribute-operator-space-after": StylisticRule<[expectation: "always" | "never"]>;
+    "selector-attribute-operator-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "selector-combinator-space-after": StylisticRule<[expectation: "always" | "never"]>;
+    "selector-combinator-space-before": StylisticRule<[expectation: "always" | "never"]>;
+    "selector-descendant-combinator-no-non-space": StylisticRule<[enabled: true]>;
+    "selector-list-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "selector-list-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "selector-list-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "selector-list-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "selector-max-empty-lines": StylisticRule<[maximum: number]>;
+    "selector-pseudo-class-case": StylisticRule<[expectation: "lower" | "upper"]>;
+    "selector-pseudo-class-parentheses-space-inside": StylisticRule<[expectation: "always" | "never"]>;
+    "selector-pseudo-element-case": StylisticRule<[expectation: "lower" | "upper"]>;
+    "string-quotes": StylisticRule<[expectation: "single" | "double", secondary: SecondaryOptions]>;
+    "unit-case": StylisticRule<[expectation: "lower" | "upper"]>;
+    "value-list-comma-newline-after": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "value-list-comma-newline-before": StylisticRule<[expectation: "always" | "always-multi-line" | "never-multi-line"]>;
+    "value-list-comma-space-after": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "value-list-comma-space-before": StylisticRule<[expectation: "always" | "always-single-line" | "never" | "never-single-line"]>;
+    "value-list-max-empty-lines": StylisticRule<[maximum: number]>;
+  };
+};
+//#endregion
+export { plugin as default, rules };

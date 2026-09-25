@@ -1,0 +1,16 @@
+export declare const JSON_TYPES: Set<string>;
+export declare const SKIP_JS_TYPES: Set<string>;
+/**
+ * Lightweight JS minifier in pure JS (no native deps).
+ * Strips comments and collapses whitespace while preserving string literals.
+ */
+export declare function minifyJS(code: string): string;
+/**
+ * Lightweight CSS minifier in pure JS (no native deps).
+ * Strips comments and collapses whitespace while preserving string literals.
+ */
+export declare function minifyCSS(code: string): string;
+/**
+ * Minify JSON by stripping whitespace via parse/stringify round-trip.
+ */
+export declare function minifyJSON(code: string): string;

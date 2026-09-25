@@ -1,0 +1,23 @@
+import type { InspectionDiff, InspectionPreview } from '../types.js';
+export declare const lruFsCache: Map<string, string>;
+export declare function generateLinkSources(s: string, link: string): {
+    start: number;
+    end: number;
+    lineNumber: number;
+    columnNumber: number;
+}[];
+export declare function generateFileLinkPreviews(filepath: string, link: string): Promise<{
+    previews: InspectionPreview[];
+    lang: string;
+    filepath: string;
+}>;
+export declare function generateFileLinkDiff(filepath: string, original: string, replacement: string): Promise<{
+    diff: InspectionDiff;
+    code: string;
+    filepath: string;
+}>;
+export declare function generateLinkSourcePreviews(s: string, link: string): InspectionPreview[];
+export declare function generateLinkDiff(s: string, originalLink: string, newLink: string): {
+    diff: InspectionDiff;
+    code: string;
+};

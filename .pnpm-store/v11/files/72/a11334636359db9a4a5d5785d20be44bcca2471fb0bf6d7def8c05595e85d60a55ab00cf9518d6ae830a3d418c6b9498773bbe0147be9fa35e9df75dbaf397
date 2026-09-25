@@ -1,0 +1,5 @@
+import type { NuxtApp } from 'nuxt/app';
+export declare function initPlugin(nuxtApp: NuxtApp): void;
+export declare function initSchemaOrgMeta(): void;
+export declare function initSchemaOrgHead(nuxtApp: NuxtApp): void;
+export declare function maybeAddIdentitySchemaOrg(): void;

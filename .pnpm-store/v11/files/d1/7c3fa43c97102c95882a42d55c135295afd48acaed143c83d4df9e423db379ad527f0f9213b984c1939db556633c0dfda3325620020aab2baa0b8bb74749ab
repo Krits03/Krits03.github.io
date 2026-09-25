@@ -1,0 +1,14 @@
+import { type MaybeRefOrGetter } from "#imports";
+interface PointerFn<R = unknown> {
+    (event: PointerEvent): R | void;
+}
+export interface UsePointerOptions {
+    filter?: (event: PointerEvent) => boolean;
+    onPointerdown?: PointerFn;
+    onPointermove?: PointerFn;
+    onPointerup?: PointerFn<boolean>;
+}
+export declare function usePointer(el: MaybeRefOrGetter<HTMLElement | null | undefined>, options: UsePointerOptions): {
+    isHolding: import("vue").Ref<boolean, boolean>;
+};
+export {};

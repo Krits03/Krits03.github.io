@@ -1,0 +1,7 @@
+import type { NuxtIslandResponse } from 'nuxt/app';
+import type { OgImageRenderEventContext } from '../../../../../types.js';
+/**
+ * Apply emoji transformations to island HTML content.
+ * Replaces emoji characters with inline SVG elements.
+ */
+export declare function applyEmojis(ctx: OgImageRenderEventContext, island: NuxtIslandResponse): Promise<void>;

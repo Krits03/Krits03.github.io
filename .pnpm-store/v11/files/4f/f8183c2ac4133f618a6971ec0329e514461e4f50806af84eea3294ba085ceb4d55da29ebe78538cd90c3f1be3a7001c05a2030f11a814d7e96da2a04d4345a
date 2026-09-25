@@ -1,0 +1,61 @@
+import { promiseTimeout } from "@vueuse/core";
+import { computed, defineStore, ref, shallowReactive, watchEffect } from "#imports";
+export const useModalStore = defineStore("modal", () => {
+  const modals = shallowReactive([]);
+  function use(render, options = {}) {
+    const {
+      duration = 400,
+      immediate = false,
+      unique = false
+    } = options;
+    let ctx;
+    const status = ref("closed");
+    immediate && open();
+    function open() {
+      if (unique && indexOf() !== -1) {
+        return;
+      }
+      const vnode = computed(render);
+      watchEffect(() => {
+        vnode.value.props = {
+          onClose: close,
+          onVnodeMounted() {
+            status.value = "open";
+          },
+          ...vnode.value.props
+        };
+      });
+      const last = modals.at(-1);
+      const zIndex = (last?.zIndex ?? 510) + 2;
+      ctx = {
+        vnode,
+        zIndex,
+        duration,
+        open: computed(() => status.value === "open"),
+        close: computed(() => vnode.value.props?.onClose)
+      };
+      modals.push(ctx);
+    }
+    async function close() {
+      status.value = "closing";
+      await promiseTimeout(duration);
+      status.value = "closed";
+      const i = indexOf();
+      if (i !== -1) {
+        modals.splice(i, 1);
+      }
+    }
+    function indexOf() {
+      return modals.indexOf(ctx);
+    }
+    return {
+      open,
+      close,
+      status
+    };
+  }
+  return {
+    modals,
+    use
+  };
+});

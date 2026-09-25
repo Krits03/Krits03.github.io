@@ -1,0 +1,57 @@
+import resolvedFonts from "#og-image/fonts";
+import { walkTree } from "../core/plugins.js";
+import { createVNodes as coreCreateVNodes, resolveSvgDimension } from "../core/vnodes.js";
+import classes from "./plugins/classes.js";
+import emojis from "./plugins/emojis.js";
+import flex from "./plugins/flex.js";
+import nuxtIcon from "./plugins/nuxt-icon.js";
+export { htmlToVNode, resolveSvgDimension, SVG_CAMEL_ATTR_VALUES, warnUnsupportedSvgElements } from "../core/vnodes.js";
+function getDefaultFontFamily() {
+  const fonts = resolvedFonts;
+  const firstFont = fonts[0];
+  if (firstFont)
+    return `'${firstFont.family}', sans-serif`;
+  return "sans-serif";
+}
+const RE_PX = /^(\d+(?:\.\d+)?)px$/;
+function findAncestorPxDim(ancestors, prop) {
+  for (let i = ancestors.length - 1; i >= 0; i--) {
+    const s = ancestors[i].props?.style;
+    if (s) {
+      const v = typeof s[prop] === "string" ? s[prop].match(RE_PX)?.[1] : void 0;
+      if (v)
+        return Number(v);
+    }
+  }
+}
+const RE_PERCENT = /^\d+%$/;
+function resolveSvgPercentDimensions(node, ancestors = []) {
+  if (node.type === "svg") {
+    for (const dim of ["width", "height"]) {
+      const val = String(node.props?.[dim] || "");
+      const isPercent = RE_PERCENT.test(val);
+      if (isPercent) {
+        const resolved = findAncestorPxDim(ancestors, dim) ?? resolveSvgDimension(node.props, node.props?.style, dim);
+        if (resolved)
+          node.props[dim] = resolved;
+      }
+    }
+  }
+  if (Array.isArray(node.props?.children)) {
+    ancestors.push(node);
+    for (const child of node.props.children) {
+      if (child && typeof child === "object")
+        resolveSvgPercentDimensions(child, ancestors);
+    }
+    ancestors.pop();
+  }
+}
+export async function createVNodes(ctx) {
+  const fontFamilyOverride = ctx.options.props?.fontFamily;
+  const font = fontFamilyOverride ? `'${fontFamilyOverride}', sans-serif` : getDefaultFontFamily();
+  const vnodes = await coreCreateVNodes(ctx, { wrapperStyle: `font-family: ${font};` });
+  walkTree(ctx, vnodes, [classes, flex, nuxtIcon]);
+  await Promise.all(walkTree(ctx, vnodes, [emojis]));
+  resolveSvgPercentDimensions(vnodes);
+  return vnodes;
+}

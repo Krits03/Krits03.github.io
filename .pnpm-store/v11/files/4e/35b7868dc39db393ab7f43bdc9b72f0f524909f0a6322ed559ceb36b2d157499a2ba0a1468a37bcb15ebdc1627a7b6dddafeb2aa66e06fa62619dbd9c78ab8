@@ -1,0 +1,3 @@
+import type { Link } from '@unhead/vue/types';
+import type { ColorModeIconLinks } from '../../types.js';
+export declare function selectColorModeIconLinks(icons: ColorModeIconLinks, colorMode: string): Link[];

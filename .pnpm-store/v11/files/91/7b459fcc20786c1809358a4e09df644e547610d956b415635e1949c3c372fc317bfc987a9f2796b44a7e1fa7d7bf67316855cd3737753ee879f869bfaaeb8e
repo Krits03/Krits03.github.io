@@ -1,0 +1,32 @@
+{
+  "name": "@bikariya/shiki",
+  "type": "module",
+  "version": "0.0.8",
+  "description": "Bikariya shiki for Nuxt",
+  "author": "KazariEX",
+  "license": "MIT",
+  "repository": "KazariEX/bikariya",
+  "keywords": [],
+  "exports": {
+    ".": "./dist/module.mjs"
+  },
+  "types": "./dist/module.d.mts",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "shiki": "*"
+  },
+  "dependencies": {
+    "@nuxt/kit": "^4.3.1",
+    "@bikariya/core": "0.0.8"
+  },
+  "devDependencies": {
+    "shiki": "^3.23.0"
+  },
+  "scripts": {
+    "build": "nuxt-module-build build",
+    "dev": "nuxt-module-build build --stub",
+    "dev:prepare": "nuxt-module-build prepare"
+  }
+}

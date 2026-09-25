@@ -1,0 +1,467 @@
+import { addDevServerHandler, useNuxt, defineNuxtModule, createResolver, addTemplate, addPlugin, addComponent, addBuildPlugin, addServerPlugin } from '@nuxt/kit';
+import { addCustomTab, onDevToolsInitialized, extendServerRpc } from '@nuxt/devtools-kit';
+import { existsSync } from 'node:fs';
+import { createRouter, eventHandler, proxyRequest } from 'h3';
+import { joinURL } from 'ufo';
+import { RPC_NAMESPACE } from '../dist/runtime/core/rpc-types.js';
+import { getHandler, postHandler, deleteHandler, clearHydrationMismatches, getHydrationMismatches } from '../dist/runtime/hydration/handlers.js';
+import { getHandler as getHandler$1, postHandler as postHandler$1, deleteHandler as deleteHandler$1, clearLazyLoadHint, getLazyLoadHints } from '../dist/runtime/lazy-load/handlers.js';
+import { getHandler as getHandler$2, postHandler as postHandler$2, deleteHandler as deleteHandler$2, clearHtmlValidateReport, getHtmlValidateReports } from '../dist/runtime/html-validate/api-handlers.js';
+import { genImport } from 'knitwork';
+import MagicString from 'magic-string';
+import { dirname, resolve, parse } from 'node:path';
+import { parseSync, Visitor } from 'oxc-parser';
+import { createUnplugin } from 'unplugin';
+import { fileURLToPath } from 'node:url';
+
+function createHintsRouter() {
+  const router = createRouter({ preemptive: true });
+  router.get("/hydration", getHandler);
+  router.post("/hydration", postHandler);
+  router.delete("/hydration", deleteHandler);
+  router.get("/lazy-load", getHandler$1);
+  router.post("/lazy-load", postHandler$1);
+  router.delete("/lazy-load/:id", deleteHandler$1);
+  router.get("/html-validate", getHandler$2);
+  router.post("/html-validate", postHandler$2);
+  router.delete("/html-validate/:id", deleteHandler$2);
+  return router;
+}
+
+const DEVTOOLS_UI_ROUTE = "/__nuxt-hints";
+const DEVTOOLS_UI_LOCAL_PORT = 3300;
+function setupDevToolsUI(nuxt, resolver) {
+  const clientPath = resolver.resolve("./client");
+  const isProductionBuild = existsSync(clientPath);
+  if (isProductionBuild) {
+    nuxt.hook("vite:serverCreated", async (server) => {
+      const sirv = await import('sirv').then((r) => r.default || r);
+      server.middlewares.use(
+        DEVTOOLS_UI_ROUTE,
+        sirv(clientPath, { dev: true, single: true })
+      );
+    });
+  } else {
+    addDevServerHandler({
+      route: DEVTOOLS_UI_ROUTE,
+      handler: eventHandler((e) => {
+        return proxyRequest(e, "http://localhost:" + DEVTOOLS_UI_LOCAL_PORT + DEVTOOLS_UI_ROUTE + e.path);
+      })
+    });
+  }
+  addCustomTab({
+    name: "hints",
+    title: "Hints",
+    icon: "carbon:idea",
+    category: "analyze",
+    view: {
+      type: "iframe",
+      src: joinURL(nuxt.options.app?.baseURL || "/", DEVTOOLS_UI_ROUTE)
+    }
+  }, nuxt);
+  addDevServerHandler({
+    route: "/__nuxt_hints",
+    handler: createHintsRouter().handler
+  });
+  onDevToolsInitialized(() => {
+    const rpc = extendServerRpc(RPC_NAMESPACE, {
+      getHydrationMismatches,
+      clearHydrationMismatches,
+      getLazyLoadHints,
+      clearLazyLoadHint,
+      getHtmlValidateReports,
+      clearHtmlValidateReport
+    });
+    globalThis.__nuxtHintsRpcBroadcast = rpc.broadcast;
+  }, nuxt);
+}
+
+const distDir = dirname(fileURLToPath(import.meta.url));
+
+const INCLUDE_VUE_RE = /\.vue$/;
+const EXCLUDE_NODE_MODULES$1 = /node_modules|dist/;
+const DEFINE_COMPONENT_RE = /defineComponent/;
+const DEFINE_NUXT_COMPONENT_RE = /defineNuxtComponent/;
+const skipPath$1 = normalizePath$1(resolve(distDir, "runtime/hydration/component.ts"));
+const InjectHydrationPlugin = createUnplugin(() => {
+  return [
+    {
+      name: "@nuxt/hints:modify-hydration-composable-import",
+      enforce: "post",
+      transform: {
+        filter: {
+          id: {
+            include: /.(vue|ts|js|tsx|jsx)$/,
+            exclude: [skipPath$1, EXCLUDE_NODE_MODULES$1]
+          },
+          code: {
+            include: [DEFINE_COMPONENT_RE, DEFINE_NUXT_COMPONENT_RE]
+          }
+        },
+        async handler(code, id) {
+          const m = new MagicString(code);
+          const { program } = parseSync(id, code);
+          const imports = program.body.filter((node) => node.type === "ImportDeclaration");
+          const hasDefineComponent = DEFINE_COMPONENT_RE.test(code);
+          const hasDefineNuxtComponent = DEFINE_NUXT_COMPONENT_RE.test(code);
+          const defineComponentImport = findImportSpecifier(
+            imports,
+            "defineComponent",
+            ["vue", "#imports"],
+            (specifier, nextSpecifier) => {
+              m.remove(
+                specifier.start,
+                nextSpecifier?.start ?? specifier.end
+              );
+            }
+          );
+          const defineComponentAlias = defineComponentImport?.local.name || "defineComponent";
+          const defineNuxtComponentImport = findImportSpecifier(
+            imports,
+            "defineNuxtComponent",
+            ["#app/composables/component", "#imports", "#app", "nuxt/app"],
+            (specifier, next) => {
+              m.remove(
+                specifier.start,
+                next?.start ?? specifier.end
+              );
+            }
+          );
+          const defineNuxtComponentAlias = defineNuxtComponentImport?.local.name || "defineNuxtComponent";
+          const importsToAdd = new Set([
+            hasDefineComponent && genImport(
+              "@nuxt/hints/runtime/hydration/component",
+              [defineComponentAlias === "defineComponent" ? "defineComponent" : { name: "defineComponent", as: defineComponentAlias }]
+            ),
+            hasDefineNuxtComponent && genImport(
+              "@nuxt/hints/runtime/hydration/component",
+              [defineNuxtComponentAlias === "defineNuxtComponent" ? "defineNuxtComponent" : { name: "defineNuxtComponent", as: defineNuxtComponentAlias }]
+            )
+          ].filter(Boolean));
+          m.prepend([...importsToAdd].join("\n") + "\n");
+          if (m.hasChanged()) {
+            return {
+              code: m.toString(),
+              map: m.generateMap({ hires: true })
+            };
+          }
+        }
+      }
+    },
+    {
+      name: "@nuxt/hints:inject-hydration-composable",
+      enforce: "post",
+      transform: {
+        filter: {
+          id: {
+            include: INCLUDE_VUE_RE,
+            exclude: [skipPath$1, EXCLUDE_NODE_MODULES$1]
+          },
+          code: {
+            exclude: [DEFINE_COMPONENT_RE, DEFINE_NUXT_COMPONENT_RE]
+          }
+        },
+        handler(code, id) {
+          const m = new MagicString(code);
+          const { program } = parseSync(id, code);
+          const exportDeclaration = program.body.find(
+            (node) => node.type === "ExportDefaultDeclaration"
+          )?.declaration;
+          if (exportDeclaration) {
+            m.prepend(genImport(
+              "@nuxt/hints/runtime/hydration/component",
+              ["defineComponent"]
+            ));
+            m.overwrite(
+              exportDeclaration.start,
+              exportDeclaration.end,
+              `defineComponent(${code.slice(exportDeclaration.start, exportDeclaration.end)})`
+            );
+          }
+          if (m.hasChanged()) {
+            return {
+              code: m.toString(),
+              map: m.generateMap({ hires: true })
+            };
+          }
+        }
+      }
+    }
+  ];
+});
+function findImportSpecifier(importDecl, importedName, pkgNames, callback) {
+  const names = Array.isArray(pkgNames) ? pkgNames : [pkgNames];
+  const allSpecifiers = importDecl.filter((imp) => names.includes(imp.source.value)).flatMap((decl) => decl.specifiers.map((spec, i) => ({ spec, next: decl.specifiers[i + 1] })));
+  const match = allSpecifiers.find(
+    ({ spec }) => spec.type === "ImportSpecifier" && spec.imported.type === "Identifier" && spec.imported.name === importedName
+  );
+  if (match) {
+    callback?.(match.spec, match.next);
+    return match.spec;
+  }
+}
+function normalizePath$1(path) {
+  return path.replace(/\\/g, "/");
+}
+
+function findDefineComponentCalls(program) {
+  const imports = program.body.filter(
+    (node) => node.type === "ImportDeclaration"
+  );
+  const defineComponentImport = findImport("defineComponent", imports);
+  const defineComponentNames = /* @__PURE__ */ new Set(["defineNuxtComponent"]);
+  if (defineComponentImport) {
+    for (const specifier of defineComponentImport.specifiers) {
+      if (specifier.type === "ImportSpecifier" && specifier.imported.type === "Identifier") {
+        defineComponentNames.add(specifier.local.name);
+      }
+    }
+  }
+  const defineComponentNodes = [];
+  const visitor = new Visitor({
+    CallExpression(node) {
+      if (node.callee.type === "Identifier" && defineComponentNames.has(node.callee.name)) {
+        defineComponentNodes.push(node);
+      }
+    }
+  });
+  visitor.visit(program);
+  return defineComponentNodes;
+}
+function findImport(name, imports) {
+  return imports.find((imp) => {
+    return imp.specifiers.some((specifier) => {
+      if (specifier.type === "ImportSpecifier" && specifier.imported.type === "Identifier") {
+        return specifier.imported.name === name;
+      }
+      return false;
+    });
+  });
+}
+
+const INCLUDE_FILES = /\.(vue|tsx?|jsx?)$/;
+const EXCLUDE_NODE_MODULES = /node_modules/;
+const VITE_GLOB_RE = /^__glob_\d+_\d+$/;
+const skipPath = normalizePath(resolve(distDir, "runtime/lazy-load"));
+const LazyLoadHintPlugin = createUnplugin(() => {
+  const nuxt = useNuxt();
+  let nuxtComponents = nuxt.apps.default.components;
+  nuxt.hook("components:extend", (extendedComponents) => {
+    nuxtComponents = extendedComponents;
+  });
+  return {
+    name: "@nuxt/hints:lazy-load-plugin",
+    enforce: "post",
+    transform: {
+      filter: {
+        id: {
+          include: INCLUDE_FILES,
+          exclude: [skipPath, EXCLUDE_NODE_MODULES]
+        }
+      },
+      handler(code, id) {
+        const m = new MagicString(code);
+        const { program } = parseSync(id, code);
+        const imports = program.body.filter(
+          (node) => node.type === "ImportDeclaration"
+        );
+        const directComponentImports = [];
+        for (const importDecl of imports) {
+          const source = importDecl.source.value;
+          if (!source.endsWith(".vue")) continue;
+          if (importDecl.importKind === "type") continue;
+          for (const specifier of importDecl.specifiers ?? []) {
+            if (specifier.type === "ImportDefaultSpecifier" || specifier.type === "ImportSpecifier") {
+              const localName = specifier.local.name;
+              if (VITE_GLOB_RE.test(localName)) continue;
+              directComponentImports.push({
+                name: localName,
+                source,
+                start: importDecl.start,
+                end: importDecl.end,
+                specifier
+              });
+            }
+          }
+        }
+        if (directComponentImports.length === 0) {
+          return;
+        }
+        m.prepend(genImport(
+          "@nuxt/hints/runtime/lazy-load/composables",
+          ["__wrapImportedComponent", "__wrapMainComponent"]
+        ) + "\n" + genImport(
+          "@nuxt/hints/runtime/lazy-load/composables",
+          ["useLazyComponentTracking"]
+        ) + "\n");
+        for (const imp of directComponentImports) {
+          const specifier = imp.specifier;
+          const localName = specifier.local.name;
+          const newName = `__original_${localName}`;
+          if (specifier.type === "ImportDefaultSpecifier") {
+            m.overwrite(
+              specifier.local.start,
+              specifier.local.end,
+              newName
+            );
+          } else if (specifier.type === "ImportSpecifier" && specifier.imported.type === "Identifier" && specifier.imported.name !== specifier.local.name) {
+            m.overwrite(
+              specifier.local.start,
+              specifier.local.end,
+              newName
+            );
+          } else {
+            m.overwrite(
+              specifier.local.start,
+              specifier.local.end,
+              `${localName} as ${newName}`
+            );
+          }
+        }
+        if (code.includes("_sfc_main")) {
+          const wrappedComponents = directComponentImports.map((imp) => {
+            const componentName = resolveComponentName(imp, nuxtComponents);
+            return `{ componentName: '${componentName}', importSource: '${imp.source}', importedBy: '${normalizePath(id)}', rendered: false }`;
+          }).join(", ");
+          m.replace("export default _sfc_main", `const _sfc_main_wrapped = __wrapMainComponent(_sfc_main, [${wrappedComponents}]);
+export default _sfc_main_wrapped`);
+        }
+        const components = findDefineComponentCalls(program);
+        if (components && components.length > 0) {
+          for (const comp of components) {
+            injectUseLazyComponentTrackingInComponentSetup(comp, m, directComponentImports, id, nuxtComponents);
+          }
+        }
+        for (const imp of directComponentImports) {
+          const originalName = `__original_${imp.name}`;
+          const resolvedName = resolveComponentName(imp, nuxtComponents);
+          const wrapperStatement = `
+const ${imp.name} = __wrapImportedComponent(${originalName}, '${resolvedName}', '${imp.source}', '${normalizePath(id)}')`;
+          m.appendRight(imp.end, wrapperStatement);
+        }
+        if (m.hasChanged()) {
+          return {
+            code: m.toString(),
+            map: m.generateMap({ hires: true })
+          };
+        }
+      }
+    }
+  };
+});
+function normalizePath(path) {
+  return path.replace(/\\/g, "/");
+}
+function resolveComponentName(imp, nuxtComponents) {
+  const component = nuxtComponents.find((c) => c.filePath === imp.source);
+  if (component) return component.pascalName;
+  return imp.name.startsWith("__nuxt") ? parse(imp.source).name : imp.name;
+}
+function injectUseLazyComponentTrackingInComponentSetup(node, magicString, directComponentImports, id, nuxtComponents) {
+  if (node.arguments.length === 1) {
+    const arg = node.arguments[0];
+    if (arg?.type === "ObjectExpression") {
+      const properties = arg.properties;
+      const setupProp = properties.find(
+        (prop) => prop.type === "Property" && prop.key.type === "Identifier" && prop.key.name === "setup"
+      );
+      if (setupProp && setupProp.type === "Property") {
+        const setupFunc = setupProp.value;
+        if (setupFunc.type === "FunctionExpression" || setupFunc.type === "ArrowFunctionExpression") {
+          const insertPos = (setupFunc.body?.start ?? 0) + 1;
+          const componentsArray = directComponentImports.map((imp) => {
+            const componentName = resolveComponentName(imp, nuxtComponents);
+            return `{ componentName: '${componentName}', importSource: '${imp.source}', importedBy: '${normalizePath(id)}', rendered: false }`;
+          }).join(", ");
+          const injectionCode = `
+const lazyHydrationState = useLazyComponentTracking([${componentsArray}]);
+`;
+          magicString.appendLeft(insertPos, injectionCode);
+        }
+      }
+    }
+  }
+}
+
+function isFeatureDevtoolsEnabled(options, feature) {
+  const val = options.features[feature];
+  return typeof val === "object" ? val.devtools !== false : !!val;
+}
+function isFeatureEnabled(options, feature) {
+  return !!options.features[feature];
+}
+
+const moduleName = "@nuxt/hints";
+const module$1 = defineNuxtModule({
+  meta: {
+    name: moduleName,
+    configKey: "hints"
+  },
+  defaults: {
+    devtools: true,
+    features: {
+      hydration: true,
+      lazyLoad: true,
+      webVitals: true,
+      thirdPartyScripts: true,
+      htmlValidate: true
+    }
+  },
+  setup(options, nuxt) {
+    if (!nuxt.options.dev) {
+      return;
+    }
+    nuxt.options.nitro.experimental = nuxt.options.nitro.experimental || {};
+    nuxt.options.nitro.experimental.websocket = true;
+    const resolver = createResolver(import.meta.url);
+    const hintsConfigContent = `export const features = ${JSON.stringify(options.features)}`;
+    const hintsConfig = addTemplate({
+      filename: "hints-config.mjs",
+      getContents: () => hintsConfigContent,
+      write: true
+    });
+    nuxt.options.alias["#shared/hints-config"] = hintsConfig.dst;
+    addPlugin(resolver.resolve("./runtime/core/plugins/features.client"));
+    addComponent({
+      name: "NuxtIsland",
+      filePath: resolver.resolve("./runtime/core/components/nuxt-island"),
+      priority: 1e3
+    });
+    if (isFeatureEnabled(options, "webVitals")) {
+      addPlugin(resolver.resolve("./runtime/web-vitals/plugin.client"));
+    }
+    if (isFeatureEnabled(options, "hydration")) {
+      addPlugin(resolver.resolve("./runtime/hydration/plugin.client"));
+      addBuildPlugin(InjectHydrationPlugin);
+    }
+    if (isFeatureEnabled(options, "lazyLoad")) {
+      addPlugin(resolver.resolve("./runtime/lazy-load/plugin.client"));
+      nuxt.hook("modules:done", () => {
+        addBuildPlugin(LazyLoadHintPlugin, { client: false });
+        addBuildPlugin(LazyLoadHintPlugin, { server: false });
+      });
+    }
+    if (isFeatureEnabled(options, "thirdPartyScripts")) {
+      addPlugin(resolver.resolve("./runtime/third-party-scripts/plugin.client"));
+      if (isFeatureDevtoolsEnabled(options, "thirdPartyScripts")) {
+        addServerPlugin(resolver.resolve("./runtime/third-party-scripts/nitro.plugin"));
+      }
+    }
+    if (isFeatureEnabled(options, "htmlValidate")) {
+      addPlugin(resolver.resolve("./runtime/html-validate/plugin.client"));
+      addServerPlugin(resolver.resolve("./runtime/html-validate/nitro.plugin"));
+    }
+    nuxt.hook("prepare:types", ({ references }) => {
+      references.push({
+        types: resolver.resolve("./runtime/types.d.ts")
+      });
+    });
+    if (options.devtools) {
+      setupDevToolsUI(nuxt, resolver);
+      addPlugin(resolver.resolve("./runtime/core/plugins/vue-tracer-state.client"));
+    }
+    nuxt.options.build.transpile.push(moduleName);
+  }
+});
+
+export { module$1 as default };

@@ -1,0 +1,38 @@
+import { joinURL } from "ufo";
+import { useRuntimeConfig } from "#nuxtseo/nitro";
+import { componentNames } from "#og-image-virtual/component-names.mjs";
+import { buildOgImageUrl } from "../shared.js";
+import { getCloudflareEnv } from "./util/cloudflare.js";
+export function getOgImagePath(_pagePath, _options) {
+  const baseURL = useRuntimeConfig().app.baseURL;
+  const { defaults, security } = useOgImageRuntimeConfig();
+  const extension = _options?.extension || defaults.extension;
+  const isStatic = import.meta.prerender && !(security?.secret && security?.strict);
+  const options = { ..._options, _path: _pagePath };
+  const componentName = _options?.component || componentNames?.[0]?.pascalName;
+  const component = componentNames?.find((c) => c.pascalName === componentName || c.kebabName === componentName);
+  if (component?.hash)
+    options._componentHash = component.hash;
+  const result = buildOgImageUrl(options, extension, isStatic, defaults, security?.secret || void 0);
+  return {
+    path: joinURL("/", baseURL, result.url),
+    hash: result.hash
+  };
+}
+export function useOgImageRuntimeConfig(e) {
+  const c = useRuntimeConfig(e);
+  const moduleCfg = c["nuxt-og-image"];
+  const cloudflareEnv = getCloudflareEnv(e);
+  const runtimeSecret = c.ogImage?.secret;
+  const cloudflareSecret = cloudflareEnv?.NUXT_OG_IMAGE_SECRET;
+  const overrideSecret = typeof runtimeSecret === "string" && runtimeSecret ? runtimeSecret : typeof cloudflareSecret === "string" ? cloudflareSecret : void 0;
+  const security = overrideSecret ? { ...moduleCfg.security || {}, secret: overrideSecret } : moduleCfg.security;
+  return {
+    defaults: {},
+    ...moduleCfg,
+    security,
+    app: {
+      baseURL: c.app.baseURL
+    }
+  };
+}

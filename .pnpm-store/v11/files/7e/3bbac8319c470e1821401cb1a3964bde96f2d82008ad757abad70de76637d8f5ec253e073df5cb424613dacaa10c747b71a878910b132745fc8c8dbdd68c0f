@@ -1,0 +1,7 @@
+import type { AutoI18nConfig, ModuleRuntimeConfig, NitroUrlResolvers, ResolvedSitemapUrl, SitemapDefinition, SitemapUrlInput } from '../../../types.js';
+export interface NormalizedI18n extends ResolvedSitemapUrl {
+    _pathWithoutPrefix: string;
+    _locale: AutoI18nConfig['locales'][number];
+    _index?: number;
+}
+export declare function resolveSitemapEntries(sitemap: SitemapDefinition, urls: SitemapUrlInput[], runtimeConfig: Pick<ModuleRuntimeConfig, 'autoI18n' | 'isI18nMapped'>, resolvers?: NitroUrlResolvers, baseURL?: string): ResolvedSitemapUrl[];

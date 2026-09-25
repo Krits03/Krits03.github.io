@@ -1,0 +1,6 @@
+import type { H3Event } from '#nuxtseo/h3';
+declare const _default: (e: H3Event) => Promise<{
+    link: string;
+    title: string;
+}[]>;
+export default _default;

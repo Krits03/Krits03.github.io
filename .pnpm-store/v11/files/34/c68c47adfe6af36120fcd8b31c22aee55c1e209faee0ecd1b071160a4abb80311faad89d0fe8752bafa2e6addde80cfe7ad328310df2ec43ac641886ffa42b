@@ -1,0 +1,1 @@
+export declare function useFallbackTitle(): import("vue").ComputedRef<string | null>;

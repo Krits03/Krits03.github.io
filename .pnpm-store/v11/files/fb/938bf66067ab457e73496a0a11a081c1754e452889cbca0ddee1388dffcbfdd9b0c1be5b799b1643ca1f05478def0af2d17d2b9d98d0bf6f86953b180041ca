@@ -1,0 +1,137 @@
+{
+  "name": "unplugin-yaml",
+  "version": "4.2.1",
+  "description": "Allow importing YAML files as JSON or Strings",
+  "keywords": [
+    "astro",
+    "esbuild",
+    "nuxt",
+    "rolldown",
+    "rolldown-plugin",
+    "rollup",
+    "rollup-plugin",
+    "unplugin",
+    "vite",
+    "vite-plugin",
+    "webpack",
+    "yaml"
+  ],
+  "bugs": "https://github.com/luxass/unplugin-yaml/issues",
+  "license": "MIT",
+  "author": {
+    "name": "Lucas Nørgård",
+    "email": "lucasnrgaard@gmail.com",
+    "url": "https://luxass.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luxass/unplugin-yaml.git"
+  },
+  "workspaces": [
+    "playground/*"
+  ],
+  "files": [
+    "dist",
+    "yaml.d.ts"
+  ],
+  "type": "module",
+  "types": "dist/index.d.mts",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./astro": "./dist/astro.mjs",
+    "./constants": "./dist/constants.mjs",
+    "./esbuild": "./dist/esbuild.mjs",
+    "./nuxt": "./dist/nuxt.mjs",
+    "./rolldown": "./dist/rolldown.mjs",
+    "./rollup": "./dist/rollup.mjs",
+    "./rspack": "./dist/rspack.mjs",
+    "./types": {
+      "types": "./yaml.d.ts"
+    },
+    "./vite": "./dist/vite.mjs",
+    "./webpack": "./dist/webpack.mjs",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@rollup/pluginutils": "5.4.0",
+    "unplugin": "3.0.0",
+    "yaml": "2.8.4"
+  },
+  "devDependencies": {
+    "@luxass/utils": "2.7.5",
+    "@nuxt/kit": "4.4.8",
+    "@nuxt/schema": "4.4.8",
+    "@rspack/core": "2.0.6",
+    "@types/node": "25.9.2",
+    "astro": "6.4.5",
+    "esbuild": "0.28.0",
+    "oxfmt": "0.54.0",
+    "oxlint": "1.69.0",
+    "oxlint-tsgolint": "0.23.0",
+    "publint": "0.3.21",
+    "rolldown": "1.1.0",
+    "rollup": "4.61.1",
+    "tsdown": "0.22.2",
+    "typescript": "6.0.3",
+    "vite": "8.0.16",
+    "vitest": "4.1.8",
+    "vitest-testdirs": "4.4.3",
+    "webpack": "5.107.2"
+  },
+  "peerDependencies": {
+    "@nuxt/kit": "^3.0.0 || ^4.0.0",
+    "@nuxt/schema": "^3.0.0 || ^4.0.0",
+    "@rspack/core": "^1.1.8 || ^2.0.0",
+    "astro": "^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0",
+    "esbuild": ">=0.19.12 <1",
+    "rolldown": "^1.0.0",
+    "rollup": ">=4 <5",
+    "vite": "^6.0.0 || ^7.0.0 || ^8.0.0",
+    "webpack": "^5.73.0"
+  },
+  "peerDependenciesMeta": {
+    "@nuxt/kit": {
+      "optional": true
+    },
+    "@nuxt/schema": {
+      "optional": true
+    },
+    "astro": {
+      "optional": true
+    },
+    "esbuild": {
+      "optional": true
+    },
+    "rollup": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    },
+    "webpack": {
+      "optional": true
+    },
+    "@rspack/core": {
+      "optional": true
+    },
+    "rolldown": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "play:vite": "pnpm --filter @unplugin-yaml/vite dev",
+    "play:rspack": "pnpm --filter @unplugin-yaml/rspack dev",
+    "typecheck": "tsc --noEmit && pnpm -r typecheck"
+  }
+}

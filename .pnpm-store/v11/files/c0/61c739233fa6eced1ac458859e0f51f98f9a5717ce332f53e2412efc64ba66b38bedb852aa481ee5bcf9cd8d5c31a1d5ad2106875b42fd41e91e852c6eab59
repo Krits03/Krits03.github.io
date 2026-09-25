@@ -1,0 +1,303 @@
+import type { ResvgRenderOptions } from '@resvg/resvg-js';
+import type { AllowedComponentProps, Component, ComponentCustomProps, VNodeProps } from '@vue/runtime-core';
+import type { SatoriOptions } from 'satori';
+import type { JpegOptions, SharpOptions } from 'sharp';
+import type { MaybeRefOrGetter, Ref } from 'vue';
+import type { H3Error, H3Event } from '#nuxtseo/h3';
+import type { Timings } from './server/util/timings.js';
+export interface OgImageRenderEventContext {
+    e: H3Event;
+    extension: 'png' | 'jpeg' | 'jpg' | 'webp' | 'svg' | 'html' | 'json';
+    key: string;
+    basePath: string;
+    renderer: Renderer;
+    options: OgImageOptionsInternal;
+    isDevToolsContextRequest: boolean;
+    publicStoragePath: string;
+    runtimeConfig: OgImageRuntimeConfig;
+    timings: Timings;
+    _nitro: ReturnType<typeof import('#nuxtseo/nitro').useNitroApp>;
+}
+export type IconifyEmojiIconSets = 'twemoji' | 'noto' | 'fluent-emoji' | 'fluent-emoji-flat' | 'fluent-emoji-high-contrast' | 'noto-v1' | 'emojione' | 'emojione-monotone' | 'emojione-v1' | 'streamline-emojis' | 'openmoji';
+export type EmojiStrategy = 'auto' | 'local' | 'fetch';
+export interface OgImageIconsData {
+    icons: Record<string, {
+        body: string;
+        width?: number;
+        height?: number;
+    }>;
+    width: number;
+    height: number;
+}
+export interface OgImageRuntimeConfig {
+    version: string;
+    satoriOptions: SatoriOptions;
+    resvgOptions: ResvgRenderOptions;
+    sharpOptions: SharpOptions;
+    publicStoragePath: string;
+    defaults: Omit<OgImageOptions, 'component' | 'renderer' | 'props' | 'url' | 'html' | 'key' | 'cacheKey' | '_query' | '_hash' | 'socialPreview'>;
+    debug: boolean;
+    baseCacheKey: string;
+    hasNuxtIcon: boolean;
+    hasNuxtContent?: boolean;
+    colorPreference: 'light' | 'dark';
+    isNuxtContentDocumentDriven: boolean;
+    zeroRuntime: boolean;
+    cssFramework: 'tailwind' | 'unocss' | 'none';
+    componentDirs?: string[];
+    /** Directory for persistent build cache (CI caching) */
+    buildCacheDir?: string;
+    /** Source directory for auto-eject (dev only) */
+    srcDir?: string;
+    /** Root directory for relative path display (dev only) */
+    rootDir?: string;
+    /** Path to community templates (dev only) */
+    communityTemplatesDir?: string;
+    /** Browser renderer config for cloudflare binding access */
+    browser?: {
+        provider?: BrowserProvider;
+        binding?: string;
+    };
+    security: {
+        maxDimension: number;
+        maxDpr: number;
+        renderTimeout: number;
+        imageFetchTimeout: number;
+        maxQueryParamSize: number | null;
+        restrictRuntimeImagesToOrigin: false | string[];
+        secret: string;
+        strict: boolean;
+    };
+    app: {
+        baseURL: string;
+    };
+}
+export type RendererType = 'satori' | 'browser' | 'takumi';
+export type BrowserProvider = 'playwright' | 'chrome-launcher' | 'on-demand' | 'cloudflare';
+export type BrowserConfig = false | {
+    provider: BrowserProvider;
+    /** Required when provider is 'cloudflare' - the wrangler binding name */
+    binding?: string;
+};
+export interface OgImageComponent {
+    path?: string;
+    pascalName: string;
+    kebabName: string;
+    hash: string;
+    category: 'app' | 'community' | 'pro';
+    credits?: string;
+    renderer: RendererType;
+    /** Declared prop names extracted from defineProps at build time (used for prop whitelisting) */
+    propNames?: string[];
+}
+export interface ScreenshotOptions {
+    colorScheme?: 'dark' | 'light';
+    selector?: string;
+    mask?: string;
+    /**
+     * The width of the screenshot.
+     *
+     * @default 1200
+     */
+    width: number;
+    /**
+     * The height of the screenshot.
+     *
+     * @default 600
+     */
+    height: number;
+    /**
+     * How long to wait before taking the screenshot. Useful for waiting for animations.
+     */
+    delay?: number;
+}
+export interface OgImagePrebuilt extends OgImageOptions {
+}
+export type DefineOgImageInput = OgImageOptionsInternal | OgImagePrebuilt | false;
+export interface OgImageOptions {
+    /**
+     * The width of the screenshot.
+     *
+     * @default 1200
+     */
+    width?: number | (() => number) | Ref<number>;
+    /**
+     * The height of the screenshot.
+     *
+     * @default 600
+     */
+    height?: number | (() => number) | Ref<number>;
+    /**
+     * The alt text for the image.
+     */
+    alt?: string | (() => string) | Ref<string>;
+    /**
+     * Use a prebuilt image instead of generating one.
+     *
+     * Should be an absolute URL.
+     */
+    url?: string | (() => string) | Ref<string>;
+    /**
+     * Props to pass to the component.
+     */
+    props?: Record<string, any>;
+    extension?: 'png' | 'jpeg' | 'jpg' | 'webp' | 'svg' | 'html';
+    emojis?: IconifyEmojiIconSets | false;
+    /**
+     * Provide a static HTML template to render the OG Image instead of a component.
+     *
+     * @deprecated The `html` option will be removed in the next major version due to SSRF risk.
+     * Use a Vue component instead. Disabled when `security.strict` is enabled.
+     */
+    html?: string;
+    resvg?: ResvgRenderOptions;
+    satori?: SatoriOptions;
+    screenshot?: Partial<ScreenshotOptions>;
+    sharp?: SharpOptions & JpegOptions;
+    takumi?: {
+        format?: 'png' | 'jpeg' | 'webp';
+        images?: Array<{
+            src: string;
+            data: ArrayBuffer | Uint8Array;
+        }>;
+        fetchedResources?: Array<{
+            src: string;
+            data: ArrayBuffer | Uint8Array;
+        }>;
+        /** @deprecated Use `images` instead. */
+        persistentImages?: Array<{
+            src: string;
+            data: ArrayBuffer;
+        }>;
+        devicePixelRatio?: number;
+    };
+    /** @deprecated Legacy font override — no longer used at runtime */
+    fonts?: any;
+    cacheMaxAgeSeconds?: number;
+    /**
+     * Social preview metadata
+     * @internal
+     */
+    socialPreview?: SocialPreviewMetaData;
+    /**
+     * @internal
+     */
+    _query?: Record<string, any>;
+    /**
+     * Hash for cache lookup when URL is too long for filesystem
+     * @internal
+     */
+    _hash?: string;
+    /**
+     * Allow multiple og images to be generated for the same route by setting a unique key.
+     */
+    key?: string;
+    /**
+     * Custom cache key for this OG image.
+     *
+     * When set, this key is used directly for caching instead of the auto-generated key.
+     */
+    cacheKey?: string;
+}
+/**
+ * Internal options type used throughout the rendering pipeline.
+ * Extends OgImageOptions with fields set by defineOgImage() and the module internals.
+ */
+export interface OgImageOptionsInternal extends OgImageOptions {
+    /** Set by defineOgImage() — the resolved component PascalName */
+    component?: string;
+    /** Determined by component filename suffix (.satori.vue, .takumi.vue, .browser.vue) */
+    renderer?: RendererType;
+}
+export interface FontConfig {
+    family: string;
+    weight: number;
+    style: 'normal' | 'italic';
+    src: string;
+    /** Static source for renderers that cannot use the primary font. Falls back to src if not set. */
+    satoriSrc?: string;
+    localPath: string;
+    /** Absolute filesystem path for statically bundled fonts. */
+    absolutePath?: string;
+    /** Unicode range for font subsetting (e.g., "U+0000-00FF"). Passed to Satori for proper glyph selection. */
+    unicodeRange?: string;
+    /** When true, this font survives requirements filtering as a last-resort fallback. */
+    fallback?: boolean;
+    /** Original weight range for variable fonts (e.g. [100, 900]). Present when src is a variable font. */
+    weightRange?: [number, number];
+}
+export interface RuntimeFontConfig extends FontConfig {
+    cacheKey: string;
+    data: BufferSource;
+    /** Original family name before subset renaming (e.g., "Noto Sans SC" when family is "Noto Sans SC__0") */
+    originalFamily?: string;
+}
+export interface RuntimeCompatibilitySchema {
+    browser: 'chrome-launcher' | 'on-demand' | 'playwright' | 'cloudflare' | false;
+    resvg: 'node' | 'node-dev' | 'wasm' | 'wasm-fs' | 'wasm-edge' | false;
+    satori: 'node' | 'wasm' | 'wasm-fs' | 'wasm-edge' | false;
+    takumi: 'node' | 'node-dev' | 'wasm' | false;
+    sharp: 'node' | false;
+    emoji?: 'local' | 'fetch';
+    wasm?: any;
+}
+export interface RuntimeCompatibilityMeta {
+    takumiVersion?: 1 | 2;
+}
+export type RuntimeCompatibilityPayload = Partial<Omit<RuntimeCompatibilitySchema, 'wasm'>> & RuntimeCompatibilityMeta;
+export type CompatibilityFlags = Partial<Omit<RuntimeCompatibilitySchema, 'wasm'>>;
+export interface CompatibilityFlagEnvOverrides {
+    dev?: CompatibilityFlags;
+    runtime?: CompatibilityFlags;
+    prerender?: CompatibilityFlags;
+}
+export type RendererOptions = Omit<OgImageOptions, 'extension'> & {
+    extension: Omit<OgImageOptions['extension'], 'html'>;
+};
+export interface Renderer {
+    name: 'browser' | 'satori' | 'takumi';
+    supportedFormats: Partial<RendererOptions['extension']>[];
+    createImage: (e: OgImageRenderEventContext) => Promise<H3Error | BufferSource | Buffer | Uint8Array | void | undefined>;
+    debug: (e: OgImageRenderEventContext) => Promise<Record<string, any>>;
+}
+export type ExtractComponentProps<T extends Component> = T extends new (...args: any) => any ? Omit<InstanceType<T>['$props'], keyof ComponentCustomProps | keyof VNodeProps | keyof AllowedComponentProps> : never;
+export type ReactiveComponentProps<T extends Component> = {
+    [K in keyof ExtractComponentProps<T>]?: MaybeRefOrGetter<ExtractComponentProps<T>[K]>;
+};
+export type OgImagePageScreenshotOptions = Omit<OgImageOptions, 'html' | 'component' | 'satori' | 'resvg' | 'sharp' | 'screenshot'> & Omit<ScreenshotOptions, 'width' | 'height' | 'delay'> & {
+    /**
+     * How long to wait before taking the screenshot. Useful for waiting for animations.
+     */
+    delay?: number;
+};
+export interface VNode {
+    type: string;
+    props: {
+        style?: Record<string, any>;
+        children?: string | (VNode | string | null)[];
+        [key: string]: any;
+    };
+    _emojiMatches?: RegExpMatchArray | null;
+}
+export interface VNodeTransformer {
+    filter: (node: VNode) => boolean;
+    transform: (node: VNode, e: OgImageRenderEventContext) => Promise<void> | void;
+}
+export interface DevToolsMetaDataExtraction {
+    key: string;
+    twitter?: Record<string, string>;
+    og?: Record<string, string>;
+}
+export interface SocialPreviewMetaData {
+    twitter?: Record<string, string>;
+    og?: Record<string, string> & {
+        image?: string | {
+            'image:width'?: string | number;
+            'image:height'?: string | number;
+            [key: string]: any;
+        };
+    };
+}
+export interface RouteRulesOgImage extends Partial<OgImageOptions> {
+    [key: string]: any;
+}

@@ -1,0 +1,123 @@
+import * as _nuxt_schema from '@nuxt/schema';
+import { CreateStorageOptions } from 'unstorage';
+
+interface ModuleOptions {
+    /**
+     * Whether the build should fail when a 404 is encountered.
+     */
+    failOnError: boolean;
+    /**
+     * Skip specific inspections from running.
+     */
+    skipInspections: string[];
+    /**
+     * The timeout for fetching a URL.
+     *
+     * @default 5000
+     */
+    fetchTimeout: number;
+    /**
+     * Links to ignore when running inspections.
+     *
+     * Supports:
+     * - Exact matches: `/about`
+     * - Wildcards: `/admin/**`, `/api/*`
+     * - RegExp patterns: `/^\\/blog\\/\\d+$/`
+     *
+     * Uses radix3 route matching for string patterns.
+     *
+     * @example
+     * ```ts
+     * excludeLinks: [
+     *   '/admin/**',        // Exclude all admin routes
+     *   '/api/*',           // Exclude direct /api children
+     *   /^\/blog\/\d+$/,    // Exclude blog posts using regex
+     *   'https://example.com/**'  // Exclude external domain
+     * ]
+     * ```
+     */
+    excludeLinks: (string | RegExp)[];
+    /**
+     * Generate a report when using nuxt build` or `nuxt generate`.
+     */
+    report?: {
+        /**
+         * Whether to output a HTML report.
+         */
+        html?: boolean;
+        /**
+         * Whether to output a JSON report.
+         */
+        markdown?: boolean;
+        /**
+         * Whether to output a JSON report.
+         */
+        json?: boolean;
+        /**
+         * Where to store the files.
+         *
+         * Either provide a path relative to the nuxt root or an object with options for `unstorage`.
+         *
+         * By default, they'll be in your .output directory.
+         */
+        storage?: string | CreateStorageOptions;
+        /**
+         * Whether to publish the reports with the build.
+         *
+         * By default, will output files at `.output/public/__link-checker__/link-checker-report.<format>`.
+         */
+        publish?: boolean;
+    };
+    /**
+     * Whether to show live inspections in your Nuxt app.
+     */
+    showLiveInspections: boolean;
+    /**
+     * Whether to run the module on `nuxt build` or `nuxt generate`.
+     */
+    runOnBuild: boolean;
+    /**
+     * Should remote URLs be fetched.
+     *
+     * @default false
+     */
+    fetchRemoteUrls: boolean;
+    /**
+     * Enable when your nuxt/content files match your pages. This will automatically detect link sources
+     * for the current page.
+     *
+     * This is the same behavior to using `nuxt/content` with `documentDriven: true`.
+     */
+    strictNuxtContentPaths: boolean;
+    /**
+     * Whether the module is enabled.
+     *
+     * @default true
+     */
+    enabled: boolean;
+    /**
+     * Pages to exclude from link checking entirely.
+     *
+     * When a page matches, none of its links will be inspected.
+     *
+     * Supports the same pattern types as `excludeLinks`:
+     * - Exact matches: `/about`
+     * - Wildcards: `/admin/**`
+     * - RegExp patterns: `/^\/blog\/\d+$/`
+     *
+     * @default []
+     */
+    excludePages: (string | RegExp)[];
+    /**
+     * Display debug information.
+     *
+     * @default false
+     */
+    debug: boolean;
+}
+interface ModuleHooks {
+}
+declare const _default: _nuxt_schema.NuxtModule<ModuleOptions, ModuleOptions, false>;
+
+export { _default as default };
+export type { ModuleHooks, ModuleOptions };

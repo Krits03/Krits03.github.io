@@ -1,0 +1,25 @@
+import { useNuxtApp } from "nuxt/app";
+import { isRef, toValue } from "vue";
+import { useHead } from "#imports";
+import { useSchemaOrgConfig } from "../utils/config.js";
+export function useSchemaOrg(input) {
+  const config = useSchemaOrgConfig();
+  const nuxtApp = useNuxtApp();
+  let nodes = input;
+  if (isRef(input)) {
+    nodes = import.meta.server ? toValue(input) : () => nuxtApp.runWithContext(() => toValue(input));
+  }
+  const script = {
+    type: "application/ld+json",
+    key: "schema-org-graph",
+    // @ts-expect-error untyped
+    nodes,
+    tagPriority: "high",
+    ...config.scriptAttributes
+  };
+  if (import.meta.dev || import.meta.server || config?.reactive) {
+    return useHead({
+      script: [script]
+    });
+  }
+}

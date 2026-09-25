@@ -1,0 +1,1328 @@
+#!/usr/bin/env node
+import { randomBytes } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync, readdirSync, readFileSync, renameSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import * as p from '@clack/prompts';
+import { loadNuxtConfig } from '@nuxt/kit';
+import { detectPackageManager, removeDependency, addDependency } from 'nypm';
+import { parseAndWalk } from 'oxc-walker';
+import { dirname, resolve, join, relative, basename } from 'pathe';
+import { parse, walkSync, ELEMENT_NODE } from 'ultrahtml';
+import { m as migrateDefaultsComponent, a as migrateFontsConfig } from './shared/nuxt-og-image.CJa2KCie.mjs';
+import 'magicast';
+import 'magicast/helpers';
+import '../dist/runtime/logger.js';
+
+const __dirname$1 = dirname(fileURLToPath(import.meta.url));
+const communityDir = resolve(__dirname$1, "runtime/app/components/Templates/Community");
+const RE_RENDERER_SUFFIX = /\.(satori|browser|takumi)\.vue$/;
+const RE_ANY_RENDERER_SUFFIX = /\.(?:satori|browser|takumi|chromium)\.vue$/;
+const RE_CHROMIUM_SUFFIX = /\.chromium\.vue$/;
+const RE_EXCLUDE_NODE_MODULES = /node_modules/;
+const RE_EXCLUDE_NUXT = /\.nuxt/;
+const RE_EXCLUDE_OUTPUT = /\.output/;
+const RE_EXCLUDE_DATA = /\.data/;
+const RE_EXCLUDE_DIST = /dist/;
+const RE_VUE_OR_SCRIPT = /\.(?:vue|ts|tsx|js|jsx)$/;
+const RE_PASCAL_CASE_STRICT = /^[A-Z]\w*$/;
+const RE_PASCAL_CASE_START = /^[A-Z]/;
+const RE_SCRIPT_SETUP = /<script\s+setup[^>]*>\r?\n?/;
+const RE_PATH_SEPARATOR = /[\\/]|\.\./;
+const DEPRECATED_COMPOSABLE_NAMES = /* @__PURE__ */ new Set([
+  "defineOgImageComponent",
+  "defineOgImageStatic",
+  "defineOgImageDynamic",
+  "defineOgImageCached",
+  "defineOgImageWithoutCache"
+]);
+const ALL_OG_IMAGE_COMPOSABLES = /* @__PURE__ */ new Set([
+  "defineOgImage",
+  ...DEPRECATED_COMPOSABLE_NAMES
+]);
+function collectScriptReplacements(code, filename) {
+  const replacements = [];
+  parseAndWalk(code, filename, (node) => {
+    if (node.type === "ImportDeclaration") {
+      const source = node.source;
+      const sourceValue = source?.value;
+      if (sourceValue === "#nuxt-og-image-utils") {
+        replacements.push({ start: source.start + 1, end: source.end - 1, text: "#og-image/shared" });
+      } else if (sourceValue === "#og-image/shared") {
+        const specifiers = node.specifiers || [];
+        const hasRuntimeConfig = specifiers.some((s) => {
+          const imported = s.imported || s.local;
+          return imported?.name === "useOgImageRuntimeConfig";
+        });
+        if (hasRuntimeConfig) {
+          replacements.push({ start: source.start + 1, end: source.end - 1, text: "#og-image/app/utils" });
+        }
+      }
+      return;
+    }
+    if (node.type !== "CallExpression")
+      return;
+    const callee = node.callee;
+    const calleeName = callee?.name;
+    if (!calleeName || !ALL_OG_IMAGE_COMPOSABLES.has(calleeName))
+      return;
+    const args2 = node.arguments || [];
+    if (args2.length === 1 && args2[0]?.type === "ObjectExpression") {
+      const objArg = args2[0];
+      const properties = (objArg.properties || []).filter(
+        (p2) => p2.type === "ObjectProperty" || p2.type === "Property"
+      );
+      const findProp = (name) => properties.find(
+        (p2) => p2.key?.name === name
+      );
+      const urlProp = findProp("url");
+      const componentProp = findProp("component");
+      const rendererProp = findProp("renderer");
+      const propsProp = findProp("props");
+      if (urlProp) {
+        const urlValue = code.slice(urlProp.value.start, urlProp.value.end);
+        const ogPropMap = {
+          width: "ogImageWidth",
+          height: "ogImageHeight",
+          alt: "ogImageAlt",
+          type: "ogImageType"
+        };
+        const seoMetaProps = [`ogImage: ${urlValue}`];
+        for (const prop of properties) {
+          if (prop === urlProp)
+            continue;
+          const keyName = prop.key?.name;
+          const mappedName = ogPropMap[keyName];
+          if (mappedName) {
+            seoMetaProps.push(`${mappedName}: ${code.slice(prop.value.start, prop.value.end)}`);
+          }
+        }
+        const text = `useSeoMeta({ ${seoMetaProps.join(", ")} })`;
+        replacements.push({ start: node.start, end: node.end, text });
+        return;
+      }
+      if (!componentProp && rendererProp) {
+        const rendererValue = code.slice(rendererProp.value.start, rendererProp.value.end).trim();
+        if (rendererValue === "'chromium'" || rendererValue === '"chromium"') {
+          const otherProps = properties.filter((p2) => p2 !== rendererProp);
+          const text = otherProps.length > 0 ? `defineOgImageScreenshot({ ${otherProps.map((p2) => code.slice(p2.start, p2.end)).join(", ")} })` : `defineOgImageScreenshot()`;
+          replacements.push({ start: node.start, end: node.end, text });
+          return;
+        }
+      }
+      if (componentProp || rendererProp) {
+        const componentName = componentProp ? code.slice(componentProp.value.start, componentProp.value.end) : "'NuxtSeo'";
+        const propsValue = propsProp ? code.slice(propsProp.value.start, propsProp.value.end) : "{}";
+        const otherProps = properties.filter(
+          (p2) => p2 !== componentProp && p2 !== rendererProp && p2 !== propsProp
+        );
+        const text = otherProps.length > 0 ? `defineOgImage(${componentName}, ${propsValue}, { ${otherProps.map((p2) => code.slice(p2.start, p2.end)).join(", ")} })` : `defineOgImage(${componentName}, ${propsValue})`;
+        replacements.push({ start: node.start, end: node.end, text });
+        return;
+      }
+    }
+    if (DEPRECATED_COMPOSABLE_NAMES.has(calleeName)) {
+      replacements.push({ start: callee.start, end: callee.end, text: "defineOgImage" });
+    }
+  });
+  return replacements;
+}
+function parseSfcBlocks(code) {
+  const scripts = [];
+  let template = null;
+  const ast = parse(code);
+  walkSync(ast, (node) => {
+    if (node.type !== ELEMENT_NODE || !("name" in node))
+      return;
+    const el = node;
+    if (el.name === "script" && el.loc) {
+      const start = el.loc[0].end;
+      const end = el.loc[1].start;
+      scripts.push({ content: code.slice(start, end), offset: start });
+    } else if (el.name === "template" && el.loc) {
+      const start = el.loc[0].end;
+      const end = el.loc[1].start;
+      template = { content: code.slice(start, end), offset: start };
+    }
+  });
+  return { scripts, template };
+}
+function applyReplacements(code, replacements) {
+  const sorted = replacements.toSorted((a, b) => b.start - a.start);
+  for (const r of sorted) {
+    code = code.slice(0, r.start) + r.text + code.slice(r.end);
+  }
+  return code;
+}
+const defaultComponentDirs = ["OgImage", "OgImageCommunity", "og-image", "OgImageTemplate"];
+const RENDERERS = [
+  {
+    name: "takumi",
+    label: "Takumi (Recommended)",
+    description: "2-10x faster, comprehensive CSS support"
+  },
+  {
+    name: "satori",
+    label: "Satori",
+    description: "SVG-based renderer - works without extra dependencies"
+  },
+  {
+    name: "browser",
+    label: "Browser",
+    description: "Full CSS via screenshots - prerender only"
+  }
+];
+const EDGE_PRESETS = ["cloudflare", "cloudflare-pages", "cloudflare-module", "vercel-edge", "netlify-edge"];
+function getRendererDeps(renderer, isEdge) {
+  switch (renderer) {
+    case "satori":
+      return isEdge ? ["satori", "@resvg/resvg-js", "@resvg/resvg-wasm"] : ["satori", "@resvg/resvg-js"];
+    case "takumi":
+      return isEdge ? ["@takumi-rs/core", "@takumi-rs/wasm"] : ["@takumi-rs/core"];
+    case "browser":
+      return isEdge ? [] : ["playwright-core"];
+  }
+}
+function getBaseName(filename) {
+  return filename.replace(RE_RENDERER_SUFFIX, "");
+}
+function hasRendererSuffix(filename) {
+  return RE_ANY_RENDERER_SUFFIX.test(filename);
+}
+function hasChromiumSuffix(filename) {
+  return RE_CHROMIUM_SUFFIX.test(filename);
+}
+function listTemplates() {
+  const templates = [...new Set(
+    readdirSync(communityDir).filter((f) => f.endsWith(".vue")).map(getBaseName)
+  )];
+  p.intro("Community Templates");
+  p.note(templates.map((t) => `\u2022 ${t}`).join("\n"), "Available");
+  p.log.info("Usage: npx nuxt-og-image eject <template-name>");
+  p.outro("");
+}
+function findTemplateFile(name) {
+  const files = readdirSync(communityDir).filter((f) => f.endsWith(".vue"));
+  const match = files.find((f) => getBaseName(f) === name);
+  return match || null;
+}
+function ejectTemplate(name, targetDir) {
+  const templateFile = findTemplateFile(name);
+  if (!templateFile) {
+    p.log.error(`Template "${name}" not found.`);
+    listTemplates();
+    process.exit(1);
+  }
+  const templatePath = join(communityDir, templateFile);
+  const outputDir = resolve(targetDir, "components", "OgImage");
+  if (!existsSync(outputDir))
+    mkdirSync(outputDir, { recursive: true });
+  const outputPath = join(outputDir, templateFile);
+  if (existsSync(outputPath)) {
+    p.log.error(`File already exists: ${outputPath}`);
+    process.exit(1);
+  }
+  const content = readFileSync(templatePath, "utf-8");
+  writeFileSync(outputPath, content, "utf-8");
+  p.log.success(`Ejected "${name}" to ${outputPath}`);
+}
+function findOgImageComponents(dir) {
+  const components = [];
+  for (const componentDir of defaultComponentDirs) {
+    const ogImageDir = join(dir, "components", componentDir);
+    if (existsSync(ogImageDir)) {
+      const files = readdirSync(ogImageDir, { withFileTypes: true });
+      for (const file of files) {
+        if (file.isFile() && file.name.endsWith(".vue"))
+          components.push(join(ogImageDir, file.name));
+      }
+    }
+  }
+  return components;
+}
+function globFiles(dir, pattern, exclude = []) {
+  const results = [];
+  function walk(currentDir) {
+    if (!existsSync(currentDir))
+      return;
+    const entries = readdirSync(currentDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = join(currentDir, entry.name);
+      if (exclude.some((re) => re.test(fullPath)))
+        continue;
+      if (entry.isDirectory()) {
+        walk(fullPath);
+      } else if (entry.isFile() && pattern.test(entry.name)) {
+        results.push(fullPath);
+      }
+    }
+  }
+  walk(dir);
+  return results;
+}
+const COMMUNITY_TEMPLATES = ["NuxtSeo", "Brutalist", "SimpleBlog"];
+const RE_COMMUNITY_TEMPLATE = /defineOgImage\w*\s*\(\s*['"](\w+)['"]/g;
+function detectCommunityTemplateUsage(rootDir) {
+  const excludePatterns = [RE_EXCLUDE_NODE_MODULES, RE_EXCLUDE_NUXT, RE_EXCLUDE_OUTPUT, RE_EXCLUDE_DATA, RE_EXCLUDE_DIST];
+  const files = globFiles(rootDir, RE_VUE_OR_SCRIPT, excludePatterns);
+  const used = /* @__PURE__ */ new Set();
+  for (const file of files) {
+    const content = readFileSync(file, "utf-8");
+    RE_COMMUNITY_TEMPLATE.lastIndex = 0;
+    for (let m = RE_COMMUNITY_TEMPLATE.exec(content); m !== null; m = RE_COMMUNITY_TEMPLATE.exec(content)) {
+      const baseName = m[1]?.split(".")[0];
+      if (baseName && COMMUNITY_TEMPLATES.includes(baseName)) {
+        used.add(baseName);
+      }
+    }
+  }
+  return [...used];
+}
+async function removeDeprecatedConfigKeys(rootDir, keys) {
+  const configPaths = ["nuxt.config.ts", "nuxt.config.js", "nuxt.config.mjs"];
+  let configPath;
+  for (const cp of configPaths) {
+    const fullPath = join(rootDir, cp);
+    if (existsSync(fullPath)) {
+      configPath = fullPath;
+      break;
+    }
+  }
+  if (!configPath)
+    return { removed: [], failed: keys.map((k) => k.key) };
+  const { loadFile, writeFile } = await import('magicast');
+  const mod = await loadFile(configPath);
+  const config = mod.exports.default;
+  const ogImageConfig = config?.ogImage;
+  if (!ogImageConfig)
+    return { removed: [], failed: keys.map((k) => k.key) };
+  const removed = [];
+  const failed = [];
+  for (const { key } of keys) {
+    if (key.includes(".")) {
+      const parts = key.split(".");
+      let obj = ogImageConfig;
+      for (let i = 0; i < parts.length - 1; i++) {
+        obj = obj?.[parts[i]];
+      }
+      if (obj && parts.at(-1) in obj) {
+        delete obj[parts.at(-1)];
+        if (Object.keys(obj).length === 0) {
+          delete ogImageConfig[parts[0]];
+        }
+        removed.push(key);
+      } else {
+        failed.push(key);
+      }
+    } else if (key in ogImageConfig) {
+      delete ogImageConfig[key];
+      removed.push(key);
+    } else {
+      failed.push(key);
+    }
+  }
+  if (Object.keys(ogImageConfig).length === 0)
+    delete config.ogImage;
+  await writeFile(mod, configPath);
+  return { removed, failed };
+}
+const DEPRECATED_CONFIG_KEYS = {
+  fonts: "@nuxt/fonts module (migrated automatically)",
+  strictNuxtContentPaths: "Removed (no effect in Content v3)",
+  playground: "Removed (use Nuxt DevTools)",
+  host: "site.url or NUXT_SITE_URL",
+  siteUrl: "site.url or NUXT_SITE_URL",
+  runtimeBrowser: "compatibility.runtime.browser",
+  runtimeSatori: "compatibility.runtime.satori",
+  cacheTtl: "cacheMaxAgeSeconds",
+  cache: "cacheMaxAgeSeconds",
+  cacheQueryParams: "Removed",
+  cacheKey: "Removed",
+  static: "zeroRuntime",
+  componentOptions: "Removed (use defineOgImage())"
+};
+async function checkNuxtConfig(rootDir) {
+  let hasNuxtFontsInPkg = false;
+  const pkgPath = join(rootDir, "package.json");
+  if (existsSync(pkgPath)) {
+    const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
+    hasNuxtFontsInPkg = !!(pkg.dependencies?.["@nuxt/fonts"] || pkg.devDependencies?.["@nuxt/fonts"]);
+  }
+  const config = await loadNuxtConfig({ cwd: rootDir }).catch((error) => {
+    p.log.warn(`Could not inspect Nuxt config: ${error.message}`);
+    return null;
+  });
+  if (!config)
+    return { hasDeprecatedFonts: false, hasNuxtFonts: hasNuxtFontsInPkg, hasDefaultsComponent: false, defaultComponentName: null, nitroPreset: null, deprecatedConfigKeys: [] };
+  const ogImageConfig = config.ogImage;
+  const hasDeprecatedFonts = !!ogImageConfig?.fonts;
+  const hasDefaultsComponent = !!ogImageConfig?.defaults?.component;
+  const defaultComponentName = hasDefaultsComponent ? String(ogImageConfig.defaults.component) : null;
+  const modules = config.modules || [];
+  const hasNuxtFontsInConfig = modules.some(
+    (m) => typeof m === "string" && m === "@nuxt/fonts" || Array.isArray(m) && m[0] === "@nuxt/fonts"
+  );
+  const nitroPreset = config.nitro?.preset || null;
+  const deprecatedConfigKeys = [];
+  if (ogImageConfig) {
+    for (const [key, replacement] of Object.entries(DEPRECATED_CONFIG_KEYS)) {
+      if (key in ogImageConfig) {
+        deprecatedConfigKeys.push({ key, replacement });
+      }
+    }
+    if (ogImageConfig.defaults?.renderer) {
+      deprecatedConfigKeys.push({ key: "defaults.renderer", replacement: "Removed (renderer determined by component filename suffix)" });
+    }
+  }
+  return {
+    hasDeprecatedFonts,
+    hasNuxtFonts: hasNuxtFontsInPkg || hasNuxtFontsInConfig,
+    hasDefaultsComponent,
+    defaultComponentName,
+    nitroPreset,
+    deprecatedConfigKeys
+  };
+}
+async function checkMigrationNeeded(rootDir) {
+  const result = {
+    needsComponentRename: false,
+    needsFontsMigration: false,
+    needsNuxtFonts: false,
+    needsDefaultsComponentMigration: false,
+    defaultComponentName: null,
+    componentsToRename: [],
+    deprecatedConfigKeys: [],
+    usedCommunityTemplates: []
+  };
+  const dirs = [rootDir];
+  if (existsSync(join(rootDir, "app")))
+    dirs.push(join(rootDir, "app"));
+  const layersDir = join(rootDir, "layers");
+  if (existsSync(layersDir)) {
+    const layerDirs = readdirSync(layersDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => join(layersDir, d.name));
+    dirs.push(...layerDirs);
+  }
+  for (const dir of dirs) {
+    const components = findOgImageComponents(dir);
+    for (const filepath of components) {
+      const filename = basename(filepath);
+      if (hasChromiumSuffix(filename)) {
+        result.componentsToRename.push({ from: filepath, to: filepath.replace(".chromium.vue", ".browser.vue") });
+      } else if (!hasRendererSuffix(filename)) {
+        result.componentsToRename.push({ from: filepath, to: "" });
+      }
+    }
+  }
+  result.needsComponentRename = result.componentsToRename.length > 0;
+  const configCheck = await checkNuxtConfig(rootDir);
+  result.needsFontsMigration = configCheck.hasDeprecatedFonts;
+  result.needsNuxtFonts = !configCheck.hasNuxtFonts;
+  result.needsDefaultsComponentMigration = configCheck.hasDefaultsComponent;
+  result.defaultComponentName = configCheck.defaultComponentName;
+  result.deprecatedConfigKeys = configCheck.deprecatedConfigKeys.filter((k) => k.key !== "fonts");
+  result.usedCommunityTemplates = detectCommunityTemplateUsage(rootDir);
+  return result;
+}
+function attrsToProps(attributes) {
+  const props = [];
+  for (const [key, value] of Object.entries(attributes)) {
+    if (key.startsWith(":")) {
+      props.push(`${key.slice(1)}: ${value}`);
+    } else if (value === "") {
+      props.push(`${key}: true`);
+    } else {
+      props.push(`${key}: '${value}'`);
+    }
+  }
+  return props.length ? `{ ${props.join(", ")} }` : "";
+}
+function collectTemplateReplacements(templateHtml) {
+  const replacements = [];
+  const ast = parse(templateHtml);
+  walkSync(ast, (node) => {
+    if (node.type !== ELEMENT_NODE || !("name" in node))
+      return;
+    const el = node;
+    if (el.name !== "OgImage" && el.name !== "OgImageScreenshot")
+      return;
+    const isScreenshot = el.name === "OgImageScreenshot";
+    const composable = isScreenshot ? "defineOgImageScreenshot" : "defineOgImage";
+    const propsStr = attrsToProps(el.attributes);
+    const start = el.loc[0].start;
+    const end = el.loc[1].end;
+    const text = propsStr ? `<!-- Migrated: use ${composable}(${propsStr}) in <script setup> -->` : `<!-- Migrated: use ${composable}() in <script setup> -->`;
+    replacements.push({ start, end, text });
+  });
+  return replacements;
+}
+function migrateDefineOgImageApi(dryRun) {
+  const cwd = process.cwd();
+  const excludePatterns = [RE_EXCLUDE_NODE_MODULES, RE_EXCLUDE_NUXT, RE_EXCLUDE_OUTPUT, RE_EXCLUDE_DATA, RE_EXCLUDE_DIST];
+  const files = globFiles(cwd, RE_VUE_OR_SCRIPT, excludePatterns);
+  const changes = [];
+  for (const file of files) {
+    let content = readFileSync(file, "utf-8");
+    if (!content.includes("defineOgImage") && !content.includes("OgImage") && !content.includes("#nuxt-og-image-utils") && !content.includes("useOgImageRuntimeConfig")) {
+      continue;
+    }
+    let modified = false;
+    let changeCount = 0;
+    if (file.endsWith(".vue")) {
+      const { scripts, template } = parseSfcBlocks(content);
+      if (template && content.includes("OgImage")) {
+        const replacements = collectTemplateReplacements(template.content);
+        if (replacements.length > 0) {
+          const adjusted = replacements.map((r) => ({
+            start: r.start + template.offset,
+            end: r.end + template.offset,
+            text: r.text
+          }));
+          content = applyReplacements(content, adjusted);
+          modified = true;
+          changeCount += replacements.length;
+        }
+      }
+      const allReplacements = [];
+      for (const script of scripts) {
+        const replacements = collectScriptReplacements(script.content, file);
+        for (const r of replacements) {
+          allReplacements.push({ start: r.start + script.offset, end: r.end + script.offset, text: r.text });
+        }
+      }
+      if (allReplacements.length > 0) {
+        content = applyReplacements(content, allReplacements);
+        modified = true;
+        changeCount += allReplacements.length;
+      }
+    } else {
+      const replacements = collectScriptReplacements(content, file);
+      if (replacements.length > 0) {
+        content = applyReplacements(content, replacements);
+        modified = true;
+        changeCount += replacements.length;
+      }
+    }
+    if (modified) {
+      changes.push({ file, count: changeCount });
+      if (!dryRun) {
+        writeFileSync(file, content, "utf-8");
+      }
+    }
+  }
+  return { changes };
+}
+function migrateV6Components(componentsToRename, defaultRenderer, dryRun) {
+  for (const item of componentsToRename) {
+    if (item.to)
+      continue;
+    const filename = basename(item.from);
+    const newName = filename.replace(".vue", `.${defaultRenderer}.vue`);
+    item.to = join(dirname(item.from), newName);
+  }
+  if (dryRun) {
+    console.log("\nWould rename:");
+    for (const { from, to } of componentsToRename) {
+      console.log(`  ${basename(from)} \u2192 ${basename(to)}`);
+    }
+    return;
+  }
+  for (const { from, to } of componentsToRename) {
+    renameSync(from, to);
+    console.log(`\u2713 Renamed ${basename(from)}`);
+  }
+}
+async function detectDeploymentTarget(rootDir) {
+  const config = await loadNuxtConfig({ cwd: rootDir }).catch((error) => {
+    p.log.warn(`Could not detect deployment target: ${error.message}`);
+    return null;
+  });
+  return config?.nitro?.preset || null;
+}
+async function installRendererDeps(renderers, isEdge) {
+  const cwd = process.cwd();
+  const pm = await detectPackageManager(cwd);
+  const pmName = pm?.name || "npm";
+  const allDeps = [];
+  for (const renderer of renderers) {
+    allDeps.push(...getRendererDeps(renderer, isEdge));
+  }
+  const uniqueDeps = [...new Set(allDeps)];
+  if (uniqueDeps.length === 0)
+    return;
+  const spinner = p.spinner();
+  spinner.start(`Installing dependencies with ${pmName}...`);
+  for (const dep of uniqueDeps) {
+    await addDependency(dep, { cwd, dev: false }).catch(() => {
+      spinner.stop(`Failed to install ${dep}`);
+      p.log.warn(`Run manually: ${pmName} add ${dep}`);
+    });
+  }
+  spinner.stop("Dependencies installed");
+}
+async function installNuxtFonts() {
+  const cwd = process.cwd();
+  const spinner = p.spinner();
+  spinner.start("Adding @nuxt/fonts module...");
+  const { exec } = await import('tinyexec');
+  try {
+    await exec("npx", ["nuxi", "module", "add", "@nuxt/fonts"], { nodeOptions: { cwd } });
+    spinner.stop("@nuxt/fonts module added");
+  } catch {
+    spinner.stop("Failed to add @nuxt/fonts");
+    p.log.warn("Run manually: npx nuxi module add @nuxt/fonts");
+  }
+}
+async function runMigrate(args2) {
+  const dryRun = args2.includes("--dry-run") || args2.includes("-d");
+  const skipConfirm = args2.includes("--yes") || args2.includes("-y");
+  const rendererIdx = args2.indexOf("--renderer");
+  const cliRenderer = rendererIdx !== -1 ? args2[rendererIdx + 1] : null;
+  if (cliRenderer && !["satori", "browser", "takumi"].includes(cliRenderer)) {
+    console.error(`Invalid renderer: ${cliRenderer}. Must be satori, browser, or takumi.`);
+    process.exit(1);
+  }
+  p.intro("nuxt-og-image v6 Migration");
+  const cwd = process.cwd();
+  const migrationCheck = await checkMigrationNeeded(cwd);
+  const noComponentWork = !migrationCheck.needsComponentRename;
+  const noFontsWork = !migrationCheck.needsFontsMigration && !migrationCheck.needsNuxtFonts;
+  const noDefaultsWork = !migrationCheck.needsDefaultsComponentMigration;
+  const noConfigWork = migrationCheck.deprecatedConfigKeys.length === 0;
+  const noCommunityWork = migrationCheck.usedCommunityTemplates.length === 0;
+  if (noComponentWork && noFontsWork && noDefaultsWork && noConfigWork && noCommunityWork) {
+    console.log("\u2713 All OG Image components already have renderer suffixes.");
+    p.outro("Done");
+    return;
+  }
+  const tasks = [];
+  if (migrationCheck.needsComponentRename) {
+    tasks.push(`Rename ${migrationCheck.componentsToRename.length} component(s) to include renderer suffix`);
+  }
+  if (migrationCheck.needsDefaultsComponentMigration) {
+    tasks.push(`Remove deprecated defaults.component: '${migrationCheck.defaultComponentName}'`);
+  }
+  if (migrationCheck.deprecatedConfigKeys.length > 0) {
+    tasks.push(`Remove ${migrationCheck.deprecatedConfigKeys.length} deprecated config option(s): ${migrationCheck.deprecatedConfigKeys.map((k) => k.key).join(", ")}`);
+  }
+  if (migrationCheck.needsFontsMigration) {
+    tasks.push("Migrate ogImage.fonts to @nuxt/fonts config");
+  }
+  if (migrationCheck.needsNuxtFonts) {
+    tasks.push("Install @nuxt/fonts module");
+  }
+  if (migrationCheck.usedCommunityTemplates.length > 0) {
+    tasks.push(`Eject community templates: ${migrationCheck.usedCommunityTemplates.join(", ")}`);
+  }
+  tasks.push("Migrate deprecated composables (defineOgImageStatic, etc.) to defineOgImage()");
+  tasks.push("Migrate <OgImage> and <OgImageScreenshot> components to composables");
+  tasks.push("Migrate defineOgImage({ url }) to useSeoMeta({ ogImage })");
+  tasks.push("Update defineOgImage() calls to new API");
+  p.note(tasks.map((t) => `\u2022 ${t}`).join("\n"), "Migration tasks");
+  if (dryRun) {
+    p.log.warn("[Dry run mode - no changes will be made]");
+  }
+  let selectedRenderers;
+  if (skipConfirm) {
+    selectedRenderers = cliRenderer ? [cliRenderer] : ["takumi"];
+  } else {
+    const confirmed = await p.confirm({
+      message: "This will modify files. Continue?",
+      initialValue: false
+    });
+    if (p.isCancel(confirmed) || !confirmed) {
+      p.cancel("Migration cancelled");
+      process.exit(0);
+    }
+    const rendererSelection = await p.multiselect({
+      message: "Which renderers do you want to use?",
+      options: RENDERERS.map((r) => ({
+        value: r.name,
+        label: r.label,
+        hint: r.description
+      })),
+      initialValues: ["takumi"],
+      required: true
+    });
+    if (p.isCancel(rendererSelection)) {
+      p.cancel("Migration cancelled");
+      process.exit(0);
+    }
+    selectedRenderers = rendererSelection;
+    if (!dryRun) {
+      const installDeps = await p.confirm({
+        message: "Install renderer dependencies?",
+        initialValue: true
+      });
+      if (!p.isCancel(installDeps) && installDeps) {
+        const detectedPreset = await detectDeploymentTarget(cwd);
+        let isEdge = detectedPreset ? EDGE_PRESETS.includes(detectedPreset) : false;
+        if (detectedPreset) {
+          p.log.info(`Detected deployment target: ${detectedPreset}`);
+        } else {
+          const targetSelection = await p.select({
+            message: "What is your deployment target?",
+            options: [
+              { value: "node", label: "Node.js", hint: "node-server, vercel, netlify, aws-lambda, etc." },
+              { value: "edge", label: "Edge/Workers", hint: "cloudflare, vercel-edge, netlify-edge" }
+            ],
+            initialValue: "node"
+          });
+          if (!p.isCancel(targetSelection)) {
+            isEdge = targetSelection === "edge";
+          }
+        }
+        if (isEdge && selectedRenderers.includes("browser")) {
+          p.log.warn("Browser renderer is not supported on edge runtimes - skipping its dependencies");
+        }
+        await installRendererDeps(selectedRenderers, isEdge);
+      }
+    }
+  }
+  if (migrationCheck.needsComponentRename) {
+    console.log("\nRenaming components...");
+    migrateV6Components(migrationCheck.componentsToRename, selectedRenderers[0] || "takumi", dryRun);
+  }
+  console.log("\nMigrating defineOgImage calls...");
+  const apiChanges = migrateDefineOgImageApi(dryRun);
+  if (apiChanges.changes.length > 0) {
+    for (const { file, count } of apiChanges.changes) {
+      const relPath = relative(cwd, file);
+      console.log(`  ${relPath} (${count} change${count > 1 ? "s" : ""})`);
+    }
+  } else {
+    console.log("  No API changes needed");
+  }
+  if (migrationCheck.needsDefaultsComponentMigration) {
+    if (dryRun) {
+      p.log.info(`Would remove defaults.component: '${migrationCheck.defaultComponentName}'`);
+    } else {
+      const result = await migrateDefaultsComponent(cwd).catch((err) => {
+        p.log.warn(`Failed to migrate defaults.component: ${err.message}`);
+        return { migrated: false, componentName: null, message: err.message };
+      });
+      if (result.migrated) {
+        p.log.success(`Removed defaults.component: '${result.componentName}'`);
+        p.log.info(`  To use '${result.componentName}' as default, rename it to OgImage/Default.{renderer}.vue`);
+      }
+    }
+  }
+  if (migrationCheck.needsFontsMigration) {
+    if (dryRun) {
+      p.log.info("Would migrate ogImage.fonts to @nuxt/fonts config");
+    } else {
+      const result = await migrateFontsConfig(cwd).catch((err) => {
+        p.log.warn(`Failed to migrate fonts config: ${err.message}`);
+        return { migrated: false, message: err.message };
+      });
+      if (result.migrated) {
+        p.log.success(result.message);
+      } else {
+        p.log.warn(`Fonts migration: ${result.message}`);
+      }
+    }
+  }
+  if (migrationCheck.deprecatedConfigKeys.length > 0) {
+    if (dryRun) {
+      p.log.info("Would remove deprecated config options:");
+      for (const { key, replacement } of migrationCheck.deprecatedConfigKeys) {
+        p.log.info(`  \u2022 ogImage.${key} \u2192 ${replacement}`);
+      }
+    } else {
+      const result = await removeDeprecatedConfigKeys(cwd, migrationCheck.deprecatedConfigKeys).catch((err) => {
+        p.log.warn(`Failed to remove deprecated config: ${err.message}`);
+        return { removed: [], failed: migrationCheck.deprecatedConfigKeys.map((k) => k.key) };
+      });
+      if (result.removed.length > 0) {
+        p.log.success(`Removed deprecated config: ${result.removed.map((k) => `ogImage.${k}`).join(", ")}`);
+      }
+      for (const key of result.failed) {
+        const replacement = migrationCheck.deprecatedConfigKeys.find((k) => k.key === key)?.replacement;
+        if (replacement) {
+          p.log.warn(`  Could not remove ogImage.${key} \u2014 manually replace with: ${replacement}`);
+        }
+      }
+    }
+  }
+  if (migrationCheck.usedCommunityTemplates.length > 0) {
+    p.log.warn("Community templates detected that must be ejected for production:");
+    for (const name of migrationCheck.usedCommunityTemplates) {
+      p.log.warn(`  \u2022 ${name}`);
+    }
+    if (!dryRun) {
+      const shouldEject = skipConfirm || await p.confirm({
+        message: "Eject community templates now?",
+        initialValue: true
+      }).then((v) => !p.isCancel(v) && v);
+      if (shouldEject) {
+        const targetDir = existsSync(join(cwd, "app")) ? join(cwd, "app") : cwd;
+        for (const name of migrationCheck.usedCommunityTemplates) {
+          ejectTemplate(name, targetDir);
+        }
+      } else {
+        p.log.info("Run manually before building for production:");
+        for (const name of migrationCheck.usedCommunityTemplates) {
+          p.log.info(`  npx nuxt-og-image eject ${name}`);
+        }
+      }
+    }
+  }
+  if (migrationCheck.needsNuxtFonts && !dryRun) {
+    if (skipConfirm) {
+      await installNuxtFonts();
+    } else {
+      const addFonts = await p.confirm({
+        message: "@nuxt/fonts is recommended for font management. Install it?",
+        initialValue: true
+      });
+      if (!p.isCancel(addFonts) && addFonts) {
+        await installNuxtFonts();
+      } else {
+        p.log.info("Skipped @nuxt/fonts installation. Add manually: npx nuxi module add @nuxt/fonts");
+      }
+    }
+  }
+  if (dryRun) {
+    console.log("\n[Dry run - no changes made]");
+    console.log("Run without --dry-run to apply changes.");
+  } else {
+    const spinner = p.spinner();
+    spinner.start("Running nuxt prepare to update types...");
+    const { exec } = await import('tinyexec');
+    try {
+      await exec("npx", ["nuxi", "prepare"], { nodeOptions: { cwd } });
+      spinner.stop("Types updated");
+    } catch {
+      spinner.stop("Failed to run nuxt prepare");
+      p.log.warn("Run manually: npx nuxt prepare");
+    }
+  }
+  p.outro(dryRun ? "Dry run complete" : "Migration complete!");
+}
+async function runSwitch(args2) {
+  const dryRun = args2.includes("--dry-run") || args2.includes("-d");
+  const skipConfirm = args2.includes("--yes") || args2.includes("-y");
+  const fromIdx = args2.indexOf("--from");
+  const toIdx = args2.indexOf("--to");
+  const cliFrom = fromIdx !== -1 ? args2[fromIdx + 1] : null;
+  const cliTo = toIdx !== -1 ? args2[toIdx + 1] : null;
+  const validRenderers = RENDERERS.map((r) => r.name);
+  if (cliFrom && !validRenderers.includes(cliFrom)) {
+    p.log.error(`Invalid --from renderer: ${cliFrom}. Must be ${validRenderers.join(", ")}`);
+    process.exit(1);
+  }
+  if (cliTo && !validRenderers.includes(cliTo)) {
+    p.log.error(`Invalid --to renderer: ${cliTo}. Must be ${validRenderers.join(", ")}`);
+    process.exit(1);
+  }
+  p.intro("Switch OG Image renderer");
+  const cwd = process.cwd();
+  const dirs = [cwd];
+  if (existsSync(join(cwd, "app")))
+    dirs.push(join(cwd, "app"));
+  const layersDir = join(cwd, "layers");
+  if (existsSync(layersDir)) {
+    const layerDirs = readdirSync(layersDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => join(layersDir, d.name));
+    dirs.push(...layerDirs);
+  }
+  const allComponents = [];
+  for (const dir of dirs) {
+    const components = findOgImageComponents(dir);
+    for (const filepath of components) {
+      const match = basename(filepath).match(RE_RENDERER_SUFFIX);
+      if (match) {
+        allComponents.push({ path: filepath, renderer: match[1] });
+      }
+    }
+  }
+  if (allComponents.length === 0) {
+    p.log.warn("No OG image components with renderer suffixes found.");
+    p.outro("Nothing to do");
+    return;
+  }
+  const currentRenderers = [...new Set(allComponents.map((c) => c.renderer))];
+  p.log.info(`Found ${allComponents.length} component(s) using: ${currentRenderers.join(", ")}`);
+  let fromRenderer;
+  if (cliFrom) {
+    fromRenderer = cliFrom;
+  } else if (skipConfirm) {
+    if (currentRenderers.length === 1) {
+      fromRenderer = currentRenderers[0];
+    } else {
+      p.log.error("Multiple renderers detected. Use --from to specify which to migrate.");
+      process.exit(1);
+    }
+  } else {
+    const fromSelection = await p.select({
+      message: "Which renderer do you want to migrate from?",
+      options: currentRenderers.map((r) => ({
+        value: r,
+        label: RENDERERS.find((rd) => rd.name === r)?.label || r
+      })),
+      initialValue: currentRenderers[0]
+    });
+    if (p.isCancel(fromSelection)) {
+      p.cancel("Cancelled");
+      process.exit(0);
+    }
+    fromRenderer = fromSelection;
+  }
+  let toRenderer;
+  if (cliTo) {
+    toRenderer = cliTo;
+  } else if (skipConfirm) {
+    toRenderer = fromRenderer === "takumi" ? "satori" : "takumi";
+  } else {
+    const targetOptions = RENDERERS.filter((r) => r.name !== fromRenderer);
+    const toSelection = await p.select({
+      message: "Which renderer do you want to switch to?",
+      options: targetOptions.map((r) => ({
+        value: r.name,
+        label: r.label,
+        hint: r.description
+      })),
+      initialValue: targetOptions[0]?.name
+    });
+    if (p.isCancel(toSelection)) {
+      p.cancel("Cancelled");
+      process.exit(0);
+    }
+    toRenderer = toSelection;
+  }
+  if (fromRenderer === toRenderer) {
+    p.log.warn(`Source and target renderer are the same (${fromRenderer}).`);
+    p.outro("Nothing to do");
+    return;
+  }
+  const toMigrate = allComponents.filter((c) => c.renderer === fromRenderer);
+  if (toMigrate.length === 0) {
+    p.log.warn(`No components using ${fromRenderer} renderer found.`);
+    p.outro("Nothing to do");
+    return;
+  }
+  p.note(
+    toMigrate.map((c) => `${relative(cwd, c.path)} \u2192 ${basename(c.path).replace(`.${fromRenderer}.vue`, `.${toRenderer}.vue`)}`).join("\n"),
+    `Renaming ${toMigrate.length} component(s): ${fromRenderer} \u2192 ${toRenderer}`
+  );
+  if (dryRun) {
+    p.log.warn("[Dry run mode, no changes will be made]");
+    p.outro("Dry run complete");
+    return;
+  }
+  if (!skipConfirm) {
+    const confirmed = await p.confirm({
+      message: `Rename ${toMigrate.length} component(s) from ${fromRenderer} to ${toRenderer}?`,
+      initialValue: true
+    });
+    if (p.isCancel(confirmed) || !confirmed) {
+      p.cancel("Cancelled");
+      process.exit(0);
+    }
+  }
+  const conflicts = [];
+  for (const component of toMigrate) {
+    const newPath = component.path.replace(`.${fromRenderer}.vue`, `.${toRenderer}.vue`);
+    if (existsSync(newPath))
+      conflicts.push(`${basename(component.path)} \u2192 ${basename(newPath)} (already exists)`);
+  }
+  if (conflicts.length > 0) {
+    p.log.error("Conflicts detected, aborting:");
+    for (const c of conflicts) p.log.error(`  ${c}`);
+    process.exit(1);
+  }
+  for (const component of toMigrate) {
+    const newPath = component.path.replace(`.${fromRenderer}.vue`, `.${toRenderer}.vue`);
+    renameSync(component.path, newPath);
+    p.log.success(`${basename(component.path)} \u2192 ${basename(newPath)}`);
+  }
+  const hasPkg = existsSync(join(cwd, "package.json"));
+  if (hasPkg) {
+    const noFromComponentsRemaining = allComponents.filter((c) => c.renderer === fromRenderer).length === toMigrate.length;
+    const detectedPreset = await detectDeploymentTarget(cwd);
+    const isEdge = detectedPreset ? EDGE_PRESETS.includes(detectedPreset) : false;
+    if (detectedPreset)
+      p.log.info(`Detected deployment target: ${detectedPreset}`);
+    const manageDeps = skipConfirm || await p.confirm({
+      message: `Manage dependencies? (install ${toRenderer}, ${noFromComponentsRemaining ? `remove ${fromRenderer}` : "keep existing"})`,
+      initialValue: true
+    }).then((v) => !p.isCancel(v) && v);
+    if (manageDeps) {
+      if (noFromComponentsRemaining) {
+        const oldDeps = [.../* @__PURE__ */ new Set([...getRendererDeps(fromRenderer, false), ...getRendererDeps(fromRenderer, true)])];
+        const newDeps = /* @__PURE__ */ new Set([...getRendererDeps(toRenderer, false), ...getRendererDeps(toRenderer, true)]);
+        const toRemove = oldDeps.filter((d) => !newDeps.has(d));
+        if (toRemove.length > 0) {
+          const pm = await detectPackageManager(cwd);
+          const spinner2 = p.spinner();
+          spinner2.start(`Removing ${fromRenderer} dependencies...`);
+          for (const dep of toRemove) {
+            await removeDependency(dep, { cwd }).catch(() => p.log.warn(`Could not remove ${dep}, remove manually: ${pm?.name || "npm"} remove ${dep}`));
+          }
+          spinner2.stop(`Removed ${fromRenderer} dependencies`);
+        }
+      }
+      await installRendererDeps([toRenderer], isEdge);
+    }
+    const spinner = p.spinner();
+    spinner.start("Running nuxt prepare to update types...");
+    const { exec } = await import('tinyexec');
+    try {
+      await exec("npx", ["nuxi", "prepare"], { nodeOptions: { cwd } });
+      spinner.stop("Types updated");
+    } catch {
+      spinner.stop("Failed to run nuxt prepare");
+      p.log.warn("Run manually: npx nuxt prepare");
+    }
+  }
+  p.outro("Renderer switch complete!");
+}
+function readPackageJson(cwd) {
+  const pkgPath = join(cwd, "package.json");
+  if (!existsSync(pkgPath))
+    return null;
+  try {
+    return JSON.parse(readFileSync(pkgPath, "utf-8"));
+  } catch {
+    return null;
+  }
+}
+function inferRenderer(cwd) {
+  const dirs = [cwd];
+  if (existsSync(join(cwd, "app")))
+    dirs.push(join(cwd, "app"));
+  for (const dir of dirs) {
+    const components = findOgImageComponents(dir);
+    for (const filepath of components) {
+      const match = basename(filepath).match(RE_RENDERER_SUFFIX);
+      if (match)
+        return match[1];
+    }
+  }
+  const pkg = readPackageJson(cwd);
+  if (pkg) {
+    const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+    if (allDeps["@takumi-rs/core"] || allDeps["@takumi-rs/wasm"])
+      return "takumi";
+    if (allDeps.satori)
+      return "satori";
+  }
+  return null;
+}
+function detectCssFramework(cwd) {
+  const pkg = readPackageJson(cwd);
+  if (!pkg)
+    return "none";
+  const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
+  if (allDeps["@unocss/nuxt"] || allDeps.unocss)
+    return "unocss";
+  if (allDeps["@nuxtjs/tailwindcss"] || allDeps.tailwindcss || allDeps["@nuxt/ui"])
+    return "tailwind";
+  return "none";
+}
+const SCRIPT_BLOCK = `<script setup lang="ts">
+const { title = 'My Page', description = '' } = defineProps<{
+  title?: string
+  description?: string
+}>()
+<\/script>`;
+function getStarterTemplate(renderer, css) {
+  if (renderer === "satori") {
+    return `${SCRIPT_BLOCK}
+
+<template>
+  <div :style="{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%', padding: '60px', backgroundColor: 'white', color: '#171717' }">
+    <h1 :style="{ fontSize: '72px', fontWeight: 'bold', margin: 0, lineHeight: 1.1, textAlign: 'center' }">
+      {{ title }}
+    </h1>
+    <p v-if="description" :style="{ fontSize: '32px', opacity: 0.6, marginTop: '16px', textAlign: 'center', maxWidth: '900px' }">
+      {{ description }}
+    </p>
+  </div>
+</template>
+`;
+  }
+  if (css === "tailwind" || css === "unocss") {
+    return `${SCRIPT_BLOCK}
+
+<template>
+  <div class="w-full h-full flex flex-col justify-center items-center p-[60px] bg-white text-neutral-900 dark:bg-neutral-900 dark:text-white">
+    <h1 class="text-[72px] font-bold m-0 leading-tight text-center" style="text-wrap: balance;">
+      {{ title }}
+    </h1>
+    <p v-if="description" class="text-[32px] opacity-60 mt-4 text-center max-w-[900px]">
+      {{ description }}
+    </p>
+  </div>
+</template>
+`;
+  }
+  return `${SCRIPT_BLOCK}
+
+<template>
+  <div class="container">
+    <h1>{{ title }}</h1>
+    <p v-if="description">
+      {{ description }}
+    </p>
+  </div>
+</template>
+
+<style scoped>
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 60px;
+  background: white;
+  color: #171717;
+}
+h1 {
+  font-size: 72px;
+  font-weight: bold;
+  margin: 0;
+  line-height: 1.1;
+  text-align: center;
+  text-wrap: balance;
+}
+p {
+  font-size: 32px;
+  opacity: 0.6;
+  margin-top: 16px;
+  text-align: center;
+  max-width: 900px;
+}
+</style>
+`;
+}
+function insertDefineOgImage(filePath, componentName) {
+  if (!existsSync(filePath))
+    return false;
+  const content = readFileSync(filePath, "utf-8");
+  if (content.includes("defineOgImage"))
+    return false;
+  const call = `defineOgImage('${componentName}', { title: 'Hello' })`;
+  const scriptSetupMatch = content.match(RE_SCRIPT_SETUP);
+  if (scriptSetupMatch) {
+    const insertPos = scriptSetupMatch.index + scriptSetupMatch[0].length;
+    const updated2 = `${content.slice(0, insertPos)}${call}
+${content.slice(insertPos)}`;
+    writeFileSync(filePath, updated2, "utf-8");
+    return true;
+  }
+  const updated = `<script setup lang="ts">
+${call}
+<\/script>
+
+${content}`;
+  writeFileSync(filePath, updated, "utf-8");
+  return true;
+}
+async function runCreate(name, args2) {
+  const cwd = process.cwd();
+  const rendererIdx = args2.indexOf("--renderer");
+  const cliRenderer = rendererIdx !== -1 ? args2[rendererIdx + 1] : null;
+  if (cliRenderer && !RENDERERS.some((r) => r.name === cliRenderer)) {
+    p.log.error(`Invalid renderer: ${cliRenderer}. Must be ${RENDERERS.map((r) => r.name).join(", ")}`);
+    process.exit(1);
+  }
+  const pathIdx = args2.indexOf("--path");
+  const cliPath = pathIdx !== -1 ? args2[pathIdx + 1] : null;
+  p.intro("Create OG Image Component");
+  const validateName = (v) => {
+    const trimmed = v?.trim();
+    if (!trimmed)
+      return "Name is required";
+    if (RE_PATH_SEPARATOR.test(trimmed))
+      return 'Name must not contain path separators or ".."';
+    if (!RE_PASCAL_CASE_STRICT.test(trimmed))
+      return "Must be PascalCase (e.g. MyOgImage)";
+  };
+  let componentName = name;
+  if (!componentName) {
+    const input = await p.text({
+      message: "Component name:",
+      placeholder: "MyOgImage",
+      validate: validateName
+    });
+    if (p.isCancel(input)) {
+      p.cancel("Cancelled");
+      process.exit(0);
+    }
+    componentName = input.trim();
+  } else {
+    componentName = componentName.trim();
+    if (!RE_PASCAL_CASE_START.test(componentName))
+      componentName = componentName.charAt(0).toUpperCase() + componentName.slice(1);
+    const err = validateName(componentName);
+    if (err) {
+      p.log.error(err);
+      process.exit(1);
+    }
+  }
+  let renderer;
+  if (cliRenderer) {
+    renderer = cliRenderer;
+  } else {
+    const inferred = inferRenderer(cwd);
+    if (inferred) {
+      renderer = inferred;
+      p.log.info(`Inferred renderer: ${renderer}`);
+    } else {
+      const selection = await p.select({
+        message: "Which renderer?",
+        options: RENDERERS.map((r) => ({
+          value: r.name,
+          label: r.label,
+          hint: r.description
+        })),
+        initialValue: "takumi"
+      });
+      if (p.isCancel(selection)) {
+        p.cancel("Cancelled");
+        process.exit(0);
+      }
+      renderer = selection;
+    }
+  }
+  const css = detectCssFramework(cwd);
+  if (css !== "none")
+    p.log.info(`Detected CSS framework: ${css}`);
+  const baseDir = existsSync(join(cwd, "app")) ? join(cwd, "app") : cwd;
+  const outputDir = cliPath ? resolve(cwd, cliPath) : resolve(baseDir, "components", "OgImage");
+  if (!outputDir.startsWith(cwd)) {
+    p.log.error("Output path must be within the project directory");
+    process.exit(1);
+  }
+  if (!existsSync(outputDir))
+    mkdirSync(outputDir, { recursive: true });
+  const filename = `${componentName}.${renderer}.vue`;
+  const outputPath = join(outputDir, filename);
+  if (existsSync(outputPath)) {
+    p.log.error(`File already exists: ${relative(cwd, outputPath)}`);
+    process.exit(1);
+  }
+  const template = getStarterTemplate(renderer, css);
+  writeFileSync(outputPath, template, "utf-8");
+  p.log.success(`Created ${relative(cwd, outputPath)}`);
+  const pagesDir = existsSync(join(baseDir, "pages")) ? join(baseDir, "pages") : null;
+  if (pagesDir) {
+    const pageInput = await p.text({
+      message: "Add defineOgImage to a page? (relative path from pages/, leave empty to skip)",
+      placeholder: "index.vue"
+    });
+    if (!p.isCancel(pageInput) && pageInput && pageInput.trim()) {
+      let pagePath = pageInput.trim();
+      if (!pagePath.endsWith(".vue"))
+        pagePath += ".vue";
+      const fullPagePath = resolve(pagesDir, pagePath);
+      if (!fullPagePath.startsWith(pagesDir)) {
+        p.log.warn("Page path must be within the pages directory");
+      } else if (insertDefineOgImage(fullPagePath, componentName)) {
+        p.log.success(`Added defineOgImage('${componentName}') to ${relative(cwd, fullPagePath)}`);
+      } else if (!existsSync(fullPagePath)) {
+        p.log.warn(`Page not found: ${relative(cwd, fullPagePath)}`);
+      } else {
+        p.log.info("Page already has defineOgImage, skipped");
+      }
+    }
+  }
+  p.log.info(`Usage: defineOgImage('${componentName}', { title: 'Hello' })`);
+  p.outro("");
+}
+async function runEnable(renderer, args2) {
+  const def = RENDERERS.find((r) => r.name === renderer);
+  if (!def) {
+    p.log.error(`Unknown renderer: ${renderer}`);
+    p.log.info(`Available: ${RENDERERS.map((r) => r.name).join(", ")}`);
+    process.exit(1);
+  }
+  p.intro(`Enable ${def.label} renderer`);
+  const cwd = process.cwd();
+  let isEdge = args2.includes("--edge");
+  if (!isEdge) {
+    const detectedPreset = await detectDeploymentTarget(cwd);
+    if (detectedPreset) {
+      isEdge = EDGE_PRESETS.includes(detectedPreset);
+      if (isEdge)
+        p.log.info(`Detected edge deployment target: ${detectedPreset}`);
+    }
+  }
+  if (isEdge && renderer === "browser") {
+    p.log.error("Browser renderer is not supported on edge runtimes");
+    process.exit(1);
+  }
+  await installRendererDeps([renderer], isEdge);
+  p.outro("Done");
+}
+function generateSecret() {
+  const secret = randomBytes(32).toString("hex");
+  p.intro("nuxt-og-image generate-secret");
+  p.log.step(`Secret: ${secret}`);
+  p.log.message("");
+  p.log.message("Set the environment variable:");
+  p.log.message(`  NUXT_OG_IMAGE_SECRET=${secret}`);
+  p.log.message("");
+  p.log.message("The secret is automatically picked up via runtime config.");
+  p.outro("");
+}
+function showHelp() {
+  p.intro("nuxt-og-image CLI");
+  p.note([
+    "create [name]     Scaffold a new OG image component",
+    "                  Options: --renderer <renderer>, --path <dir>",
+    "list              List available community templates",
+    "eject <name>      Eject a community template to your project",
+    "switch            Switch components between renderers",
+    "                  Options: --from <renderer>, --to <renderer>, --dry-run, --yes",
+    "enable <renderer> Install dependencies for a renderer (satori, browser, takumi)",
+    "                  Options: --edge (install wasm versions for edge runtimes)",
+    "migrate v6        Migrate to v6 (component suffixes + new API)",
+    "                  Options: --dry-run, --yes, --renderer <renderer>",
+    "generate-secret   Generate a signing secret for URL tamper protection"
+  ].join("\n"), "Commands");
+  p.outro("");
+}
+const args = process.argv.slice(2);
+const command = args[0];
+const hasHelp = args.includes("--help") || args.includes("-h");
+if (hasHelp || !command) {
+  showHelp();
+} else if (command === "create") {
+  runCreate(args[1], args.slice(1));
+} else if (command === "eject") {
+  const templateName = args[1];
+  if (!templateName) {
+    p.log.error("Please specify a template name.");
+    listTemplates();
+    process.exit(1);
+  }
+  const cwd = process.cwd();
+  const targetDir = existsSync(join(cwd, "app")) ? join(cwd, "app") : cwd;
+  ejectTemplate(templateName, targetDir);
+} else if (command === "list") {
+  listTemplates();
+} else if (command === "migrate") {
+  const version = args[1];
+  if (version !== "v6") {
+    p.log.error("Usage: npx nuxt-og-image migrate v6 [--dry-run] [--yes] [--renderer <satori|browser|takumi>]");
+    process.exit(1);
+  }
+  runMigrate(args);
+} else if (command === "switch") {
+  runSwitch(args.slice(1));
+} else if (command === "generate-secret") {
+  generateSecret();
+} else if (command === "enable") {
+  const renderer = args[1];
+  if (!renderer) {
+    p.log.error("Usage: npx nuxt-og-image enable <renderer> [--edge]");
+    p.log.info(`Available: ${RENDERERS.map((r) => r.name).join(", ")}`);
+    process.exit(1);
+  }
+  runEnable(renderer, args);
+} else {
+  p.log.error(`Unknown command: ${command}`);
+  showHelp();
+  process.exit(1);
+}

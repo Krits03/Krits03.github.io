@@ -1,0 +1,94 @@
+import { useRoute, useRuntimeConfig } from "nuxt/app";
+import { stringifyQuery, withQuery } from "ufo";
+import { computed, toValue } from "vue";
+import { useSiteConfig } from "#site-config/app/composables/useSiteConfig";
+import { createSitePathResolver } from "#site-config/app/composables/utils";
+function buildShareUrl(platform, url, title, options) {
+  const encodedUrl = encodeURIComponent(url);
+  const encodedTitle = encodeURIComponent(title);
+  switch (platform) {
+    case "twitter": {
+      let twitterUrl = `https://x.com/intent/tweet?url=${encodedUrl}&text=${encodedTitle}`;
+      if (options.twitter?.via)
+        twitterUrl += `&via=${encodeURIComponent(options.twitter.via)}`;
+      if (options.twitter?.hashtags?.length)
+        twitterUrl += `&hashtags=${encodeURIComponent(options.twitter.hashtags.join(","))}`;
+      return twitterUrl;
+    }
+    case "facebook": {
+      let fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`;
+      if (options.facebook?.quote)
+        fbUrl += `&quote=${encodeURIComponent(options.facebook.quote)}`;
+      if (options.facebook?.hashtag)
+        fbUrl += `&hashtag=${encodeURIComponent(`#${options.facebook.hashtag}`)}`;
+      return fbUrl;
+    }
+    case "linkedin":
+      return `https://www.linkedin.com/sharing/share-offsite/?url=${encodedUrl}`;
+    case "whatsapp":
+      return `https://wa.me/?text=${encodedTitle}%20${encodedUrl}`;
+    case "telegram":
+      return `https://t.me/share/url?url=${encodedUrl}&text=${encodedTitle}`;
+    case "reddit":
+      return `https://www.reddit.com/submit?url=${encodedUrl}&title=${encodedTitle}`;
+    case "pinterest": {
+      let pinUrl = `https://pinterest.com/pin/create/button/?url=${encodedUrl}&description=${encodedTitle}`;
+      const media = toValue(options.pinterest?.media);
+      if (media)
+        pinUrl += `&media=${encodeURIComponent(media)}`;
+      return pinUrl;
+    }
+    case "email":
+      return `mailto:?subject=${encodedTitle}&body=${encodedUrl}`;
+  }
+}
+export function useShareLinks(options = {}) {
+  const route = useRoute();
+  const siteConfig = useSiteConfig();
+  const { canonicalQueryWhitelist, canonicalLowercase } = useRuntimeConfig().public["seo-utils"];
+  const resolveUrl = createSitePathResolver({ withBase: true, absolute: true });
+  return computed(() => {
+    const customUrl = toValue(options.url);
+    let canonicalUrl;
+    if (customUrl) {
+      canonicalUrl = customUrl;
+    } else {
+      let url = resolveUrl(route.path || "/").value || route.path;
+      if (canonicalLowercase) {
+        url = url.toLowerCase();
+      }
+      const filteredQuery = Object.fromEntries(
+        Object.entries(route.query).filter(([key]) => canonicalQueryWhitelist.includes(key)).sort(([a], [b]) => a.localeCompare(b))
+      );
+      canonicalUrl = Object.keys(filteredQuery).length ? `${url}?${stringifyQuery(filteredQuery)}` : url;
+    }
+    const utm = toValue(options.utm) ?? true;
+    const title = toValue(options.title) || siteConfig.name || "";
+    const platforms = ["twitter", "facebook", "linkedin", "whatsapp", "telegram", "reddit", "pinterest", "email"];
+    const result = { canonicalUrl };
+    for (const platform of platforms) {
+      const query = {};
+      if (utm === false) {
+      } else if (utm === true || typeof utm === "object" && utm.source === "auto") {
+        query.utm_source = platform;
+        query.utm_medium = utm !== true && utm?.medium || (platform === "email" ? "email" : "social");
+      } else if (utm) {
+        if (utm.source)
+          query.utm_source = utm.source;
+        if (utm.medium)
+          query.utm_medium = utm.medium;
+      }
+      if (typeof utm === "object") {
+        if (utm.campaign)
+          query.utm_campaign = utm.campaign;
+        if (utm.term)
+          query.utm_term = utm.term;
+        if (utm.content)
+          query.utm_content = utm.content;
+      }
+      const url = Object.keys(query).length > 0 ? withQuery(canonicalUrl, query) : canonicalUrl;
+      result[platform] = buildShareUrl(platform, url, title, options);
+    }
+    return result;
+  });
+}

@@ -1,0 +1,9 @@
+import * as contentRuntime from "#nuxtseo/content";
+const { listPageCollections, queryPages } = contentRuntime;
+export default async (e) => {
+  const collections = (await listPageCollections(e)).filter((collection) => collection.hasField("path")).map((collection) => collection.name);
+  const results = await Promise.all(collections.map(
+    (collection) => queryPages(e, collection).select("id", "path", "title").where("path", "IS NOT NULL").all()
+  ));
+  return results.flat().filter((page) => !!page.path).map((page) => ({ link: page.path, title: page.title, file: page.id }));
+};

@@ -1,0 +1,12 @@
+{
+  "name": "nuxtseo-shared",
+  "configKey": "nuxtSeoShared",
+  "compatibility": {
+    "nuxt": ">=3.16.0"
+  },
+  "version": "5.3.14",
+  "builder": {
+    "@nuxt/module-builder": "1.0.3",
+    "unbuild": "3.6.1"
+  }
+}

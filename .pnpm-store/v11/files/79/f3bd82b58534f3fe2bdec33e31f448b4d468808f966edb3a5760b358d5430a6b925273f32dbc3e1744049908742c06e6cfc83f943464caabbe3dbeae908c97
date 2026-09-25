@@ -1,0 +1,40 @@
+{
+  "name": "@zinkawaii/eslint-config-css",
+  "type": "module",
+  "version": "0.5.4",
+  "description": "Utakata na Shiawase",
+  "author": "KazariEX",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "zinkawaii/eslint-config"
+  },
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist"
+  ],
+  "peerDependencies": {
+    "eslint": ">=10.0.0"
+  },
+  "dependencies": {
+    "@eslint/css": "^2.0.0",
+    "eslint-flat-config-utils": "^3.2.0",
+    "eslint-plugin-css-properties-order": "^0.0.1",
+    "eslint-plugin-css-stylistic": "^0.0.2"
+  },
+  "devDependencies": {
+    "@zinkawaii/eslint-config": "0.5.4",
+    "eslint-typegen": "^2.3.1",
+    "known-css-properties": "^0.37.0"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown -w",
+    "test": "vitest",
+    "typegen": "unrun scripts/typegen.ts"
+  }
+}

@@ -1,0 +1,4 @@
+import type { OgImageComponent, OgImageRuntimeConfig } from '../../types.js';
+export declare function autoEjectCommunityTemplate(component: OgImageComponent, runtimeConfig: OgImageRuntimeConfig, options?: {
+    requestPath?: string;
+}): void;

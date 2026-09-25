@@ -1,0 +1,91 @@
+import { injectHead, useHead, useSeoMeta } from "@unhead/vue";
+import { TemplateParamsPlugin } from "@unhead/vue/plugins";
+import { useError, useRoute, useRuntimeConfig } from "nuxt/app";
+import { stringifyQuery } from "ufo";
+import { computed, toValue } from "vue";
+import { useSiteConfig } from "#site-config/app/composables/useSiteConfig";
+import { createSitePathResolver } from "#site-config/app/composables/utils";
+const LOCALE_UNDERSCORE_RE = /_/g;
+export function applyDefaults() {
+  const siteConfig = useSiteConfig({
+    resolveRefs: false
+  });
+  const resolveCurrentLocale = () => {
+    const locale = toValue(siteConfig.currentLocale) || toValue(siteConfig.defaultLocale) || "en";
+    return locale.replace(LOCALE_UNDERSCORE_RE, "-");
+  };
+  const head = injectHead();
+  head.use(TemplateParamsPlugin);
+  const { canonicalQueryWhitelist, canonicalLowercase, tagPriority, separator, titleSeparator } = useRuntimeConfig().public["seo-utils"];
+  const route = useRoute();
+  const resolveUrl = createSitePathResolver({ withBase: true, absolute: true });
+  const err = useError();
+  const resolveSeparator = () => toValue(siteConfig.separator) || separator || toValue(siteConfig.titleSeparator) || titleSeparator;
+  const resolveTitleSeparator = () => toValue(siteConfig.titleSeparator) || titleSeparator || toValue(siteConfig.separator) || separator;
+  const canonicalUrl = computed(() => {
+    if (err.value) {
+      return false;
+    }
+    const { query } = route;
+    let url = resolveUrl(route.path || "/").value || route.path;
+    if (canonicalLowercase) {
+      try {
+        url = url.toLocaleLowerCase(resolveCurrentLocale());
+      } catch {
+        url = url.toLowerCase();
+      }
+    }
+    const filteredQuery = Object.fromEntries(
+      Object.entries(query).filter(([key]) => canonicalQueryWhitelist.includes(key)).sort(([a], [b]) => a.localeCompare(b))
+      // Sort params
+    );
+    const href = Object.keys(filteredQuery).length ? `${url}?${stringifyQuery(filteredQuery)}` : url;
+    return { rel: "canonical", href };
+  });
+  const minimalPriority = {
+    // give nuxt.config values higher priority
+    tagPriority: "low"
+  };
+  const seoMetaPriority = {
+    tagPriority
+  };
+  useHead({
+    htmlAttrs: { lang: resolveCurrentLocale },
+    templateParams: {
+      site: () => siteConfig,
+      siteName: () => siteConfig.name,
+      separator: resolveSeparator,
+      titleSeparator: resolveTitleSeparator
+    },
+    titleTemplate: () => err.value ? "%s" : "%s %separator %siteName",
+    link: [() => canonicalUrl.value]
+  }, minimalPriority);
+  useSeoMeta({
+    ogLocale: () => {
+      const locale = resolveCurrentLocale();
+      if (locale) {
+        const l = locale.replace("-", "_");
+        if (l.includes("_")) {
+          return l;
+        }
+      }
+      return false;
+    }
+  }, minimalPriority);
+  const seoMeta = {
+    ogType: "website",
+    ogUrl: () => {
+      const url = canonicalUrl.value;
+      return url ? url.href : false;
+    },
+    ogSiteName: siteConfig.name
+  };
+  if (import.meta.server && siteConfig.description)
+    useSeoMeta({ description: siteConfig.description }, minimalPriority);
+  if (siteConfig.twitter) {
+    const id = siteConfig.twitter.startsWith("@") ? siteConfig.twitter : `@${siteConfig.twitter}`;
+    seoMeta.twitterCreator = id;
+    seoMeta.twitterSite = id;
+  }
+  useSeoMeta(seoMeta, seoMetaPriority);
+}

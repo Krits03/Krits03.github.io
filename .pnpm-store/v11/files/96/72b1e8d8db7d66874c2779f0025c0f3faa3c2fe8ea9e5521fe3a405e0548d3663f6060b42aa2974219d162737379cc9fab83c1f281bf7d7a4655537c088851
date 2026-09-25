@@ -1,0 +1,18 @@
+import { defineTransformer } from "../../core/plugins.js";
+const RE_ICON_CLASSES = /icon|inline-style/g;
+export default defineTransformer([
+  {
+    filter: (node) => !!node.props?.class && !node.props?.tw,
+    transform(node) {
+      node.props.tw = node.props.class;
+      node.props.tw = node.props.tw.replace(RE_ICON_CLASSES, "");
+    }
+  },
+  {
+    filter: (node) => !!node.props?.style?.display,
+    transform(node) {
+      if (["inline-block", "inline"].includes(node.props.style.display))
+        delete node.props.style.display;
+    }
+  }
+]);

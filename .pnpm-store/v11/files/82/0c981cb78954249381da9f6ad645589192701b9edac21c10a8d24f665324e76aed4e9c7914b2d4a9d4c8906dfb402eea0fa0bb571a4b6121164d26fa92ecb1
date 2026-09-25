@@ -1,0 +1,3563 @@
+interface MonetaryAmountBase extends Thing {
+    /**
+     * The currency in which the monetary amount is expressed.
+     */
+    currency: string;
+}
+type MonetaryAmountValue = {
+    value: number | `${number}` | QuantitativeValue;
+    minValue?: number | `${number}`;
+    maxValue?: number | `${number}`;
+} | {
+    value?: never;
+    minValue: number | `${number}`;
+    maxValue?: number | `${number}`;
+} | {
+    value?: never;
+    minValue?: number | `${number}`;
+    maxValue: number | `${number}`;
+};
+type MonetaryAmountSimple = MonetaryAmountBase & MonetaryAmountValue;
+type MonetaryAmount = MonetaryAmountSimple;
+interface QuantitativeSimple extends Thing {
+    value?: number | `${number}`;
+    minValue?: number;
+    maxValue?: number;
+    unitCode?: string;
+    unitText?: 'HOUR' | 'DAY' | 'WEEK' | 'MONTH' | 'YEAR';
+    valueReference?: NodeRelation<QuantitativeValue>;
+}
+interface QuantitativeValue extends QuantitativeSimple {
+}
+
+type MerchantReturnEnumeration = 'MerchantReturnFiniteReturnWindow' | 'MerchantReturnNotPermitted' | 'MerchantReturnUnlimitedWindow';
+type ReturnFeesEnumeration = 'FreeReturn' | 'ReturnFeesCustomerResponsibility' | 'ReturnShippingFees';
+type ReturnMethodEnumeration = 'ReturnAtKiosk' | 'ReturnByMail' | 'ReturnInStore';
+interface MerchantReturnPolicySimple extends Thing {
+    '@type'?: 'MerchantReturnPolicy';
+    /**
+     * The country code that the return policy applies to, using the two-letter ISO 3166-1 alpha-2 country code formatting. You can specify up to 50 countries.
+     */
+    'applicableCountry': string;
+    /**
+     * The type of return policy.
+     */
+    'returnPolicyCategory': OptionalSchemaOrgPrefix<MerchantReturnEnumeration>;
+    /**
+     * The number of days from the delivery date that a product can be returned. This property is only required if you set the returnPolicyCategory to MerchantReturnFiniteReturnWindow.
+     */
+    'merchantReturnDays'?: number;
+    /**
+     * The type of return fees.
+     */
+    'returnFees'?: OptionalSchemaOrgPrefix<ReturnFeesEnumeration>;
+    /**
+     * The type of return method offered. This is only recommended if you set the returnPolicyCategory to either MerchantReturnFiniteReturnWindow or MerchantReturnUnlimitedWindow.
+     */
+    'returnMethod'?: OptionalSchemaOrgPrefix<ReturnMethodEnumeration>;
+    /**
+     * The cost of shipping for returning a product. This property is only required if there's a non-zero shipping fee to
+     * be paid by the consumer to the merchant to return a product, in which case returnFees must be set to
+     * https://schema.org/ReturnShippingFees).
+     * If the return is free, returnFees must be set to https://schema.org/FreeReturn.
+     * If the consumer needs to handle, and pay for, the return shipping cost, returnFees must be set to https://schema.org/ReturnFeesCustomerResponsibility.
+     */
+    'returnShippingFeesAmount'?: NodeRelation<MonetaryAmount>;
+}
+interface MerchantReturnPolicy extends MerchantReturnPolicySimple {
+}
+
+interface DefinedRegion extends Thing {
+    /**
+     * The two-letter country code, in [ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1) format.
+     */
+    addressCountry: string;
+    /**
+     * If you include this property, the region must be a 2- or 3-digit ISO 3166-2 subdivision code, without country prefix. Currently, Google Search only supports the US, Australia, and Japan. Examples: "NY" (for US, state of New York), "NSW" (for Australia, state of New South Wales), or "03" (for Japan, Iwate prefecture).
+     *
+     * Do not provide both a region and postal code information.
+     */
+    addressRegion?: string;
+    /**
+     * The postal code. For example, 94043. Currently postal codes are supported for Australia, Canada, and the US.
+     */
+    postalCode?: string;
+}
+
+interface ShippingDeliveryTime extends Thing {
+    /**
+     * The typical delay between the receipt of the order and the goods leaving the warehouse.
+     */
+    handlingTime?: QuantitativeValue;
+    /**
+     * The typical delay between when the order has been sent for delivery and when the goods reach the final customer.
+     */
+    transitTime?: QuantitativeValue;
+}
+
+interface OfferShippingDetails extends Thing {
+    '@type'?: 'OfferShippingDetails';
+    /**
+     * The total delay between the receipt of the order and the goods reaching the final customer.
+     */
+    'deliveryTime': NodeRelation<ShippingDeliveryTime>;
+    'shippingDestination': NodeRelation<DefinedRegion>;
+    /**
+     * Information about the cost of shipping to the specified destination. At least one of shippingRate.value or shippingRate.maxValue must be specified, along with shippingRate.currency.
+     *
+     * You can only specify one shippingRate per OfferShippingDetails property. To indicate multiple rates for your product, specify multiple OfferShippingDetail properties.
+     */
+    'shippingRate': NodeRelation<MonetaryAmount>;
+}
+
+interface ImageBase extends Thing {
+    /**
+     * A text string describing the image.
+     * - Fall back to the image alt attribute if no specific caption field exists or is defined.
+     */
+    caption?: string;
+    /**
+     * The height of the image in pixels.
+     * - Must be used with width.
+     */
+    height?: number;
+    /**
+     * The width of the image in pixels.
+     * - Must be used with height.
+     */
+    width?: number;
+    /**
+     * The language code for the textual content; e.g., en-GB.
+     * - Only needed when providing a caption.
+     */
+    inLanguage?: string;
+    /**
+     * The name of the image.
+     */
+    name?: string;
+    /**
+     * A description of the image.
+     */
+    description?: string;
+    /**
+     * The file format or media type of the image (e.g., image/jpeg).
+     */
+    encodingFormat?: string;
+    /**
+     * The creator of the image.
+     */
+    creator?: NodeRelations<Identity>;
+    /**
+     * Credit text displayed with the image.
+     */
+    creditText?: string;
+    /**
+     * A copyright notice for the image.
+     */
+    copyrightNotice?: string;
+    /**
+     * A URL describing the image license.
+     */
+    license?: string;
+    /**
+     * A URL where users can acquire a license.
+     */
+    acquireLicensePage?: string;
+}
+type ImageLocation = {
+    url: string;
+    contentUrl?: string;
+} | {
+    url?: string;
+    contentUrl: string;
+};
+type ImageSimple = ImageBase & ImageLocation;
+type ImageObject = ImageSimple;
+/** Narrow an arbitrary graph node to an image with its required URL. */
+declare function isImageObject(node: SchemaOrgNode): node is ImageObject;
+/**
+ * Describes an individual image (usually in the context of an embedded media object).
+ */
+declare const imageResolver: SchemaOrgNodeDefinition<ImageSimple, string | ImageSimple>;
+
+interface PostalAddressSimple extends Thing {
+    /**
+     * The building number and street (e.g., 123 fake road ).
+     */
+    streetAddress: string;
+    /**
+     * The postal code.
+     */
+    postalCode: string;
+    /**
+     * The two-digit country-code representing the country (e.g., US ).
+     */
+    addressCountry: string;
+    /**
+     * The town, city or equivalent.
+     */
+    addressLocality?: string;
+    /**
+     * The region or district.
+     */
+    addressRegion?: string;
+    /**
+     * A PO box number.
+     */
+    postOfficeBoxNumber?: string;
+}
+interface PostalAddressStrict extends PostalAddressSimple {
+}
+interface PostalAddressName extends Partial<PostalAddressSimple> {
+}
+type PostalAddress = PostalAddressStrict | PostalAddressName;
+declare const addressResolver: SchemaOrgNodeDefinition<PostalAddress, PostalAddress>;
+
+interface ContactPoint extends Thing {
+    '@type'?: 'ContactPoint';
+    'contactType'?: string;
+    'email'?: string;
+    'telephone'?: string;
+    'areaServed'?: Arrayable<string | Thing>;
+    'availableLanguage'?: Arrayable<string>;
+}
+interface MemberProgramTier extends Thing {
+    '@type'?: 'MemberProgramTier';
+    'name': string;
+    'hasTierBenefit': Arrayable<OptionalSchemaOrgPrefix<'TierBenefitLoyaltyPoints' | 'TierBenefitLoyaltyPrice'>>;
+    'hasTierRequirement'?: NodeRelation<CreditCard | MonetaryAmount | UnitPriceSpecification | string>;
+    'membershipPointsEarned'?: NodeRelation<QuantitativeValue>;
+    'isTierOf'?: NodeRelation<MemberProgram>;
+    'url'?: string;
+}
+interface MemberProgram extends Thing {
+    '@type'?: 'MemberProgram';
+    'name': string;
+    'description': string;
+    'hasTiers': NodeRelations<MemberProgramTier>;
+    'url'?: string;
+}
+interface CreditCard extends Thing {
+    '@type'?: 'CreditCard';
+    'name': string;
+}
+type FulfillmentType = OptionalSchemaOrgPrefix<'FulfillmentTypeCollectionPoint' | 'FulfillmentTypeDelivery'>;
+type ShippingDay = OptionalSchemaOrgPrefix<'Friday' | 'Monday' | 'Saturday' | 'Sunday' | 'Thursday' | 'Tuesday' | 'Wednesday'>;
+interface ServicePeriod extends Thing {
+    '@type'?: 'ServicePeriod';
+    'businessDays'?: Arrayable<ShippingDay>;
+    'cutoffTime'?: string;
+    'duration'?: NodeRelation<QuantitativeValue>;
+}
+type ShippingRate = {
+    orderPercentage: number;
+    weightPercentage?: never;
+} | {
+    orderPercentage?: never;
+    weightPercentage: number;
+};
+type ShippingRateSettings = Thing & ShippingRate & {
+    '@type'?: 'ShippingRateSettings';
+};
+interface ShippingSeasonalOverride extends Thing {
+    '@type'?: 'OpeningHoursSpecification';
+    'dayOfWeek'?: Arrayable<ShippingDay>;
+    'opens'?: string;
+    'closes'?: string;
+    'validFrom'?: ResolvableDate;
+    'validThrough'?: ResolvableDate;
+}
+interface ShippingConditions extends Thing {
+    '@type'?: 'ShippingConditions';
+    'doesNotShip'?: boolean;
+    'numItems'?: NodeRelation<QuantitativeValue>;
+    'orderValue'?: NodeRelation<MonetaryAmount>;
+    'shippingDestination'?: NodeRelation<DefinedRegion>;
+    'shippingOrigin'?: NodeRelation<DefinedRegion>;
+    'seasonalOverride'?: NodeRelations<ShippingSeasonalOverride>;
+    'shippingRate'?: NodeRelation<MonetaryAmount | ShippingRateSettings>;
+    'transitTime'?: NodeRelation<ServicePeriod>;
+    'weight'?: NodeRelation<QuantitativeValue>;
+}
+interface ShippingService extends Thing {
+    '@type'?: 'ShippingService';
+    'shippingConditions': NodeRelations<ShippingConditions>;
+    'name'?: string;
+    'description'?: string;
+    'fulfillmentType'?: FulfillmentType;
+    'handlingTime'?: NodeRelation<ServicePeriod>;
+    'validForMemberTier'?: NodeRelations<MemberProgramTier>;
+}
+/**
+ * An organization such as a school, NGO, corporation, club, etc.
+ */
+interface OrganizationSimple extends Thing {
+    /**
+     * A reference-by-ID to an image of the organization's logo.
+     *
+     * - The image must be 112x112px, at a minimum.
+     * - Make sure the image looks how you intend it to look on a purely white background
+     * (for example, if the logo is mostly white or gray,
+     * it may not look how you want it to look when displayed on a white background).
+     */
+    logo?: NodeRelations<ImageObject | string>;
+    /**
+     * The site's home URL.
+     */
+    url?: string;
+    /**
+     * The name of the Organization.
+     */
+    name: string;
+    /**
+     * An alternate name for the organization.
+     */
+    alternateName?: string;
+    /**
+     * Customer service and other contact points.
+     */
+    contactPoint?: NodeRelations<ContactPoint>;
+    /**
+     * A description of the organization.
+     */
+    description?: string;
+    /**
+     * Data Universal Numbering System identifier.
+     */
+    duns?: string;
+    /**
+     * An array of URLs representing declared social/authoritative profiles of the organization
+     * (e.g., a Wikipedia page, or Facebook profile).
+     */
+    sameAs?: Arrayable<string>;
+    /**
+     * An array of images which represent the organization (including the logo ), referenced by ID.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * A reference-by-ID to an PostalAddress piece.
+     */
+    address?: NodeRelations<PostalAddress>;
+    /**
+     * The telephone number of the organization.
+     */
+    telephone?: string;
+    /**
+     * The email address of the organization.
+     */
+    email?: string;
+    /**
+     * The date the organization was founded.
+     */
+    foundingDate?: string;
+    /**
+     * Global Location Number.
+     */
+    globalLocationNumber?: string;
+    /**
+     * Merchant return policies used by the organization.
+     */
+    hasMerchantReturnPolicy?: NodeRelations<MerchantReturnPolicy>;
+    /**
+     * Membership programs offered by the organization.
+     */
+    hasMemberProgram?: NodeRelations<MemberProgram>;
+    /**
+     * Shipping services offered by the organization.
+     */
+    hasShippingService?: NodeRelations<ShippingService>;
+    /**
+     * ISO 6523 organization identifier.
+     */
+    iso6523Code?: string;
+    /**
+     * The registered legal name.
+     */
+    legalName?: string;
+    /**
+     * Legal Entity Identifier.
+     */
+    leiCode?: string;
+    /**
+     * North American Industry Classification System code.
+     */
+    naics?: string;
+    /**
+     * The number of employees.
+     */
+    numberOfEmployees?: NodeRelation<QuantitativeValue>;
+    /**
+     * Tax identifier.
+     */
+    taxID?: string;
+    /**
+     * VAT identifier.
+     */
+    vatID?: string;
+    /**
+     * Organization identifiers used by profile and merchant features.
+     */
+    identifier?: NodeRelations<PropertyValue | string>;
+    /**
+     * Counts of interactions performed by the organization.
+     */
+    agentInteractionStatistic?: NodeRelations<InteractionCounter>;
+    /**
+     * Counts of interactions with the organization.
+     */
+    interactionStatistic?: NodeRelations<InteractionCounter>;
+}
+interface Organization extends OrganizationSimple {
+}
+declare const memberProgramTierResolver: SchemaOrgNodeDefinition<MemberProgramTier, MemberProgramTier>;
+/**
+ * Describes an organization (a company, business or institution).
+ * Most commonly used to identify the publisher of a WebSite.
+ *
+ * May be transformed into a more specific type
+ * (such as Corporation or LocalBusiness) if the required conditions are met.
+ */
+declare const organizationResolver: SchemaOrgNodeDefinition<Organization, string | Organization>;
+
+type ItemAvailability = 'BackOrder' | 'Discontinued' | 'InStock' | 'InStoreOnly' | 'LimitedAvailability' | 'OnlineOnly' | 'OutOfStock' | 'PreOrder' | 'PreSale' | 'SoldOut';
+type OfferItemCondition = 'NewCondition' | 'RefurbishedCondition' | 'UsedCondition';
+interface UnitPriceSpecificationBase extends Thing {
+    '@type'?: 'UnitPriceSpecification';
+    'billingDuration'?: number;
+    'billingIncrement'?: number;
+    'priceCurrency'?: string;
+    'referenceQuantity'?: NodeRelation<QuantitativeValue>;
+    'unitCode'?: string;
+    'validFrom'?: ResolvableDate;
+    'validThrough'?: ResolvableDate;
+    'valueAddedTaxIncluded'?: boolean;
+}
+type UnitPriceSpecificationKind = {
+    price: number | string;
+    priceType?: never;
+    validForMemberTier?: never;
+    membershipPointsEarned?: never;
+} | {
+    price: number | string;
+    priceType: OptionalSchemaOrgPrefix<'StrikethroughPrice'>;
+    validForMemberTier?: never;
+    membershipPointsEarned?: never;
+} | ({
+    priceType?: never;
+    validForMemberTier: NodeRelations<MemberProgramTier>;
+} & ({
+    price: number | string;
+    membershipPointsEarned?: number;
+} | {
+    price?: never;
+    membershipPointsEarned: number;
+}));
+type UnitPriceSpecification = UnitPriceSpecificationBase & UnitPriceSpecificationKind;
+interface OfferBase extends Thing {
+    '@type'?: 'Offer';
+    /**
+     * Condition of the item offered for sale.
+     */
+    'itemCondition'?: OptionalSchemaOrgPrefix<OfferItemCondition>;
+    /**
+     * A schema.org URL representing a schema itemAvailability value (e.g., https://schema.org/OutOfStock).
+     */
+    'availability'?: OptionalSchemaOrgPrefix<ItemAvailability>;
+    /**
+     * The currency used to describe the product price, in three-letter ISO 4217 format.
+     */
+    'priceCurrency'?: string;
+    /**
+     * The date after which the price is no longer available.
+     */
+    'priceValidUntil'?: ResolvableDate;
+    /**
+     * The date when the offer becomes valid.
+     */
+    'validFrom'?: ResolvableDate;
+    'url'?: string;
+    /**
+     * Nested information about the return policies associated with an Offer. If you decide to add hasMerchantReturnPolicy, add the required and recommended MerchantReturnPolicy properties.
+     */
+    'hasMerchantReturnPolicy'?: NodeRelation<MerchantReturnPolicy>;
+    /**
+     * Nested information about the shipping policies and options associated with an Offer. If you decide to add shippingDetails, add the required and recommended OfferShippingDetails properties.
+     */
+    'shippingDetails'?: NodeRelations<OfferShippingDetails>;
+}
+type OfferPrice = {
+    price: number | string;
+    priceSpecification?: NodeRelations<UnitPriceSpecification>;
+} | {
+    price?: number | string;
+    priceSpecification: NodeRelations<UnitPriceSpecification>;
+};
+type OfferSimple = OfferBase & OfferPrice;
+type Offer = OfferSimple;
+declare const unitPriceSpecificationResolver: SchemaOrgNodeDefinition<UnitPriceSpecification, UnitPriceSpecification>;
+declare const offerResolver: SchemaOrgNodeDefinition<OfferSimple, string | number | OfferSimple>;
+
+interface AggregateOfferSimple extends Thing {
+    /**
+     * The lowest price of the group, omitting any currency symbols, and using '.' to indicate a decimal place.
+     */
+    lowPrice: number | string;
+    /**
+     *  The highest price of the group, omitting any currency symbols, and using '.' to indicate a decimal place.
+     */
+    highPrice: number | string;
+    /**
+     * The currency used to describe the product price, in a three-letter ISO 4217 format.
+     */
+    priceCurrency?: string;
+    /**
+     * The number of offers in the group
+     */
+    offerCount?: number | string;
+    /**
+     * An array of Offer pieces, referenced by ID.
+     */
+    offers?: NodeRelations<Offer>;
+}
+interface AggregateOffer extends AggregateOfferSimple {
+}
+declare const aggregateOfferResolver: SchemaOrgNodeDefinition<AggregateOffer, AggregateOffer>;
+
+interface AggregateRatingBase extends Thing {
+    '@type'?: 'AggregateRating';
+    /**
+     * The item being rated. Required when AggregateRating is a standalone root.
+     */
+    'itemReviewed'?: NodeRelation<Thing>;
+    /**
+     * The total number of ratings for the item on your site. At least one of ratingCount or reviewCount is required.
+     */
+    'ratingCount'?: number | string;
+    /**
+     * Specifies the number of people who provided a review with or without an accompanying rating. At least one of ratingCount or reviewCount is required.
+     */
+    'reviewCount'?: number | string;
+    /**
+     * A numerical quality rating for the item, either a number, fraction, or percentage
+     * (for example, "4", "60%", or "6 / 10").
+     * Google understands the scale for fractions and percentages,
+     * since the scale is implied in the fraction itself or the percentage.
+     * The default scale for numbers is a 5-point scale, where 1 is the lowest value and 5 is the highest value.
+     * If another scale is intended, use bestRating and worstRating.
+     */
+    'ratingValue': number | string;
+    /**
+     * The highest value allowed in this rating system. If bestRating is omitted, 5 is assumed.
+     */
+    'bestRating'?: number | string;
+    /**
+     * The lowest value allowed in this rating system. If worstRating is omitted, 1 is assumed.
+     */
+    'worstRating'?: number | string;
+}
+type RatingCount = {
+    ratingCount: number | string;
+    reviewCount?: number | string;
+} | {
+    ratingCount?: number | string;
+    reviewCount: number | string;
+};
+type AggregateRatingSimple = AggregateRatingBase & RatingCount;
+type AggregateRating = AggregateRatingSimple;
+declare const aggregateRatingResolver: SchemaOrgNodeDefinition<AggregateRatingSimple, AggregateRatingSimple>;
+
+interface Clip extends Thing {
+    '@type'?: 'Clip';
+    'name': string;
+    'startOffset': number;
+    'url': string;
+    'endOffset'?: number;
+}
+interface BroadcastEvent extends Thing {
+    '@type'?: 'BroadcastEvent';
+    'isLiveBroadcast': boolean;
+    'startDate': ResolvableDate;
+    'endDate'?: ResolvableDate;
+}
+interface SeekToAction extends Thing {
+    '@type'?: 'SeekToAction';
+    'target': string;
+    'startOffset-input': 'required name=seek_to_second_number';
+}
+interface VideoSimple extends Thing {
+    /**
+     * The title of the video.
+     */
+    name?: string;
+    /**
+     * A description of the video (falling back to the caption, then to 'No description').
+     */
+    description?: string;
+    /**
+     * A reference-by-ID to an imageObject.
+     */
+    thumbnail?: Arrayable<NodeRelation<ImageObject>>;
+    /**
+     * A URL pointing to the video thumbnail image file. Follow the [thumbnail image guidelines](https://developers.google.com/search/docs/appearance/video#provide-a-high-quality-thumbnail).
+     */
+    thumbnailUrl?: Arrayable<string>;
+    /**
+     * The date the video was published, in ISO 8601 format (e.g., 2020-01-20).
+     */
+    uploadDate?: ResolvableDate;
+    /**
+     * Whether the video should be considered 'family friendly'
+     */
+    isFamilyFriendly?: boolean;
+    /**
+     * The URL of the image file (e.g., /images/cat.jpg).
+     */
+    url?: string;
+    /**
+     * The fully-qualified, absolute URL of the image file (e.g., https://www.example.com/images/cat.jpg).
+     * Note: The contentUrl and url properties are intentionally duplicated.
+     */
+    contentUrl?: string;
+    /**
+     * A text string describing the image.
+     * - Fall back to the image alt attribute if no specific caption field exists or is defined.
+     */
+    caption?: string;
+    /**
+     * The height of the image in pixels.
+     * - Must be used with width.
+     */
+    height?: number;
+    /**
+     * The width of the image in pixels.
+     * - Must be used with height.
+     */
+    width?: number;
+    /**
+     * The language code for the textual content; e.g., en-GB.
+     * - Only needed when providing a caption.
+     */
+    inLanguage?: string;
+    /**
+     * The duration of the video in ISO 8601 format.
+     */
+    duration?: string;
+    /**
+     * A URL pointing to a player for the video.
+     */
+    embedUrl?: string;
+    /**
+     * The encoding format of the video.
+     */
+    encodingFormat?: string;
+    /**
+     * A transcript of the video.
+     */
+    transcript?: string;
+    /**
+     * The date after which the video is no longer available.
+     */
+    expires?: ResolvableDate;
+    /**
+     * Regions where the video is unavailable.
+     */
+    ineligibleRegion?: Arrayable<string>;
+    /**
+     * Regions where the video is available.
+     */
+    regionsAllowed?: Arrayable<string>;
+    /**
+     * The number of times the video has been watched.
+     */
+    interactionStatistic?: NodeRelations<InteractionCounter>;
+    /**
+     * Key moments in the video.
+     */
+    hasPart?: NodeRelations<Clip>;
+    /**
+     * Livestream publication details.
+     */
+    publication?: NodeRelations<BroadcastEvent>;
+    /**
+     * URL pattern used to seek to a timestamp.
+     */
+    potentialAction?: NodeRelation<SeekToAction>;
+}
+interface VideoObject extends VideoSimple {
+}
+/**
+ * Describes an individual video (usually in the context of an embedded media object).
+ */
+declare const videoResolver: SchemaOrgNodeDefinition<VideoObject, string | VideoObject>;
+
+/**
+ * A list item, e.g. a step in a checklist or how-to description.
+ */
+interface ListItemSimple extends Thing {
+    '@type'?: 'ListItem';
+    /**
+     *  The name of the page in question, as it appears in the breadcrumb navigation.
+     */
+    'name'?: string;
+    /**
+     * The unmodified canonical URL of the page in question.
+     * - If a relative path is provided, it will be resolved to absolute.
+     * - Item is not required for the last entry
+     */
+    'item'?: string | Thing;
+    /**
+     * The canonical URL for a summary-page carousel item.
+     */
+    'url'?: string;
+    /**
+     *  An integer (starting at 1), counting the 'depth' of the page from (including) the homepage.
+     */
+    'position'?: number;
+}
+interface ListItem extends ListItemSimple {
+}
+declare const listItemResolver: SchemaOrgNodeDefinition<ListItem, string | ListItem>;
+
+interface ItemListSimple extends Thing {
+    /**
+     * Resolved item list
+     */
+    itemListElement: NodeRelations<ListItem>;
+    /**
+     * Type of ordering (e.g. Ascending, Descending, Unordered).
+     *
+     * @default undefined
+     */
+    itemListOrder?: 'Ascending' | 'Descending' | 'Unordered';
+    /**
+     * The number of items in an ItemList.
+     * Note that some descriptions might not fully describe all items in a list (e.g., multi-page pagination);
+     * in such cases, the numberOfItems would be for the entire list.
+     *
+     * @default undefined
+     */
+    numberOfItems?: number;
+}
+interface ItemList extends ItemListSimple {
+}
+declare const itemListResolver: SchemaOrgNodeDefinition<ItemList, ItemList>;
+
+/**
+ * A BreadcrumbList is an ItemList consisting of a chain of linked Web pages,
+ * typically described using at least their URL and their name, and typically ending with the current page.
+ */
+interface BreadcrumbSimple extends ItemList {
+    '@type'?: 'BreadcrumbList';
+}
+interface BreadcrumbList extends BreadcrumbSimple {
+}
+declare const PrimaryBreadcrumbId = "#breadcrumb";
+/**
+ * Describes the hierarchical position a WebPage within a WebSite.
+ */
+declare const breadcrumbResolver: SchemaOrgNodeDefinition<BreadcrumbList, BreadcrumbList>;
+
+/**
+ * A person (alive, dead, undead, or fictional).
+ */
+interface PersonSimple extends Thing {
+    /**
+     * The full name of the Person.
+     */
+    name: string;
+    /**
+     * An alternate name, such as a profile handle.
+     */
+    alternateName?: string;
+    /**
+     * An identifier for the person.
+     */
+    identifier?: NodeRelations<PropertyValue | string>;
+    /**
+     * The user bio, truncated to 250 characters.
+     */
+    description?: string;
+    /**
+     * An array of URLs representing declared social/authoritative profiles of the person
+     * (e.g., a Wikipedia page, or Facebook profile).
+     */
+    sameAs?: Arrayable<string>;
+    /**
+     * An array of images which represent the person, referenced by ID.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * The URL of the users' profile page (if they're affiliated with the site in question),
+     * or to their personal homepage/website.
+     */
+    url?: string;
+    /**
+     * Counts of interactions performed by this person.
+     */
+    agentInteractionStatistic?: NodeRelations<InteractionCounter>;
+    /**
+     * Counts of interactions with this person.
+     */
+    interactionStatistic?: NodeRelations<InteractionCounter>;
+}
+interface Person extends PersonSimple {
+}
+/**
+ * Describes an individual person. Most commonly used to identify the author of a piece of content (such as an Article or Comment).
+ */
+declare const personResolver: SchemaOrgNodeDefinition<Person, string | Person>;
+
+type SearchTarget = string | `${string}{search_term_string}${string | undefined}`;
+interface SearchActionInput {
+    /**
+     * An object of type EntryPoint, with a relative URL which describes the URL pattern of the internal search function
+     * (e.g., /search?query={search_term_string}).
+     */
+    target?: SearchTarget;
+    /**
+     * Alias: The search term string as described in the target (e.g., search_term_string).
+     * @default search_term_string
+     */
+    queryInput?: string;
+}
+interface SearchAction extends Thing {
+    '@type'?: 'SearchAction';
+    /**
+     * An object of type EntryPoint, with a relative URL which describes the URL pattern of the internal search function
+     * (e.g., /search?query={search_term_string}).
+     */
+    'target': SearchTarget | {
+        '@type'?: 'EntryPoint';
+        'urlTemplate'?: SearchTarget;
+    };
+    /**
+     * The search term string as described in the target (e.g., search_term_string).
+     */
+    'query-input'?: {
+        '@type'?: 'PropertyValueSpecification';
+        'valueRequired'?: boolean;
+        'valueName'?: 'search_term_string';
+    };
+}
+declare const searchActionResolver: SchemaOrgNodeDefinition<SearchAction, SearchAction>;
+
+/**
+ * A WebSite is a set of related web pages and other items typically served from a single web domain and accessible via URLs.
+ */
+interface WebSiteSimple extends Thing {
+    /**
+     * The site's home URL (excluding a trailing slash).
+     */
+    url?: string;
+    /**
+     * The name of the website.
+     */
+    name: string;
+    /**
+     * A description of the website (e.g., the site's tagline).
+     */
+    description?: string;
+    /**
+     * The date the website was first published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The date the website was last modified.
+     */
+    dateModified?: ResolvableDate;
+    /**
+     * A reference-by-ID to the Organization which publishes the WebSite
+     * (or an array of Organization and Person in the case that the website represents an individual).
+     */
+    publisher?: NodeRelations<Identity>;
+    /**
+     * A SearchAction object describing the site's internal search.
+     */
+    potentialAction?: NodeRelations<SearchAction>;
+    /**
+     * The language code for the WebSite; e.g., en-GB.
+     * If the website is available in multiple languages, then output an array of inLanguage values.
+     */
+    inLanguage?: Arrayable<string>;
+}
+interface WebSite extends WebSiteSimple {
+}
+declare const PrimaryWebSiteId = "#website";
+declare const webSiteResolver: SchemaOrgNodeDefinition<WebSite, WebSite>;
+
+interface ReadActionInput {
+    target?: string[];
+}
+interface ReadAction extends Thing {
+    '@type'?: 'ReadAction';
+    /**
+     * An array of string URLs which describes the URL pattern of the read action
+     * (e.g., /search?query={search_term_string}).
+     */
+    'target': string[];
+}
+declare const readActionResolver: SchemaOrgNodeDefinition<ReadAction, ReadAction>;
+
+type ValidSubTypes = 'WebPage' | 'AboutPage' | 'CheckoutPage' | 'CollectionPage' | 'ContactPage' | 'FAQPage' | 'ItemPage' | 'MedicalWebPage' | 'ProfilePage' | 'QAPage' | 'RealEstateListing' | 'SearchResultsPage';
+interface SpeakableSpecificationBase extends Thing {
+    '@type'?: 'SpeakableSpecification';
+}
+type SpeakableSpecification = SpeakableSpecificationBase & ({
+    cssSelector: Arrayable<string>;
+    xPath?: never;
+} | {
+    cssSelector?: never;
+    xPath: Arrayable<string>;
+});
+interface WebPageElement extends Thing {
+    '@type'?: 'WebPageElement';
+    'cssSelector': Arrayable<string>;
+    'isAccessibleForFree': boolean;
+}
+/**
+ * A web page.
+ * Every web page is implicitly assumed to be declared to be of type WebPage,
+ * so the various properties about that webpage, such as breadcrumb may be used.
+ */
+interface WebPageSimple extends Thing {
+    ['@type']?: Arrayable<ValidSubTypes>;
+    /**
+     * The unmodified canonical URL of the page.
+     */
+    url?: string;
+    /**
+     * The title of the page.
+     */
+    name?: string;
+    /**
+     * The page's meta description content.
+     */
+    description?: string;
+    /**
+     * A reference-by-ID to the WebSite node.
+     */
+    isPartOf?: NodeRelation<WebSite>;
+    /**
+     * A reference-by-ID to the Organisation node.
+     * Note: Only for the home page.
+     */
+    about?: NodeRelation<Organization>;
+    /**
+     * A reference-by-ID to the author of the web page.
+     */
+    author?: NodeRelation<Person | string>;
+    /**
+     * The language code for the page; e.g., en-GB.
+     */
+    inLanguage?: Arrayable<string>;
+    /**
+     * The time at which the page was originally published, in ISO 8601 format; e.g., 2015-10-31T16:10:29+00:00.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The time at which the page was created.
+     */
+    dateCreated?: ResolvableDate;
+    /**
+     * The time at which the page was last modified, in ISO 8601 format; e.g., 2015-10-31T16:10:29+00:00.
+     */
+    dateModified?: ResolvableDate;
+    /**
+     * A reference-by-ID to a node representing the page's featured image.
+     */
+    primaryImageOfPage?: NodeRelation<ImageObject | string>;
+    /**
+     * A reference-by-ID to a node representing the page's breadrumb structure.
+     */
+    breadcrumb?: NodeRelation<BreadcrumbList>;
+    /**
+     * An array of all videos in the page content, referenced by ID.
+     */
+    video?: NodeRelations<VideoObject>;
+    /**
+     * A SpeakableSpecification object which identifies any content elements suitable for spoken results.
+     */
+    speakable?: NodeRelations<SpeakableSpecification>;
+    /**
+     * Whether the page is available without a subscription or registration.
+     */
+    isAccessibleForFree?: boolean;
+    /**
+     * Sections or creative works contained by this page.
+     */
+    hasPart?: NodeRelations<WebPageElement | Thing>;
+    /**
+     * The time at which the page was last reviewed, in ISO 8601 format.
+     */
+    lastReviewed?: string;
+    /**
+     * An array of keywords describing the page.
+     */
+    keywords?: string[];
+    /**
+     * Potential actions for this web page.
+     *
+     * Note it's on by default for most page types.
+     */
+    potentialAction?: Arrayable<ReadAction | Thing>;
+}
+interface WebPage extends WebPageSimple {
+}
+declare const speakableSpecificationResolver: SchemaOrgNodeDefinition<SpeakableSpecification, SpeakableSpecification>;
+declare const webPageElementResolver: SchemaOrgNodeDefinition<WebPageElement, WebPageElement>;
+declare const PrimaryWebPageId = "#webpage";
+declare const webPageResolver: SchemaOrgNodeDefinition<WebPage, WebPage>;
+
+type ValidArticleSubTypes = 'Article' | 'BlogPosting' | 'AdvertiserContentArticle' | 'NewsArticle' | 'Report' | 'SatiricalArticle' | 'ScholarlyArticle' | 'SocialMediaPosting' | 'TechArticle';
+interface ArticleSimple extends Thing {
+    ['@type']?: Arrayable<ValidArticleSubTypes>;
+    /**
+     * The headline of the article (falling back to the title of the WebPage).
+     * Headlines should not exceed 110 characters.
+     */
+    headline?: string;
+    /**
+     * A summary of the article (falling back to the page's meta description content).
+     */
+    description?: string;
+    /**
+     * A reference-by-ID to the WebPage node.
+     */
+    isPartOf?: IdReference;
+    /**
+     * The time at which the article was originally published, in ISO 8601 format; e.g., 2015-10-31T16:10:29+00:00.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The time at which the article was last modified, in ISO 8601 format; e.g., 2015-10-31T16:10:29+00:00.
+     */
+    dateModified?: ResolvableDate;
+    /**
+     * A reference-by-ID to the author of the article.
+     */
+    author?: NodeRelations<Identity>;
+    /**
+     * A reference-by-ID to the publisher of the article.
+     */
+    publisher?: NodeRelations<Identity>;
+    /**
+     * An array of all videos in the article content, referenced by ID.
+     */
+    video?: NodeRelations<VideoObject>;
+    /**
+     * An image object or referenced by ID.
+     * - Must be at least 696 pixels wide.
+     * - Must be of the following formats+file extensions: .jpg, .png, .gif ,or .webp.
+     *
+     * Must have markup of it somewhere on the page.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * An array of references by ID to comment pieces.
+     */
+    comment?: NodeRelations<Comment>;
+    /**
+     * A thumbnail image relevant to the Article.
+     */
+    thumbnailUrl?: string;
+    /**
+     * An integer value of the number of comments associated with the article.
+     */
+    commentCount?: number;
+    /**
+     * An integer value of the number of words in the article.
+     */
+    wordCount?: number;
+    /**
+     * An array of keywords which the article has (e.g., ["cats","dogs","cake"]).
+     */
+    keywords?: string[];
+    /**
+     * An array of category names which the article belongs to (e.g., ["cats","dogs","cake"]).
+     */
+    articleSection?: string[];
+    /**
+     * The language code for the article; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * A SpeakableSpecification object which identifies any content elements suitable for spoken results.
+     */
+    speakable?: NodeRelations<SpeakableSpecification>;
+    /**
+     * Whether the article is available without a subscription or registration.
+     */
+    isAccessibleForFree?: boolean;
+    /**
+     * Paywalled sections in the article.
+     */
+    hasPart?: NodeRelations<WebPageElement>;
+    /**
+     * The year from which the article holds copyright status.
+     */
+    copyrightYear?: string;
+    /**
+     * A reference-by-ID to the Organization or Person who holds the copyright.
+     */
+    copyrightHolder?: NodeRelations<Identity>;
+    /**
+     * The body text of the article.
+     */
+    articleBody?: string;
+    /**
+     * The subject matter of the article.
+     */
+    about?: string;
+}
+interface Article extends ArticleSimple {
+}
+declare const PrimaryArticleId = "#article";
+/**
+ * Describes an Article on a WebPage.
+ */
+declare const articleResolver: SchemaOrgNodeDefinition<Article, Article>;
+
+interface BookSimple extends Thing {
+    /**
+     * The title of the book.
+     */
+    name: string;
+    /**
+     * A description of the book. Display limit of 60 characters.
+     */
+    description?: string;
+    /**
+     *  A reference to an Identity piece, representing author associated with the Book.
+     */
+    author?: NodeRelations<Identity>;
+    /**
+     * The URL on your website where the book is introduced or described.
+     */
+    url?: string;
+    /**
+     * The URL of a reference page that identifies the work. For example, a Wikipedia, Wikidata, VIAF, or Library of Congress page for the book.
+     */
+    sameAs?: Arrayable<string>;
+    /**
+     * The number of pages in the book.
+     */
+    numberOfPages?: number;
+    /**
+     * The illustrator(s) of the book.
+     */
+    illustrator?: NodeRelations<Identity>;
+    /**
+     * The edition(s) of the work.
+     */
+    workExample: NodeRelations<BookEdition>;
+}
+interface Book extends BookSimple {
+}
+type BookFormat = OptionalSchemaOrgPrefix<'AudiobookFormat'> | OptionalSchemaOrgPrefix<'EBook'> | OptionalSchemaOrgPrefix<'Hardcover'> | OptionalSchemaOrgPrefix<'Paperback'>;
+interface BookEditionSimple extends Thing {
+    /**
+     * The title of the edition. Only use this when the title of the edition is different from the title of the work.
+     */
+    name?: string;
+    /**
+     * The format of the edition.
+     */
+    bookFormat: BookFormat;
+    /**
+     * The main language of the content in the edition. Use one of the two-letter codes from the list of ISO 639-1 alpha-2 codes.
+     */
+    inLanguage?: string;
+    /**
+     * The ISBN-13 of the edition. If you have ISBN-10, convert it into ISBN-13.
+     */
+    isbn: string;
+    /**
+     * The action to be triggered for users to purchase or download the book.
+     */
+    potentialAction?: Arrayable<ReadAction>;
+    /**
+     * The author(s) of the edition.
+     */
+    author?: NodeRelations<Identity>;
+    /**
+     * The edition information of the book. For example, 2nd Edition.
+     */
+    bookEdition?: string;
+    /**
+     * The date of publication of the edition in YYYY-MM-DD or YYYY format. This can be either a specific date or only a specific year.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The external or other ID that unambiguously identifies this edition. Multiple identifiers are allowed. For more details, refer to PropertyValue (identifier).
+     */
+    identifier?: string | Thing;
+    /**
+     * The URL of a reference web page that unambiguously indicates the edition. For example, a Wikipedia page for this specific edition. Don't reuse the sameAs of the Work.
+     */
+    sameAs?: Arrayable<string>;
+    /**
+     * The URL on your website where the edition is introduced or described. It can be the same as workExample.target.urlTemplate.
+     */
+    url?: string;
+}
+interface BookEdition extends BookEditionSimple {
+}
+declare const bookEditionResolver: SchemaOrgNodeDefinition<BookEdition, BookEdition>;
+declare const PrimaryBookId = "#book";
+declare const bookResolver: SchemaOrgNodeDefinition<Book, Book>;
+
+interface CommentSimple extends Thing {
+    /**
+     * The textual content of the comment, stripping HTML tags.
+     */
+    text: string;
+    /**
+     *  A reference by ID to the parent Article (or WebPage, when no Article is present).
+     */
+    about?: IdReference;
+    /**
+     * A reference by ID to the Person who wrote the comment.
+     */
+    author: NodeRelation<Identity>;
+    /**
+     * The date and time the comment was created.
+     */
+    dateCreated?: ResolvableDate;
+    /**
+     * The date and time the comment was last modified.
+     */
+    dateModified?: ResolvableDate;
+    /**
+     * The date and time the comment was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * Replies to this comment.
+     */
+    comment?: NodeRelations<Comment$1>;
+    /**
+     * The number of replies.
+     */
+    commentCount?: number;
+    /**
+     * The source type when content was generated or edited algorithmically.
+     */
+    digitalSourceType?: DigitalSourceType;
+    /**
+     * Images attached to the comment.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * Videos attached to the comment.
+     */
+    video?: NodeRelations<VideoObject | string>;
+    /**
+     * The number of upvotes the comment has received.
+     */
+    upvoteCount?: number;
+    /**
+     * The number of downvotes the comment has received.
+     */
+    downvoteCount?: number;
+}
+interface Comment$1 extends CommentSimple {
+}
+/**
+ * Describes a comment. Usually in the context of an Article or a WebPage.
+ */
+declare const commentResolver: SchemaOrgNodeDefinition<Comment$1, Comment$1>;
+
+/**
+ * A course or class offered by an educational institution.
+ */
+interface CourseSimple extends Thing {
+    /**
+     * The title of the course.
+     */
+    name: string;
+    /**
+     * A description of the course. Display limit of 60 characters.
+     */
+    description: string;
+    /**
+     * The course code or identifier.
+     */
+    courseCode?: string;
+    /**
+     * The educational level of the course.
+     */
+    educationalLevel?: string;
+    /**
+     * The duration of the course.
+     */
+    timeRequired?: string;
+    /**
+     * A reference to an Organization piece, representing the organization offering the course.
+     */
+    provider?: NodeRelation<Organization>;
+}
+interface Course extends CourseSimple {
+}
+declare const courseResolver: SchemaOrgNodeDefinition<Course, Course>;
+
+/**
+ * Represents a data download distribution.
+ */
+interface DataDownload extends Thing {
+    '@type'?: 'DataDownload';
+    /**
+     * The direct download URL for the dataset file.
+     */
+    'contentUrl': string;
+    /**
+     * The file format of the distribution (e.g., "CSV", "JSON", "XML", "application/json").
+     */
+    'encodingFormat'?: string;
+    /**
+     * The size of the file in bytes or human-readable format (e.g., "1.5 MB").
+     */
+    'contentSize'?: string;
+}
+/**
+ * Represents a data catalog that contains this dataset.
+ */
+interface DataCatalog extends Thing {
+    '@type'?: 'DataCatalog';
+    /**
+     * The name of the data catalog.
+     */
+    'name'?: string;
+    /**
+     * The URL of the data catalog.
+     */
+    'url'?: string;
+}
+interface DatasetSimple extends Thing {
+    '@type'?: Arrayable<'Dataset'>;
+    /**
+     * The name of the dataset.
+     * This is a required field for valid Dataset structured data.
+     */
+    'name': string;
+    /**
+     * A short summary describing the dataset.
+     * This is a required field for valid Dataset structured data.
+     */
+    'description': string;
+    /**
+     * An alternate name for the dataset.
+     */
+    'alternateName'?: Arrayable<string>;
+    /**
+     * The location of a page describing the dataset.
+     */
+    'url'?: string;
+    /**
+     * Keywords or tags used to describe the dataset.
+     * Multiple entries in a keywords list are delimited by commas.
+     */
+    'keywords'?: Arrayable<string>;
+    /**
+     * The creator or author of this dataset.
+     * Can be a Person or Organization, or a reference by ID.
+     */
+    'creator'?: NodeRelations<Identity>;
+    /**
+     * A person or organization that funded the dataset.
+     */
+    'funder'?: NodeRelations<Identity>;
+    /**
+     * Identifies academic articles that are recommended by the data provider.
+     * Can be the article text, URL, or DOI.
+     */
+    'citation'?: Arrayable<string>;
+    /**
+     * A license document that applies to this content, typically indicated by URL.
+     * Can also be the license text.
+     */
+    'license'?: Arrayable<string | Thing>;
+    /**
+     * The time period that the dataset covers, in ISO 8601 format.
+     * Examples:
+     * - Single date: "2008"
+     * - Time period: "2007-03-01T13:00:00Z/2008-05-11T15:30:00Z"
+     * - Open-ended: "2007-03-01T13:00:00Z/.."
+     */
+    'temporalCoverage'?: string;
+    /**
+     * The geographic area covered by the dataset.
+     * Can be a place name, coordinates, or a shape.
+     */
+    'spatialCoverage'?: Arrayable<string | Thing>;
+    /**
+     * A download location for the dataset or a DataDownload object with distribution information.
+     */
+    'distribution'?: NodeRelations<DataDownload>;
+    /**
+     * Datasets included in this dataset.
+     */
+    'hasPart'?: NodeRelations<Dataset | string>;
+    /**
+     * A dataset that contains this dataset.
+     */
+    'isPartOf'?: NodeRelations<Dataset | string>;
+    /**
+     * The variables that are measured in the dataset.
+     * Can be text descriptions or PropertyValue objects.
+     */
+    'variableMeasured'?: Arrayable<string | Thing>;
+    /**
+     * The technique, technology, or methodology used in the dataset.
+     */
+    'measurementTechnique'?: Arrayable<string | Thing>;
+    /**
+     * A data catalog which contains this dataset.
+     */
+    'includedInDataCatalog'?: NodeRelation<DataCatalog>;
+    /**
+     * Indicates whether the dataset is accessible for free.
+     */
+    'isAccessibleForFree'?: boolean;
+    /**
+     * The date on which the dataset was published, in ISO 8601 format.
+     */
+    'datePublished'?: ResolvableDate;
+    /**
+     * The date on which the dataset was most recently modified, in ISO 8601 format.
+     */
+    'dateModified'?: ResolvableDate;
+    /**
+     * The version number or identifier for this dataset.
+     */
+    'version'?: number | string;
+    /**
+     * A link to the license document or terms of use.
+     */
+    'sameAs'?: Arrayable<string>;
+    /**
+     * An identifier for the dataset, such as a DOI.
+     */
+    'identifier'?: Arrayable<PropertyValue | string>;
+}
+interface Dataset extends DatasetSimple {
+}
+declare const PrimaryDatasetId = "#dataset";
+/**
+ * Describes a Dataset on a WebPage.
+ * A dataset is a body of structured information describing some topic(s) of interest.
+ */
+declare const datasetResolver: SchemaOrgNodeDefinition<Dataset, Dataset>;
+
+interface DiscussionContentFields {
+    image?: NodeRelations<ImageObject | string>;
+    text?: string;
+    video?: NodeRelations<VideoObject>;
+}
+type DiscussionContent = (DiscussionContentFields & {
+    text: string;
+}) | (DiscussionContentFields & {
+    image: NodeRelations<ImageObject | string>;
+}) | (DiscussionContentFields & {
+    video: NodeRelations<VideoObject>;
+});
+interface DiscussionCommentBase extends Thing {
+    '@type'?: 'Comment';
+    'author': NodeRelation<Identity>;
+    'datePublished': ResolvableDate;
+    'comment'?: NodeRelations<DiscussionComment>;
+    'commentCount'?: number;
+    'creativeWorkStatus'?: 'Deleted' | (string & Record<never, never>);
+    'dateModified'?: ResolvableDate;
+    'digitalSourceType'?: DigitalSourceType;
+    'interactionStatistic'?: NodeRelations<InteractionCounter>;
+    'sharedContent'?: NodeRelation<WebPage | ImageObject | VideoObject | DiscussionForumPosting | DiscussionComment>;
+    'url'?: string;
+}
+type DiscussionComment = DiscussionCommentBase & DiscussionContent;
+interface DiscussionForumPostingBase extends Thing {
+    '@type'?: 'DiscussionForumPosting' | 'SocialMediaPosting';
+    'author': NodeRelation<Identity>;
+    'datePublished': ResolvableDate;
+    'comment'?: NodeRelations<DiscussionComment>;
+    'commentCount'?: number;
+    'creativeWorkStatus'?: 'Deleted' | (string & Record<never, never>);
+    'dateModified'?: ResolvableDate;
+    'digitalSourceType'?: DigitalSourceType;
+    'headline'?: string;
+    'interactionStatistic'?: NodeRelations<InteractionCounter>;
+    'isPartOf'?: NodeRelation<Thing | string>;
+    'sharedContent'?: NodeRelation<WebPage | ImageObject | VideoObject | DiscussionForumPosting | DiscussionComment>;
+    'url'?: string;
+}
+type ExternalDiscussionContent = DiscussionContentFields & {
+    url: string;
+};
+type DiscussionForumPostingSimple = DiscussionForumPostingBase & (DiscussionContent | ExternalDiscussionContent);
+type DiscussionForumPosting = DiscussionForumPostingSimple;
+declare const discussionCommentResolver: SchemaOrgNodeDefinition<DiscussionComment, DiscussionComment>;
+declare const discussionForumPostingResolver: SchemaOrgNodeDefinition<DiscussionForumPostingSimple, DiscussionForumPostingSimple>;
+
+interface EmployerAggregateRatingBase extends Thing {
+    '@type'?: 'EmployerAggregateRating';
+    'itemReviewed': NodeRelation<Organization>;
+    'ratingValue': number | string;
+    'bestRating'?: number;
+    'worstRating'?: number;
+}
+type EmployerRatingCount = {
+    ratingCount: number;
+    reviewCount?: number;
+} | {
+    ratingCount?: number;
+    reviewCount: number;
+};
+type EmployerAggregateRatingSimple = EmployerAggregateRatingBase & EmployerRatingCount;
+type EmployerAggregateRating = EmployerAggregateRatingSimple;
+declare const employerAggregateRatingResolver: SchemaOrgNodeDefinition<EmployerAggregateRatingSimple, EmployerAggregateRatingSimple>;
+
+interface PlaceSimple extends Thing {
+    '@type'?: 'Place';
+    'name': string;
+    'address': NodeRelation<PostalAddress | string>;
+    'latitude'?: number | string;
+    'longitude'?: number | string;
+}
+interface Place extends PlaceSimple {
+}
+/**
+ * Describes a HowTo guide, which contains a series of steps.
+ */
+declare const placeResolver: SchemaOrgNodeDefinition<Place, Place>;
+
+interface VirtualLocationSimple extends Thing {
+    '@type'?: 'VirtualLocation';
+    'url': string;
+}
+interface VirtualLocation extends VirtualLocationSimple {
+}
+/**
+ * Describes a HowTo guide, which contains a series of steps.
+ */
+declare const virtualLocationResolver: SchemaOrgNodeDefinition<VirtualLocation, string | VirtualLocation>;
+
+type EventAttendanceModeTypes = 'OfflineEventAttendanceMode' | 'OnlineEventAttendanceMode' | 'MixedEventAttendanceMode';
+type EventStatusTypes = 'EventCancelled' | 'EventMovedOnline' | 'EventPostponed' | 'EventRescheduled' | 'EventScheduled';
+interface EventSimple extends Thing {
+    /**
+     * The name of the event.
+     */
+    name: string;
+    /**
+     * Description of the event.
+     * Describe all details of the event to make it easier for users to understand and attend the event.
+     */
+    description?: string;
+    /**
+     * The end date and time of the item (in ISO 8601 date format).
+     */
+    endDate?: ResolvableDate;
+    /**
+     * The eventAttendanceMode of an event indicates whether it occurs online, offline, or a mix.
+     */
+    eventAttendanceMode?: OptionalSchemaOrgPrefix<EventAttendanceModeTypes>;
+    /**
+     * An eventStatus of an event represents its status; particularly useful when an event is cancelled or rescheduled.
+     */
+    eventStatus?: OptionalSchemaOrgPrefix<EventStatusTypes>;
+    /**
+     * Repeated ImageObject or URL
+     *
+     * URL of an image or logo for the event or tour.
+     * Including an image helps users understand and engage with your event.
+     * We recommend that images are 1920px wide (the minimum width is 720px).
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * The location of the event.
+     * There are different requirements depending on if the event is happening online or at a physical location
+     */
+    location?: NodeRelations<Place | VirtualLocation | string>;
+    /**
+     * An offer to provide this item—for example, an offer to sell a product,
+     * rent the DVD of a movie, perform a service, or give away tickets to an event.
+     * Use businessFunction to indicate the kind of transaction offered, i.e. sell, lease, etc.
+     * This property can also be used to describe a Demand.
+     * While this property is listed as expected on a number of common types, it can be used in others.
+     * In that case, using a second type, such as Product or a subtype of Product, can clarify the nature of the offer.
+     */
+    offers?: NodeRelations<Offer | string>;
+    /**
+     * An organizer of an Event.
+     */
+    organizer?: NodeRelation<Identity>;
+    /**
+     * A performer at the event—for example, a presenter, musician, musical group or actor.
+     */
+    performer?: NodeRelations<Person | PerformingGroup>;
+    /**
+     * Used in conjunction with eventStatus for rescheduled or cancelled events.
+     * This property contains the previously scheduled start date.
+     * For rescheduled events, the startDate property should be used for the newly scheduled start date.
+     * In the (rare) case of an event that has been postponed and rescheduled multiple times, this field may be repeated.
+     */
+    previousStartDate?: Arrayable<ResolvableDate>;
+    /**
+     * The start date and time of the item (in ISO 8601 date format).
+     */
+    startDate?: ResolvableDate;
+    /**
+     * The duration of the item (movie, audio recording, event, etc.) in ISO 8601 date format.
+     */
+    duration?: string;
+    /**
+     * Indicates whether an event is accessible for free.
+     */
+    isAccessibleForFree?: boolean;
+    /**
+     * The total number of individuals that may attend an event or venue.
+     */
+    maximumAttendeeCapacity?: number;
+}
+interface Event extends EventSimple {
+}
+interface PerformingGroup extends Thing {
+    '@type'?: 'PerformingGroup';
+    'name': string;
+    'url'?: string;
+}
+declare const PrimaryEventId = "#event";
+/**
+ * Describes an Event.
+ */
+declare const eventResolver: SchemaOrgNodeDefinition<Event, Event>;
+
+type DayOfWeek = OptionalSchemaOrgPrefix<'Friday' | 'Monday' | 'PublicHolidays' | 'Saturday' | 'Sunday' | 'Thursday' | 'Tuesday' | 'Wednesday'>;
+type Time = `${number}${number}:${number}${number}` | `${number}${number}:${number}${number}:${number}${number}`;
+interface OpeningHoursSimple extends Thing {
+    '@type'?: 'OpeningHoursSpecification';
+    /**
+     * The day of the week for which these opening hours are valid.
+     */
+    'dayOfWeek'?: Arrayable<DayOfWeek>;
+    /**
+     * The opening hour of the place or service on the given day(s) of the week.
+     */
+    'opens'?: Time;
+    /**
+     * The closing hour of the place or service on the given day(s) of the week.
+     */
+    'closes'?: Time;
+    /**
+     * The date when the item becomes valid.
+     */
+    'validFrom'?: ResolvableDate;
+    /**
+     * The date after when the item is not valid. For example, the end of an offer, salary period, or a period of opening hours.
+     */
+    'validThrough'?: ResolvableDate;
+}
+interface OpeningHoursSpecification extends OpeningHoursSimple {
+}
+declare const openingHoursResolver: SchemaOrgNodeDefinition<OpeningHoursSpecification, OpeningHoursSpecification>;
+
+interface RatingSimple extends Thing {
+    '@type'?: 'Rating';
+    /**
+     * A numerical quality rating for the item, either a number, fraction, or percentage
+     * (for example, "4", "60%", or "6 / 10").
+     * Google understands the scale for fractions and percentages,
+     * since the scale is implied in the fraction itself or the percentage.
+     * The default scale for numbers is a 5-point scale, where 1 is the lowest value and 5 is the highest value.
+     * If another scale is intended, use bestRating and worstRating.
+     */
+    'ratingValue': number | string;
+    /**
+     * The highest value allowed in this rating system. If bestRating is omitted, 5 is assumed.
+     */
+    'bestRating'?: number | string;
+    /**
+     * The lowest value allowed in this rating system. If worstRating is omitted, 1 is assumed.
+     */
+    'worstRating'?: number | string;
+}
+interface Rating extends RatingSimple {
+}
+declare const ratingResolver: SchemaOrgNodeDefinition<Rating, number | Rating>;
+
+interface ReviewSimple extends Thing {
+    /**
+     * A title for the review.
+     */
+    name?: string;
+    /**
+     * The author of the review.
+     */
+    author: NodeRelation<Identity | string>;
+    /**
+     * An answer object, with a text property which contains the answer to the question.
+     */
+    reviewRating: NodeRelation<Rating | number>;
+    /**
+     * The language code for the question; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * The date that the review was published, in ISO 8601 date format.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The date of the experience described by the review, in ISO 8601 format.
+     */
+    contentReferenceTime?: ResolvableDate;
+    /**
+     * The text content of the review.
+     */
+    reviewBody?: string;
+    /**
+     * The item being reviewed. Required when Review is a standalone root.
+     */
+    itemReviewed?: NodeRelation<Thing>;
+    /**
+     * Positive notes about a product.
+     */
+    positiveNotes?: NodeRelation<ItemList>;
+    /**
+     * Negative notes about a product.
+     */
+    negativeNotes?: NodeRelation<ItemList>;
+}
+interface Review extends ReviewSimple {
+}
+declare const reviewResolver: SchemaOrgNodeDefinition<Review, Review>;
+
+type ValidLocalBusinessSubTypes = 'AnimalShelter' | 'ArchiveOrganization' | 'AutomotiveBusiness' | 'ChildCare' | 'Dentist' | 'DryCleaningOrLaundry' | 'EmergencyService' | 'EmploymentAgency' | 'EntertainmentBusiness' | 'FinancialService' | 'FoodEstablishment' | 'GovernmentOffice' | 'HealthAndBeautyBusiness' | 'HomeAndConstructionBusiness' | 'InternetCafe' | 'LegalService' | 'Library' | 'LodgingBusiness' | 'MedicalBusiness' | 'ProfessionalService' | 'RadioStation' | 'RealEstateAgent' | 'RecyclingCenter' | 'SelfStorage' | 'ShoppingCenter' | 'SportsActivityLocation' | 'Store' | 'TelevisionStation' | 'TouristInformationCenter' | 'TravelAgency';
+interface LocalBusinessSimple extends Organization {
+    '@type'?: ['Organization', 'LocalBusiness'] | ['Organization', 'LocalBusiness', ValidLocalBusinessSubTypes] | ValidLocalBusinessSubTypes;
+    /**
+     * The primary public telephone number of the business.
+     */
+    'telephone'?: string;
+    /**
+     * The primary public email address of the business.
+     */
+    'email'?: string;
+    /**
+     * The primary public fax number of the business.
+     */
+    'faxNumber'?: string;
+    /**
+     * The price range of the business, represented by a string of dollar symbols (e.g., $, $$, or $$$ ).
+     */
+    'priceRange'?: string;
+    /**
+     * An array of GeoShape, Place or string definitions.
+     */
+    'areaServed'?: Arrayable<string | Thing>;
+    /**
+     * The VAT ID of the business.
+     */
+    'vatID'?: string;
+    /**
+     * The tax ID of the business.
+     */
+    'taxID'?: string;
+    /**
+     * The currency accepted.
+     */
+    'currenciesAccepted'?: string;
+    /**
+     * The methods of payment accepted by the business.
+     */
+    'paymentAccepted'?: string;
+    /**
+     * The operating hours of the business.
+     */
+    'openingHoursSpecification'?: NodeRelations<OpeningHoursSpecification>;
+    /**
+     * The physical address required by Google for LocalBusiness results.
+     */
+    'address': NodeRelations<PostalAddress>;
+    /**
+     * The average rating of the business.
+     */
+    'aggregateRating'?: NodeRelation<AggregateRating>;
+    /**
+     * Departments within the business.
+     */
+    'department'?: NodeRelations<LocalBusiness>;
+    /**
+     * Geographic coordinates of the business.
+     */
+    'geo'?: NodeRelation<GeoCoordinates>;
+    /**
+     * The menu URL for a food establishment.
+     */
+    'menu'?: string;
+    /**
+     * Reviews of the business.
+     */
+    'review'?: NodeRelations<Review>;
+    /**
+     * The cuisine served by a food establishment.
+     */
+    'servesCuisine'?: Arrayable<string>;
+}
+interface LocalBusiness extends LocalBusinessSimple {
+}
+/**
+ * Describes a business which allows public visitation.
+ * Typically, used to represent the business 'behind' the website, or on a page about a specific business.
+ */
+declare const localBusinessResolver: SchemaOrgNodeDefinition<LocalBusiness, LocalBusiness>;
+
+type ValidFoodEstablishmentSubTypes = 'Bakery' | 'BarOrPub' | 'Brewery' | 'Dentist' | 'CafeOrCoffeeShop' | 'Distillery' | 'FastFoodRestaurant' | 'IceCreamShop' | 'Restaurant' | 'Winery';
+interface FoodEstablishmentSimple extends Omit<LocalBusiness, '@type'> {
+    '@type'?: ['Organization', 'LocalBusiness', 'FoodEstablishment'] | ['Organization', 'LocalBusiness', 'FoodEstablishment', ValidFoodEstablishmentSubTypes] | ValidFoodEstablishmentSubTypes;
+    /**
+     * Indicates whether a FoodEstablishment accepts reservations.
+     */
+    'acceptsReservations'?: string | boolean;
+    /**
+     * URL of the menu.
+     */
+    'hasMenu'?: string;
+    /**
+     * Methods of payment accepted.
+     */
+    'paymentAccepted'?: string;
+    /**
+     * The cuisine of the restaurant.
+     */
+    'servesCuisine'?: string;
+    /**
+     * An official rating for a lodging business or food establishment
+     */
+    'starRating'?: NodeRelations<Rating>;
+}
+interface FoodEstablishment extends FoodEstablishmentSimple {
+}
+/**
+ * Describes a business which allows public visitation.
+ * Typically, used to represent the business 'behind' the website, or on a page about a specific business.
+ */
+declare const foodEstablishmentResolver: SchemaOrgNodeDefinition<FoodEstablishment, FoodEstablishment>;
+
+interface HowToDirection extends Thing {
+    /**
+     * The text of the direction or tip.
+     */
+    text: string;
+}
+/**
+ * Describes the text of a direction or tip for a step in a HowTo guide.
+ */
+declare const howToStepDirectionResolver: SchemaOrgNodeDefinition<HowToDirection, string | HowToDirection>;
+
+interface HowToStepBase extends Thing {
+    /**
+     * A link to a fragment identifier (an 'ID anchor') of the individual step
+     * (e.g., https://www.example.com/example-page/#recipe-step-5).
+     */
+    url?: string;
+    /**
+     * The instruction string
+     * ("e.g., "Bake at 200*C for 40 minutes, or until golden-brown, stirring periodically throughout").
+     */
+    /**
+     * The word or short phrase summarizing the step (for example, "Attach wires to post" or "Dig").
+     * Don't use non-descriptive text (for example, "Step 1: [text]") or other form of step number (for example, "1. [text]").
+     */
+    name?: string;
+    /**
+     * An image representing the step, referenced by ID.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * A video for this step or a clip of the video.
+     */
+    video?: NodeRelations<VideoObject | string>;
+    /**
+     * A list of detailed substeps, including directions or tips.
+     */
+    itemListElement?: NodeRelations<HowToDirection | string>;
+}
+type HowToStepContent = {
+    text: string;
+    itemListElement?: NodeRelations<HowToDirection | string>;
+} | {
+    text?: string;
+    itemListElement: NodeRelations<HowToDirection | string>;
+};
+type HowToStepSimple = HowToStepBase & HowToStepContent;
+type HowToStep = HowToStepSimple;
+/**
+ * Describes a HowTo guide, which contains a series of steps.
+ */
+declare const howToStepResolver: SchemaOrgNodeDefinition<HowToStepSimple, string | HowToStepSimple>;
+
+/**
+ * Instructions that explain how to achieve a result by performing a sequence of steps.
+ */
+interface HowToSimple extends Thing {
+    /**
+     * A string describing the guide.
+     */
+    name: string;
+    /**
+     * An array of howToStep objects
+     */
+    step: NodeRelations<HowToStep | string>;
+    /**
+     * The total time required to perform all instructions or directions (including time to prepare the supplies),
+     * in ISO 8601 duration format.
+     */
+    totalTime?: string;
+    /**
+     * Introduction or description content relating to the HowTo guide.
+     */
+    description?: string;
+    /**
+     * The language code for the guide; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * The estimated cost of the supplies consumed when performing instructions.
+     */
+    estimatedCost?: string | MonetaryAmount;
+    /**
+     * Image of the completed how-to.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * A supply consumed when performing instructions or a direction.
+     */
+    supply?: string | Thing;
+    /**
+     * An object used (but not consumed) when performing instructions or a direction.
+     */
+    tool?: string | Thing;
+    /**
+     * A video of the how-to. Follow the list of required and recommended Video properties.
+     * Mark steps of the video with hasPart.
+     */
+    video?: NodeRelations<VideoObject | string>;
+    /**
+     * The time required to prepare for the how-to, in ISO 8601 duration format.
+     */
+    prepTime?: string;
+    /**
+     * The time it takes to perform the how-to, in ISO 8601 duration format.
+     */
+    performTime?: string;
+    /**
+     * The quantity that results from performing the how-to.
+     */
+    yield?: string;
+}
+interface HowTo extends HowToSimple {
+}
+interface HowToSection extends Thing {
+    '@type'?: 'HowToSection';
+    'name': string;
+    'itemListElement': NodeRelations<HowToStep | string>;
+}
+declare const howToSectionResolver: SchemaOrgNodeDefinition<HowToSection, HowToSection>;
+declare const HowToId = "#howto";
+/**
+ * Describes a HowTo guide, which contains a series of steps.
+ */
+declare const howToResolver: SchemaOrgNodeDefinition<HowTo, HowTo>;
+
+/**
+ * A listing that describes a job opening in a certain organization.
+ */
+interface JobPostingSimple extends Thing {
+    /**
+     * The original date that employer posted the job in ISO 8601 format.
+     * For example, "2017-01-24" or "2017-01-24T19:33:17+00:00".
+     */
+    datePosted: ResolvableDate;
+    /**
+     * The full description of the job in HTML format.
+     *
+     * The description must be a complete representation of the job, including job responsibilities, qualifications,
+     * skills, working hours, education requirements, and experience requirements. The description can't be the same as
+     * the title
+     */
+    description: string;
+    /**
+     * The organization offering the job position. This must be the name of the company (for example, "Starbucks, Inc"),
+     * and not the specific location that is hiring (for example, "Starbucks on Main Street").
+     */
+    hiringOrganization: NodeRelation<Organization>;
+    /**
+     * The title of the job (not the title of the posting). For example, "Software Engineer" or "Barista"
+     */
+    title: string;
+    /**
+     * The actual base salary for the job, as provided by the employer (not an estimate).
+     */
+    baseSalary?: NodeRelation<MonetaryAmount>;
+    /**
+     * Type of employment
+     */
+    employmentType?: EmploymentType | EmploymentType[];
+    /**
+     * The date when the job posting will expire in ISO 8601 format. For example, "2017-02-24"
+     * or "2017-02-24T19:33:17+00:00".
+     */
+    validThrough?: ResolvableDate;
+    /**
+     * Indicates whether the URL that's associated with this job posting enables direct application for the job.
+     */
+    directApply?: boolean;
+    /**
+     * Description of benefits associated with the job.
+     */
+    jobBenefits?: string;
+    /**
+     * Educational credentials or qualifications required for the job.
+     */
+    educationRequirements?: NodeRelations<EducationalOccupationalCredential | string>;
+    /**
+     * Description of the level of experience required for the job.
+     */
+    experienceRequirements?: NodeRelations<OccupationalExperienceRequirements | string>;
+    /**
+     * Skills, abilities, or knowledge needed for the job.
+     */
+    qualifications?: string;
+    /**
+     * An employer-specific identifier for the job.
+     */
+    identifier?: NodeRelation<PropertyValue | string>;
+    /**
+     * Whether experience can substitute for education.
+     */
+    experienceInPlaceOfEducation?: boolean;
+}
+interface EducationalOccupationalCredential extends Thing {
+    '@type'?: 'EducationalOccupationalCredential';
+    'credentialCategory'?: string;
+}
+interface OccupationalExperienceRequirements extends Thing {
+    '@type'?: 'OccupationalExperienceRequirements';
+    'monthsOfExperience'?: number;
+}
+interface JobLocationRequirement extends Thing {
+    '@type'?: 'AdministrativeArea' | 'Country' | 'State';
+    'name': string;
+}
+type JobLocation = {
+    jobLocation: NodeRelations<Place>;
+    jobLocationType?: never;
+    applicantLocationRequirements?: NodeRelations<JobLocationRequirement>;
+} | {
+    jobLocation?: NodeRelations<Place>;
+    jobLocationType: 'TELECOMMUTE';
+    applicantLocationRequirements: NodeRelations<JobLocationRequirement>;
+};
+type JobPosting = JobPostingSimple & JobLocation;
+declare const jobPostingResolver: SchemaOrgNodeDefinition<JobPosting, JobPosting>;
+type EmploymentType = 'FULL_TIME' | 'PART_TIME' | 'CONTRACTOR' | 'TEMPORARY' | 'INTERN' | 'VOLUNTEER' | 'PER_DIEM' | 'OTHER';
+
+interface SolveMathAction extends Thing {
+    '@type'?: 'SolveMathAction';
+    'target': string;
+    'mathExpression-input': 'required name=math_expression_string';
+    'eduQuestionType'?: Arrayable<string>;
+}
+interface MathSolverSimple extends Thing {
+    '@type'?: Arrayable<'MathSolver' | 'LearningResource'>;
+    'potentialAction': Arrayable<SolveMathAction>;
+    'url': string;
+    'usageInfo': string;
+    'assesses'?: Arrayable<string>;
+    'inLanguage'?: Arrayable<string>;
+    'learningResourceType'?: 'Math Solver';
+}
+interface MathSolver extends MathSolverSimple {
+}
+declare const mathSolverResolver: SchemaOrgNodeDefinition<MathSolver, MathSolver>;
+
+interface MovieSimple extends Thing {
+    /**
+     * An image that represents the movie.
+     */
+    image: NodeRelations<string | ImageObject>;
+    /**
+     * The name of the movie.
+     */
+    name: string;
+    /**
+     * Annotation for the average review score assigned to the movie.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * The date the movie was released.
+     */
+    dateCreated?: ResolvableDate;
+    /**
+     * The director of the movie.
+     */
+    director?: NodeRelations<Person | string>;
+    /**
+     * The actor of the movie.
+     */
+    actor?: NodeRelations<Person | string>;
+    /**
+     * A nested Review of the movie.
+     */
+    review?: NodeRelations<Review>;
+    /**
+     * The trailer of a movie or TV/radio series, season, episode, etc.
+     */
+    trailer?: NodeRelations<string | VideoObject>;
+    /**
+     * The duration of the movie.
+     */
+    duration?: string;
+    /**
+     * The genre of the movie.
+     */
+    genre?: string;
+    /**
+     * The content rating of the movie.
+     */
+    contentRating?: string;
+    /**
+     * The production company of the movie.
+     */
+    productionCompany?: NodeRelation<Organization>;
+}
+interface Movie extends MovieSimple {
+}
+declare const movieResolver: SchemaOrgNodeDefinition<Movie, Movie>;
+
+/**
+ * A collection of music tracks in album form.
+ */
+interface MusicAlbumSimple extends Thing {
+    /**
+     * The name of the music album.
+     */
+    name: string;
+    /**
+     * A description of the music album.
+     */
+    description?: string;
+    /**
+     * The artist that performed this album.
+     * Can be a Person or MusicGroup reference.
+     */
+    byArtist?: NodeRelations<Person | string>;
+    /**
+     * A music recording (track) on this album.
+     */
+    track?: NodeRelations<string>;
+    /**
+     * The kind of release which this album is.
+     * For example: "StudioAlbum", "LiveAlbum", "CompilationAlbum", "RemixAlbum", "SoundtrackAlbum", etc.
+     */
+    albumProductionType?: string;
+    /**
+     * The kind of release which this album is.
+     * For example: "AlbumRelease", "SingleRelease", "EPRelease", "BroadcastRelease", etc.
+     */
+    albumReleaseType?: string;
+    /**
+     * The date the music album was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * Genre of the music album.
+     */
+    genre?: string | string[];
+    /**
+     * The number of tracks in this album.
+     */
+    numTracks?: number;
+    /**
+     * An image representing the music album (album art).
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * A URL to a page about the music album.
+     */
+    url?: string;
+    /**
+     * Annotation for the average review score assigned to the music album.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * A nested Review of the music album.
+     */
+    review?: NodeRelations<Review>;
+}
+interface MusicAlbum extends MusicAlbumSimple {
+}
+/**
+ * Describes a music album.
+ */
+declare const musicAlbumResolver: SchemaOrgNodeDefinition<MusicAlbum, MusicAlbum>;
+
+/**
+ * A musical group, such as a band, an orchestra, or a choir.
+ */
+interface MusicGroupSimple extends Thing {
+    /**
+     * The name of the music group.
+     */
+    name: string;
+    /**
+     * A description of the music group.
+     */
+    description?: string;
+    /**
+     * Genre of the music group.
+     */
+    genre?: string | string[];
+    /**
+     * A member of the music group.
+     */
+    member?: NodeRelations<Person | string>;
+    /**
+     * The date the music group was founded.
+     */
+    foundingDate?: ResolvableDate;
+    /**
+     * The date the music group dissolved (if applicable).
+     */
+    dissolutionDate?: ResolvableDate;
+    /**
+     * A music album released by this group.
+     */
+    album?: NodeRelations<string>;
+    /**
+     * A music recording (track) by this group.
+     */
+    track?: NodeRelations<string>;
+    /**
+     * A URL to a page about the music group.
+     */
+    url?: string;
+    /**
+     * An image representing the music group.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * An array of URLs representing declared social/authoritative profiles of the music group
+     * (e.g., a Wikipedia page, Facebook profile, or official website).
+     */
+    sameAs?: Arrayable<string>;
+}
+interface MusicGroup extends MusicGroupSimple {
+}
+/**
+ * Describes a musical group, such as a band, an orchestra, or a choir.
+ */
+declare const musicGroupResolver: SchemaOrgNodeDefinition<MusicGroup, MusicGroup>;
+
+/**
+ * A collection of music tracks in playlist form.
+ */
+interface MusicPlaylistSimple extends Thing {
+    /**
+     * The name of the music playlist.
+     */
+    name: string;
+    /**
+     * A description of the music playlist.
+     */
+    description?: string;
+    /**
+     * The number of tracks in this playlist.
+     */
+    numTracks?: number;
+    /**
+     * A music recording (track) in this playlist.
+     */
+    track?: NodeRelations<string>;
+    /**
+     * The creator/curator of the playlist.
+     * Can be a Person or MusicGroup reference.
+     */
+    creator?: NodeRelation<Person | string>;
+    /**
+     * The date the music playlist was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The date the music playlist was last modified.
+     */
+    dateModified?: ResolvableDate;
+    /**
+     * A URL to a page about the music playlist.
+     */
+    url?: string;
+    /**
+     * An image representing the music playlist.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * Annotation for the average review score assigned to the music playlist.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+}
+interface MusicPlaylist extends MusicPlaylistSimple {
+}
+/**
+ * Describes a collection of music tracks in playlist form.
+ */
+declare const musicPlaylistResolver: SchemaOrgNodeDefinition<MusicPlaylist, MusicPlaylist>;
+
+/**
+ * A music recording (track), typically a single song.
+ */
+interface MusicRecordingSimple extends Thing {
+    /**
+     * The name of the music recording.
+     */
+    name: string;
+    /**
+     * A description of the music recording.
+     */
+    description?: string;
+    /**
+     * The duration of the music recording in ISO 8601 format (e.g., PT4M23S for 4 minutes 23 seconds).
+     */
+    duration?: string;
+    /**
+     * The artist that performed this recording.
+     * Can be a Person or MusicGroup reference.
+     */
+    byArtist?: NodeRelations<Person | string>;
+    /**
+     * The album to which this recording belongs.
+     */
+    inAlbum?: NodeRelation<string>;
+    /**
+     * The playlist(s) this recording belongs to.
+     */
+    inPlaylist?: NodeRelations<string>;
+    /**
+     * The International Standard Recording Code for the recording.
+     */
+    isrcCode?: string;
+    /**
+     * The composition this recording is a performance of.
+     */
+    recordingOf?: NodeRelation<string>;
+    /**
+     * The date the music recording was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * Genre of the music recording.
+     */
+    genre?: string | string[];
+    /**
+     * A URL to a page about the music recording.
+     */
+    url?: string;
+    /**
+     * A URL to the audio file.
+     */
+    audio?: string;
+    /**
+     * An image representing the music recording (typically album art).
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * Annotation for the average review score assigned to the music recording.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+}
+interface MusicRecording extends MusicRecordingSimple {
+}
+/**
+ * Describes a music recording (track), typically a single song.
+ */
+declare const musicRecordingResolver: SchemaOrgNodeDefinition<MusicRecording, MusicRecording>;
+
+interface PodcastSeriesSimple extends Thing {
+    /**
+     * The name of the podcast.
+     */
+    name: string;
+    /**
+     * A description of the podcast.
+     */
+    description?: string;
+    /**
+     * An image that represents the podcast.
+     */
+    image?: NodeRelations<string | ImageObject>;
+    /**
+     * The URL of the podcast.
+     */
+    url?: string;
+    /**
+     * The author/creator of the podcast.
+     */
+    author?: NodeRelations<Person | Organization | string>;
+    /**
+     * The URL of the podcast RSS feed.
+     */
+    webFeed?: string;
+    /**
+     * The episodes that are part of this podcast series.
+     */
+    episode?: NodeRelations<PodcastEpisode>;
+    /**
+     * The seasons that are part of this podcast series.
+     */
+    containsSeason?: NodeRelations<PodcastSeason>;
+    /**
+     * The number of episodes in the podcast series.
+     */
+    numberOfEpisodes?: number;
+    /**
+     * The number of seasons in the podcast series.
+     */
+    numberOfSeasons?: number;
+    /**
+     * The genre of the podcast.
+     */
+    genre?: string | string[];
+    /**
+     * The date the podcast was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The start date of the podcast.
+     */
+    startDate?: ResolvableDate;
+    /**
+     * The end date of the podcast (if no longer active).
+     */
+    endDate?: ResolvableDate;
+    /**
+     * Annotation for the average review score assigned to the podcast.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * The language code for the podcast content; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * Keywords or tags used to describe the podcast.
+     */
+    keywords?: Arrayable<string>;
+}
+interface PodcastSeries extends PodcastSeriesSimple {
+}
+/**
+ * Describes a podcast series.
+ */
+declare const podcastSeriesResolver: SchemaOrgNodeDefinition<PodcastSeries, PodcastSeries>;
+
+interface PodcastSeasonSimple extends Thing {
+    /**
+     * The name of the podcast season.
+     */
+    name?: string;
+    /**
+     * A description of the podcast season.
+     */
+    description?: string;
+    /**
+     * The season number.
+     */
+    seasonNumber?: number;
+    /**
+     * The number of episodes in the season.
+     */
+    numberOfEpisodes?: number;
+    /**
+     * The podcast series that this season is part of.
+     */
+    partOfSeries?: NodeRelation<PodcastSeries>;
+    /**
+     * The episodes that are part of this season.
+     */
+    episode?: NodeRelations<PodcastEpisode>;
+    /**
+     * The date the season was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The start date of the season.
+     */
+    startDate?: ResolvableDate;
+    /**
+     * The end date of the season.
+     */
+    endDate?: ResolvableDate;
+    /**
+     * An image that represents the season.
+     */
+    image?: NodeRelations<string | ImageObject>;
+    /**
+     * The URL of the season.
+     */
+    url?: string;
+    /**
+     * The actors in the podcast season.
+     */
+    actor?: NodeRelations<Person | string>;
+    /**
+     * The directors of the podcast season.
+     */
+    director?: NodeRelations<Person | string>;
+    /**
+     * The production company or studio responsible for the podcast season.
+     */
+    productionCompany?: NodeRelation<Organization | string>;
+    /**
+     * Annotation for the average review score assigned to the podcast season.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+}
+interface PodcastSeason extends PodcastSeasonSimple {
+}
+/**
+ * Describes a season of a podcast series.
+ */
+declare const podcastSeasonResolver: SchemaOrgNodeDefinition<PodcastSeason, PodcastSeason>;
+
+interface PodcastEpisodeSimple extends Thing {
+    /**
+     * The name of the episode.
+     */
+    name: string;
+    /**
+     * A description of the episode.
+     */
+    description?: string;
+    /**
+     * The episode number.
+     */
+    episodeNumber?: number | string;
+    /**
+     * The season that this episode is part of.
+     */
+    partOfSeason?: NodeRelation<PodcastSeason>;
+    /**
+     * The podcast series that this episode is part of.
+     */
+    partOfSeries?: NodeRelation<PodcastSeries>;
+    /**
+     * The creator/host of the episode.
+     */
+    author?: NodeRelations<Person | Organization | string>;
+    /**
+     * The date the episode was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The date the episode was uploaded.
+     */
+    uploadDate?: ResolvableDate;
+    /**
+     * The duration of the episode in ISO 8601 format (e.g., PT45M).
+     */
+    duration?: string;
+    /**
+     * The audio file URL or MediaObject for the episode.
+     */
+    audio?: NodeRelation<Thing | string>;
+    /**
+     * An image that represents the episode.
+     */
+    image?: NodeRelations<string | ImageObject>;
+    /**
+     * A thumbnail image for the episode.
+     */
+    thumbnailUrl?: string;
+    /**
+     * The URL of the episode.
+     */
+    url?: string;
+    /**
+     * A URL to a transcript of the episode.
+     */
+    transcript?: string;
+    /**
+     * Annotation for the average review score assigned to the episode.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * A nested Review of the episode.
+     */
+    review?: NodeRelations<Review>;
+    /**
+     * The language code for the episode content; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * Keywords or tags used to describe the episode.
+     */
+    keywords?: Arrayable<string>;
+}
+interface PodcastEpisode extends PodcastEpisodeSimple {
+}
+/**
+ * Describes an episode of a podcast.
+ */
+declare const podcastEpisodeResolver: SchemaOrgNodeDefinition<PodcastEpisode, PodcastEpisode>;
+
+interface Brand extends Thing {
+    '@type'?: 'Brand';
+    'name': string;
+}
+interface PeopleAudience extends Thing {
+    '@type'?: 'PeopleAudience';
+    'audienceType'?: string;
+    'suggestedAge'?: NodeRelation<QuantitativeValue>;
+    'suggestedMaxAge'?: number;
+    'suggestedMinAge'?: number;
+    'suggestedGender'?: OptionalSchemaOrgPrefix<'Female' | 'Male'> | 'Unisex' | 'female' | 'male' | 'unisex';
+}
+interface Certification extends Thing {
+    '@type'?: 'Certification';
+    'certificationIdentification'?: string;
+    'certificationRating'?: NodeRelation<Rating>;
+    'issuedBy': NodeRelation<Organization>;
+    'name': 'EPREL' | 'Vehicle_CO2_Class' | 'Vehicle_CO2_Class_Discharged_Battery';
+    'url'?: string;
+}
+interface CategoryCode extends Thing {
+    '@type'?: 'CategoryCode';
+    'codeValue': string;
+    'inCodeSet': string;
+}
+type WearableSizeGroup = OptionalSchemaOrgPrefix<'WearableSizeGroupBig' | 'WearableSizeGroupMaternity' | 'WearableSizeGroupPetite' | 'WearableSizeGroupPlus' | 'WearableSizeGroupRegular' | 'WearableSizeGroupTall'>;
+type WearableSizeSystem = OptionalSchemaOrgPrefix<'WearableSizeSystemAU' | 'WearableSizeSystemBR' | 'WearableSizeSystemCN' | 'WearableSizeSystemDE' | 'WearableSizeSystemEurope' | 'WearableSizeSystemFR' | 'WearableSizeSystemIT' | 'WearableSizeSystemJP' | 'WearableSizeSystemMX' | 'WearableSizeSystemUK' | 'WearableSizeSystemUS'>;
+interface SizeSpecification extends Thing {
+    '@type'?: 'SizeSpecification';
+    'name'?: string;
+    'sizeGroup'?: Arrayable<WearableSizeGroup | string>;
+    'sizeSystem'?: WearableSizeSystem | string;
+}
+interface ProductGroup extends Thing {
+    '@type'?: 'ProductGroup';
+    'name': string;
+    'aggregateRating'?: NodeRelation<AggregateRating>;
+    'audience'?: NodeRelations<PeopleAudience>;
+    'brand'?: NodeRelation<Brand>;
+    'description'?: string;
+    'hasAdultConsideration'?: Arrayable<AdultConsideration>;
+    'hasVariant'?: NodeRelations<Product | ProductVariantReference>;
+    'material'?: Arrayable<string | Thing>;
+    'pattern'?: Arrayable<string>;
+    'productGroupID'?: string;
+    'review'?: NodeRelations<Review>;
+    'url'?: string;
+    'variesBy'?: Arrayable<OptionalSchemaOrgPrefix<'color' | 'material' | 'pattern' | 'size' | 'suggestedAge' | 'suggestedGender'>>;
+}
+interface ProductVariantReference extends Thing {
+    '@type'?: 'Product';
+    'url': string;
+}
+interface MediaObject extends Thing {
+    '@type'?: 'MediaObject';
+    'contentUrl': string;
+    'encodingFormat'?: string;
+}
+interface ThreeDModel extends Thing {
+    '@type'?: '3DModel';
+    'encoding': NodeRelations<MediaObject>;
+    'name'?: string;
+}
+type AdultConsideration = OptionalSchemaOrgPrefix<'SexualContentConsideration'>;
+/**
+ * Any offered product or service.
+ * For example: a pair of shoes; a concert ticket; the rental of a car;
+ * a haircut; or an episode of a TV show streamed online.
+ */
+interface ProductSimple extends Thing {
+    /**
+     * The name of the product.
+     */
+    name: string;
+    /**
+     * A reference-by-ID to one or more imageObject's which represent the product.
+     * - Must be at least 696 pixels wide.
+     * - Must be of the following formats+file extensions: .jpg, .png, .gif ,or .webp.
+     */
+    image: NodeRelations<ImageObject | string>;
+    /**
+     *  An array of references-by-ID to one or more Offer or aggregateOffer pieces.
+     */
+    offers?: NodeRelations<Offer | number>;
+    /**
+     * A Brand or Organization associated with the Product.
+     */
+    brand?: NodeRelation<Brand | Organization>;
+    /**
+     * A reference to an Organization piece which represents the seller/merchant.
+     */
+    seller?: NodeRelation<Organization>;
+    /**
+     * A text description of the product.
+     */
+    description?: string;
+    /**
+     * The product or variant URL.
+     */
+    url?: string;
+    /**
+     * An array of references-by-id to one or more Review pieces.
+     */
+    review?: NodeRelations<Review>;
+    /**
+     * A merchant-specific identifier for the Product.
+     */
+    sku?: string;
+    /**
+     * The Global Trade Item Number (GTIN) of the product.
+     */
+    gtin?: string;
+    /**
+     * The Manufacturer Part Number (MPN) of the product.
+     */
+    mpn?: string;
+    /**
+     * The condition of the product (e.g., New, Used, Refurbished).
+     */
+    itemCondition?: string;
+    /**
+     * An AggregateRating object.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * An AggregateOffer object.
+     */
+    aggregateOffer?: NodeRelation<AggregateOffer>;
+    /**
+     * A reference to an Organization piece, representing the brand which produces the Product.
+     */
+    manufacturer?: NodeRelation<Organization>;
+    audience?: NodeRelations<PeopleAudience>;
+    category?: Arrayable<NodeRelation<CategoryCode> | string>;
+    color?: Arrayable<string>;
+    gtin8?: string;
+    gtin12?: string;
+    gtin13?: string;
+    gtin14?: string;
+    isbn?: string;
+    hasAdultConsideration?: Arrayable<AdultConsideration>;
+    hasCertification?: NodeRelations<Certification>;
+    inProductGroupWithID?: string;
+    isVariantOf?: NodeRelation<ProductGroup>;
+    material?: Arrayable<string | Thing>;
+    pattern?: Arrayable<string>;
+    size?: NodeRelation<SizeSpecification | string>;
+    subjectOf?: NodeRelation<ThreeDModel>;
+}
+interface Product extends ProductSimple {
+}
+declare const ProductId = "#product";
+declare const brandResolver: SchemaOrgNodeDefinition<Brand, Brand>;
+declare const productResolver: SchemaOrgNodeDefinition<Product, Product>;
+
+/**
+ * An answer offered to a question; perhaps correct, perhaps opinionated or wrong.
+ */
+interface AnswerSimple extends Thing {
+    text: string;
+    author?: NodeRelation<Identity>;
+    comment?: NodeRelations<Comment$1>;
+    commentCount?: number;
+    dateModified?: ResolvableDate;
+    datePublished?: ResolvableDate;
+    digitalSourceType?: DigitalSourceType;
+    image?: NodeRelations<ImageObject | string>;
+    upvoteCount?: number;
+    url?: string;
+    video?: NodeRelations<VideoObject | string>;
+}
+interface Answer extends AnswerSimple {
+}
+
+/**
+ * A specific question - e.g. from a user seeking answers online, or collected in a Frequently Asked Questions (FAQ) document.
+ */
+interface QuestionSimple extends Thing {
+    /**
+     * The text content of the question.
+     */
+    name?: string;
+    /**
+     * An answer object, with a text property which contains the answer to the question.
+     */
+    acceptedAnswer?: NodeRelations<Answer | string>;
+    /**
+     * Answers that have not been accepted.
+     */
+    suggestedAnswer?: NodeRelations<Answer | string>;
+    /**
+     * The language code for the question; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * The number of answers provided for this question.
+     */
+    answerCount?: number;
+    /**
+     * The date and time the question was created.
+     */
+    dateCreated?: ResolvableDate;
+    /**
+     * The author of the question.
+     */
+    author?: NodeRelation<Identity>;
+    comment?: NodeRelations<Comment$1>;
+    commentCount?: number;
+    dateModified?: ResolvableDate;
+    datePublished?: ResolvableDate;
+    digitalSourceType?: DigitalSourceType;
+    image?: NodeRelations<ImageObject | string>;
+    text?: string;
+    upvoteCount?: number;
+    video?: NodeRelations<VideoObject | string>;
+    /**
+     * Alias for `name`
+     */
+    question?: string;
+    /**
+     * Alias for `acceptedAnswer`
+     */
+    answer?: string;
+}
+interface Question extends QuestionSimple {
+}
+/**
+ * Describes a Question. Most commonly used in FAQPage or QAPage content.
+ */
+declare const questionResolver: SchemaOrgNodeDefinition<Question, Question>;
+
+interface AlignmentObject extends Thing {
+    '@type'?: 'AlignmentObject';
+    'alignmentType': 'educationalSubject' | 'educationalLevel';
+    'targetName': string;
+}
+interface EducationQuestion extends Question {
+    acceptedAnswer: NodeRelation<Answer | string>;
+    eduQuestionType: 'Flashcard';
+    text: string;
+}
+interface QuizSimple extends Thing {
+    '@type'?: 'Quiz';
+    'hasPart': NodeRelations<EducationQuestion>;
+    'about'?: NodeRelations<Thing>;
+    'educationalAlignment'?: NodeRelations<AlignmentObject>;
+}
+interface Quiz extends QuizSimple {
+}
+declare const quizResolver: SchemaOrgNodeDefinition<Quiz, Quiz>;
+
+interface RecipeSimple extends Thing {
+    /**
+     * A string describing the recipe.
+     */
+    name?: string;
+    /**
+     * An image representing the completed recipe, referenced by ID.
+     */
+    image?: NodeRelations<ImageObject | string>;
+    /**
+     * An array of strings representing each ingredient and quantity (e.g., "3 apples").
+     */
+    recipeIngredient?: string[];
+    /**
+     * An array of HowToStep objects.
+     */
+    recipeInstructions?: NodeRelations<HowToSection | HowToStep | string>;
+    /**
+     * A string describing the recipe.
+     */
+    description?: string;
+    /**
+     * The cooking time in ISO 8601 format.
+     */
+    cookTime?: string;
+    /**
+     * The time required to prepare the recipe.
+     */
+    prepTime?: string;
+    /**
+     * The total time required to prepare and cook the recipe in ISO 8601 format.
+     */
+    totalTime?: string;
+    /**
+     * The cooking method used to prepare the recipe.
+     */
+    cookingMethod?: string;
+    /**
+     * A NutritionInformation node, with a calories property which defines a calorie count as a string (e.g., "270 calories").
+     */
+    nutrition?: NutritionInformation;
+    /**
+     * The number of servings the recipe creates (not the number of individual items, if these are different), as a string
+     * (e.g., "6", rather than 6).
+     */
+    recipeYield?: Arrayable<number | string>;
+    /**
+     * An array of strings representing the tools required in the recipe.
+     */
+    tools?: string[];
+    /**
+     * An array of keywords describing the recipe.
+     */
+    keywords?: string[];
+    /**
+     * A string describing the cuisine type (e.g., "American" or "Spanish").
+     */
+    recipeCuisine?: string;
+    /**
+     * The category of the recipe.
+     */
+    recipeCategory?: 'Appetizer' | 'Breakfast' | 'Brunch' | 'Dessert' | 'Dinner' | 'Drink' | 'Lunch' | 'Main course' | 'Sauce' | 'Side dish' | 'Snack' | 'Starter' | (string & Record<never, never>);
+    /**
+     * A RestrictedDiet node, with a value (or array of values
+     */
+    suitableForDiet?: Partial<'DiabeticDiet' | 'GlutenFreeDiet' | 'HalalDiet' | 'HinduDiet' | 'KosherDiet' | 'LowCalorieDiet' | 'LowFatDiet' | 'LowLactoseDiet' | 'LowSaltDiet' | 'VeganDiet' | 'VegetarianDiet'>[];
+    /**
+     *  A reference to a video representing the recipe instructions, by ID.
+     */
+    video?: NodeRelations<VideoObject | IdReference>;
+    /**
+     * The language code for the guide; e.g., en-GB.
+     */
+    inLanguage?: string;
+    /**
+     * A reference-by-ID to the author of the article.
+     */
+    author?: NodeRelation<Identity>;
+    /**
+     * The date when the recipe was added, in ISO 8601 format.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The average rating of the recipe.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+}
+interface Recipe extends RecipeSimple {
+}
+interface NutritionInformation extends Thing {
+    '@type': 'NutritionInformation';
+    /**
+     * A calorie count as a string (e.g., "270 calories").
+     */
+    'calories': string;
+}
+declare const RecipeId = "#recipe";
+declare const recipeResolver: SchemaOrgNodeDefinition<Recipe, Recipe>;
+
+type ValidServiceSubTypes = 'Service' | 'BroadcastService' | 'CableOrSatelliteService' | 'FinancialService' | 'FoodService' | 'GovernmentService' | 'TaxiService' | 'Telecom';
+/**
+ * ServiceChannel defines how a service can be accessed.
+ */
+interface ServiceChannel {
+    /**
+     * The type should be ServiceChannel.
+     */
+    '@type'?: 'ServiceChannel';
+    /**
+     * The URL where the service is available.
+     */
+    'serviceUrl'?: string;
+    /**
+     * The phone number to access the service.
+     */
+    'servicePhone'?: string;
+    /**
+     * The physical location where the service is available.
+     */
+    'serviceLocation'?: string;
+    /**
+     * The languages supported by the service.
+     */
+    'availableLanguage'?: string | string[];
+}
+/**
+ * A service provided by an organization, e.g. delivery service, print services, etc.
+ */
+interface ServiceSimple extends Thing {
+    /**
+     * The type of the service. Can be 'Service' or a more specific subtype.
+     */
+    '@type'?: Arrayable<ValidServiceSubTypes>;
+    /**
+     * The name of the service.
+     */
+    'name': string;
+    /**
+     * A description of the service.
+     */
+    'description'?: string;
+    /**
+     * The type of service being offered, e.g. veterans' benefits, emergency relief, etc.
+     */
+    'serviceType'?: string;
+    /**
+     * A reference to the Person or Organization that provides the service.
+     */
+    'provider'?: NodeRelation<Person | Organization>;
+    /**
+     * The geographic area where the service is provided.
+     * Can be a text description or a Place object.
+     */
+    'areaServed'?: Arrayable<string | Thing>;
+    /**
+     * A means of accessing the service (e.g. a phone bank, a web site, a location, etc.).
+     */
+    'availableChannel'?: ServiceChannel | ServiceChannel[];
+    /**
+     * An intended audience, i.e. a group for whom the service was created.
+     */
+    'audience'?: Thing;
+    /**
+     * A category for the item. Greater signs or slashes can be used to informally indicate a category hierarchy.
+     */
+    'category'?: string | string[];
+    /**
+     * Indicates an OfferCatalog listing for this Service.
+     */
+    'hasOfferCatalog'?: Thing;
+    /**
+     * An offer to provide this service—for example, an offer to perform a service for a price, or without charge.
+     */
+    'offers'?: NodeRelations<Offer>;
+    /**
+     * The overall rating, based on a collection of reviews or ratings, of the service.
+     */
+    'aggregateRating'?: NodeRelation<AggregateRating>;
+    /**
+     * A review of the service.
+     */
+    'review'?: NodeRelations<Review>;
+    /**
+     * An image of the service.
+     * - Must be at least 696 pixels wide.
+     * - Must be of the following formats+file extensions: .jpg, .png, .gif, or .webp.
+     */
+    'image'?: NodeRelations<ImageObject | string>;
+    /**
+     * A logo associated with the service.
+     */
+    'logo'?: NodeRelations<ImageObject | string>;
+    /**
+     * URL of the service.
+     */
+    'url'?: string;
+    /**
+     * Human-readable terms of service documentation.
+     */
+    'termsOfService'?: string;
+    /**
+     * A slogan or motto associated with the service.
+     */
+    'slogan'?: string;
+    /**
+     * The brand associated with the service.
+     */
+    'brand'?: NodeRelation<Organization>;
+}
+interface Service extends ServiceSimple {
+}
+declare const ServiceId = "#service";
+/**
+ * Describes a service provided by an organization or person.
+ */
+declare const serviceResolver: SchemaOrgNodeDefinition<Service, Service>;
+
+type ApplicationCategory = 'GameApplication' | 'SocialNetworkingApplication' | 'TravelApplication' | 'ShoppingApplication' | 'SportsApplication' | 'LifestyleApplication' | 'BusinessApplication' | 'DesignApplication' | 'DeveloperApplication' | 'DriverApplication' | 'EducationalApplication' | 'HealthApplication' | 'FinanceApplication' | 'SecurityApplication' | 'BrowserApplication' | 'CommunicationApplication' | 'DesktopEnhancementApplication' | 'EntertainmentApplication' | 'MultimediaApplication' | 'HomeApplication' | 'UtilitiesApplication' | 'ReferenceApplication';
+interface SoftwareAppBase extends Thing {
+    '@type'?: Arrayable<'SoftwareApplication' | 'MobileApplication' | 'VideoGame' | 'WebApplication'>;
+    /**
+     * The name of the app.
+     */
+    'name': string;
+    /**
+     * An offer to sell the app.
+     * For developers, offers can indicate the marketplaces that carry the application.
+     * For marketplaces, use offers to indicate the price of the app for a specific app instance.
+     */
+    'offers': NodeRelations<Offer>;
+    /**
+     * The type of app (for example, BusinessApplication or GameApplication). The value must be a supported app type.
+     */
+    'applicationCategory'?: ApplicationCategory;
+    /**
+     * The operating system(s) required to use the app (for example, Windows 7, OSX 10.6, Android 1.6)
+     */
+    'operatingSystem'?: string;
+    /**
+     * A description of the app.
+     */
+    'description'?: string;
+    /**
+     * URL to download the app.
+     */
+    'downloadUrl'?: string;
+    /**
+     * The version of the app.
+     */
+    'softwareVersion'?: string;
+    /**
+     * A list of features offered by the app.
+     */
+    'featureList'?: string[];
+}
+type SoftwareAppRating = {
+    aggregateRating: NodeRelation<AggregateRating>;
+    review?: NodeRelation<Review>;
+} | {
+    aggregateRating?: NodeRelation<AggregateRating>;
+    review: NodeRelation<Review>;
+};
+type SoftwareAppSimple = SoftwareAppBase & SoftwareAppRating;
+type SoftwareApp = SoftwareAppSimple;
+declare const softwareAppResolver: SchemaOrgNodeDefinition<SoftwareAppSimple, SoftwareAppSimple>;
+
+interface TVSeriesSimple extends Thing {
+    /**
+     * The name of the TV series.
+     */
+    name: string;
+    /**
+     * A description of the TV series.
+     */
+    description?: string;
+    /**
+     * An image that represents the TV series.
+     */
+    image?: NodeRelations<string | ImageObject>;
+    /**
+     * The URL of the TV series.
+     */
+    url?: string;
+    /**
+     * The actors in the TV series.
+     */
+    actor?: NodeRelations<Person | string>;
+    /**
+     * The directors of the TV series.
+     */
+    director?: NodeRelations<Person | string>;
+    /**
+     * The creator of the TV series.
+     */
+    creator?: NodeRelations<Person | Organization | string>;
+    /**
+     * The number of seasons in the TV series.
+     */
+    numberOfSeasons?: number;
+    /**
+     * The number of episodes in the TV series.
+     */
+    numberOfEpisodes?: number;
+    /**
+     * The seasons that are part of this TV series.
+     */
+    containsSeason?: NodeRelations<TVSeason>;
+    /**
+     * The episodes that are part of this TV series.
+     */
+    episode?: NodeRelations<TVEpisode>;
+    /**
+     * The genre of the TV series.
+     */
+    genre?: string | string[];
+    /**
+     * The date the TV series was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The start date of the TV series.
+     */
+    startDate?: ResolvableDate;
+    /**
+     * The end date of the TV series.
+     */
+    endDate?: ResolvableDate;
+    /**
+     * The production company or studio responsible for the TV series.
+     */
+    productionCompany?: NodeRelation<Organization | string>;
+    /**
+     * Annotation for the average review score assigned to the TV series.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * The country of origin for the TV series.
+     */
+    countryOfOrigin?: string;
+    /**
+     * A trailer or preview video for the TV series.
+     */
+    trailer?: NodeRelation<VideoObject | string>;
+    /**
+     * Official rating of the content (e.g., "MPAA PG-13", "TV-MA").
+     */
+    contentRating?: string;
+}
+interface TVSeries extends TVSeriesSimple {
+}
+/**
+ * Describes a TV series.
+ */
+declare const tvSeriesResolver: SchemaOrgNodeDefinition<TVSeries, TVSeries>;
+
+interface TVSeasonSimple extends Thing {
+    /**
+     * The name of the TV season.
+     */
+    name?: string;
+    /**
+     * A description of the TV season.
+     */
+    description?: string;
+    /**
+     * The season number.
+     */
+    seasonNumber?: number;
+    /**
+     * The number of episodes in the season.
+     */
+    numberOfEpisodes?: number;
+    /**
+     * The TV series that this season is part of.
+     */
+    partOfSeries?: NodeRelation<TVSeries>;
+    /**
+     * The episodes that are part of this season.
+     */
+    episode?: NodeRelations<TVEpisode>;
+    /**
+     * The date the season was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The start date of the season.
+     */
+    startDate?: ResolvableDate;
+    /**
+     * The end date of the season.
+     */
+    endDate?: ResolvableDate;
+    /**
+     * An image that represents the season.
+     */
+    image?: NodeRelations<string | ImageObject>;
+    /**
+     * The URL of the season.
+     */
+    url?: string;
+    /**
+     * The actors in the TV season.
+     */
+    actor?: NodeRelations<Person | string>;
+    /**
+     * The directors of the TV season.
+     */
+    director?: NodeRelations<Person | string>;
+    /**
+     * The production company or studio responsible for the TV season.
+     */
+    productionCompany?: NodeRelation<Organization | string>;
+    /**
+     * Annotation for the average review score assigned to the TV season.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * Official rating of the content (e.g., "MPAA PG-13", "TV-MA").
+     */
+    contentRating?: string;
+    /**
+     * A trailer or preview video for the TV season.
+     */
+    trailer?: NodeRelation<VideoObject | string>;
+}
+interface TVSeason extends TVSeasonSimple {
+}
+/**
+ * Describes a season of a TV series.
+ */
+declare const tvSeasonResolver: SchemaOrgNodeDefinition<TVSeason, TVSeason>;
+
+interface TVEpisodeSimple extends Thing {
+    /**
+     * The name of the episode.
+     */
+    name: string;
+    /**
+     * A description of the episode.
+     */
+    description?: string;
+    /**
+     * The episode number.
+     */
+    episodeNumber?: number | string;
+    /**
+     * The season that this episode is part of.
+     */
+    partOfSeason?: NodeRelation<TVSeason>;
+    /**
+     * The TV series that this episode is part of.
+     */
+    partOfSeries?: NodeRelation<TVSeries>;
+    /**
+     * The actors in the episode.
+     */
+    actor?: NodeRelations<Person | string>;
+    /**
+     * The directors of the episode.
+     */
+    director?: NodeRelations<Person | string>;
+    /**
+     * The date the episode was published.
+     */
+    datePublished?: ResolvableDate;
+    /**
+     * The date the episode was uploaded.
+     */
+    uploadDate?: ResolvableDate;
+    /**
+     * The duration of the episode in ISO 8601 format (e.g., PT45M).
+     */
+    duration?: string;
+    /**
+     * A video object representing the episode content.
+     */
+    video?: NodeRelation<VideoObject | string>;
+    /**
+     * An image that represents the episode.
+     */
+    image?: NodeRelations<string | ImageObject>;
+    /**
+     * A thumbnail image for the episode.
+     */
+    thumbnailUrl?: string;
+    /**
+     * The URL of the episode.
+     */
+    url?: string;
+    /**
+     * Annotation for the average review score assigned to the episode.
+     */
+    aggregateRating?: NodeRelation<AggregateRating>;
+    /**
+     * A nested Review of the episode.
+     */
+    review?: NodeRelations<Review>;
+    /**
+     * Official rating of the content (e.g., "MPAA PG-13", "TV-MA").
+     */
+    contentRating?: string;
+    /**
+     * The composer of the episode's musical score.
+     */
+    musicBy?: NodeRelations<Person | string>;
+}
+interface TVEpisode extends TVEpisodeSimple {
+}
+/**
+ * Describes an episode of a TV series.
+ */
+declare const tvEpisodeResolver: SchemaOrgNodeDefinition<TVEpisode, TVEpisode>;
+
+interface LocationFeatureSpecification extends Thing {
+    '@type'?: 'LocationFeatureSpecification';
+    'name': string;
+    'value': boolean | number | string;
+}
+interface BedDetails extends Thing {
+    '@type'?: 'BedDetails';
+    'numberOfBeds': number;
+    'typeOfBed': 'CaliforniaKing' | 'King' | 'Queen' | 'Full' | 'Double' | 'SemiDouble' | 'Single' | (string & Record<never, never>);
+}
+interface Accommodation extends Thing {
+    '@type'?: 'Accommodation';
+    'occupancy': NodeRelation<QuantitativeValue>;
+    'additionalType'?: 'EntirePlace' | 'PrivateRoom' | 'SharedRoom';
+    'amenityFeature'?: NodeRelations<LocationFeatureSpecification>;
+    'bed'?: NodeRelations<BedDetails>;
+    'floorSize'?: NodeRelation<QuantitativeValue>;
+    'numberOfBathroomsTotal'?: number;
+    'numberOfBedrooms'?: number;
+    'numberOfRooms'?: number;
+    'petsAllowed'?: boolean;
+    'smokingAllowed'?: boolean;
+}
+interface VacationRentalBase extends Thing {
+    '@type'?: 'VacationRental';
+    'containsPlace': NodeRelation<Accommodation>;
+    'identifier': string;
+    'image': Arrayable<string>;
+    'name': string;
+    'additionalType'?: string;
+    'address'?: NodeRelation<PostalAddress>;
+    'aggregateRating'?: NodeRelation<AggregateRating>;
+    'brand'?: NodeRelation<Brand>;
+    'checkinTime'?: string;
+    'checkoutTime'?: string;
+    'description'?: string;
+    'knowsLanguage'?: Arrayable<string>;
+    'review'?: NodeRelations<Review>;
+}
+type VacationRentalLocation = {
+    geo: NodeRelation<GeoCoordinates>;
+    latitude?: number;
+    longitude?: number;
+} | {
+    geo?: NodeRelation<GeoCoordinates>;
+    latitude: number;
+    longitude: number;
+};
+type VacationRentalSimple = VacationRentalBase & VacationRentalLocation;
+type VacationRental = VacationRentalSimple;
+declare const geoCoordinatesResolver: SchemaOrgNodeDefinition<GeoCoordinates, GeoCoordinates>;
+declare const vacationRentalResolver: SchemaOrgNodeDefinition<VacationRentalSimple, VacationRentalSimple>;
+
+type Arrayable<T> = T | Array<T>;
+type NodeRelation<T> = T | IdReference;
+type NodeRelations<T> = Arrayable<NodeRelation<T>>;
+type Identity = Person | Organization;
+type ResolvableDate = string | Date;
+type OptionalSchemaOrgPrefix<T extends string> = T | `https://schema.org/${T}`;
+type DigitalSourceType = OptionalSchemaOrgPrefix<'TrainedAlgorithmicMediaDigitalSource' | 'AlgorithmicMediaDigitalSource'>;
+interface MetaInput {
+    /**
+     * Whether to inject the scripts at the end of the body or in the head.
+     */
+    tagPosition?: 'body' | 'head';
+    trailingSlash?: boolean;
+    host?: string;
+    url?: string;
+    path?: string;
+    currency?: string;
+    image?: string;
+    inLanguage?: string;
+    title?: string;
+    description?: string;
+    datePublished?: string;
+    dateModified?: string;
+}
+/** Metadata after URL and path defaults have been applied. */
+interface ResolvedMeta extends MetaInput {
+    path: string;
+    url: string;
+}
+interface UserConfig extends MetaInput {
+}
+interface SchemaOrgNodeDefinitionBase<ResolvedInput> {
+    alias?: string;
+    idPrefix?: 'host' | 'url' | ['host' | 'url', string];
+    inheritMeta?: (keyof ResolvedMeta | {
+        key: keyof ResolvedInput;
+        meta: keyof ResolvedMeta;
+    })[];
+    defaults?: Partial<ResolvedInput> | ((ctx: SchemaOrgGraph) => Partial<ResolvedInput>);
+    required?: (keyof ResolvedInput)[];
+    resolve?: (node: ResolvedInput, ctx: SchemaOrgGraph) => ResolvedInput;
+    resolveRootNode?: (node: ResolvedInput, ctx: SchemaOrgGraph) => void;
+}
+type SchemaOrgNodeDefinition<ResolvedInput = Thing, CastInput = ResolvedInput> = SchemaOrgNodeDefinitionBase<ResolvedInput> & ([CastInput] extends [ResolvedInput] ? {
+    cast?: (node: CastInput, ctx: SchemaOrgGraph) => ResolvedInput;
+} : {
+    cast: (node: CastInput, ctx: SchemaOrgGraph) => ResolvedInput;
+});
+interface Thing {
+    '@type'?: Arrayable<string>;
+    '@id'?: Id;
+    /**
+     * A reference-by-ID to the WebPage node.
+     */
+    'mainEntityOfPage'?: Arrayable<IdReference>;
+    /**
+     * The primary entity described by this node.
+     */
+    'mainEntity'?: NodeRelations<Thing>;
+    /**
+     * An image object or referenced by ID.
+     * - Must be at least 696 pixels wide.
+     * - Must be of the following formats+file extensions: .jpg, .png, .gif ,or .webp.
+     */
+    'image'?: NodeRelations<ImageObject | string>;
+    /**
+     * The work that this work has been translated from. E.g. 物种起源 is a translationOf “On the Origin of Species”.
+     */
+    'translationOfWork'?: NodeRelations<Thing>;
+    /**
+     * A work that is a translation of the content of this work. E.g. 西遊記 has an English workTranslation “Journey to the West”, a German workTranslation “Monkeys Pilgerfahrt” and a Vietnamese translation Tây du ký bình khảo.
+     */
+    'workTranslation'?: NodeRelations<Thing>;
+    /**
+     * Allow any arbitrary keys
+     */
+    [key: string]: unknown;
+}
+interface Action extends Thing {
+    '@type': Arrayable<OptionalSchemaOrgPrefix<`${string}Action`>>;
+}
+interface InteractionCounter extends Thing {
+    '@type'?: 'InteractionCounter';
+    'interactionType': OptionalSchemaOrgPrefix<`${string}Action`> | NodeRelation<Action>;
+    'userInteractionCount': number;
+}
+interface PropertyValue extends Thing {
+    '@type'?: 'PropertyValue';
+    'name'?: string;
+    'propertyID'?: string;
+    'value': boolean | number | string;
+}
+interface GeoCoordinates extends Thing {
+    '@type'?: 'GeoCoordinates';
+    'latitude': number;
+    'longitude': number;
+}
+interface SchemaOrgNode extends Thing {
+    /**
+     * Resolver metadata is intentionally opaque on heterogeneous graph nodes.
+     * @internal
+     */
+    _resolver?: unknown;
+    _dedupeStrategy?: 'replace' | 'merge';
+}
+type WithResolver<T> = T & {
+    _resolver?: SchemaOrgNodeDefinition<T>;
+};
+/**
+ * A minimal JSON-LD node that refers to another graph node by ID.
+ *
+ * References are still valid Things. Modelling that relationship keeps
+ * resolved relation values assignable to the schema properties they replace
+ * without weakening Thing's arbitrary-property boundary back to `any`.
+ */
+interface IdReference extends Thing {
+    /** IRI identifying the canonical address of this object. */
+    '@id': string;
+}
+type Id = string | `#${string}` | `https://${string}#${string}`;
+
+interface SchemaOrgGraph {
+    nodes: SchemaOrgNode[];
+    nodeIndex: Map<Id, SchemaOrgNode>;
+    nodeIdCounters: Record<string, number>;
+    meta: ResolvedMeta;
+    push: <T extends Arrayable<Thing>>(node: T) => void;
+    resolveGraph: (meta: MetaInput) => SchemaOrgNode[];
+    find: {
+        (id: Id | string): SchemaOrgNode | null;
+        <T extends SchemaOrgNode>(id: Id | string, guard: (node: SchemaOrgNode) => node is T): T | null;
+    };
+}
+declare function createSchemaOrgGraph(): SchemaOrgGraph;
+
+export { HowToId as aK, RecipeId as bF, ServiceId as bN, PrimaryArticleId as bm, PrimaryBookId as bn, PrimaryBreadcrumbId as bo, PrimaryDatasetId as bp, PrimaryEventId as bq, PrimaryWebPageId as br, PrimaryWebSiteId as bs, ProductId as bu, tvSeasonResolver as c$, addressResolver as c8, aggregateOfferResolver as c9, mathSolverResolver as cA, memberProgramTierResolver as cB, movieResolver as cC, musicAlbumResolver as cD, musicGroupResolver as cE, musicPlaylistResolver as cF, musicRecordingResolver as cG, offerResolver as cH, openingHoursResolver as cI, organizationResolver as cJ, personResolver as cK, placeResolver as cL, podcastEpisodeResolver as cM, podcastSeasonResolver as cN, podcastSeriesResolver as cO, productResolver as cP, questionResolver as cQ, quizResolver as cR, ratingResolver as cS, readActionResolver as cT, recipeResolver as cU, reviewResolver as cV, searchActionResolver as cW, serviceResolver as cX, softwareAppResolver as cY, speakableSpecificationResolver as cZ, tvEpisodeResolver as c_, aggregateRatingResolver as ca, articleResolver as cb, bookEditionResolver as cc, bookResolver as cd, brandResolver as ce, breadcrumbResolver as cf, commentResolver as cg, courseResolver as ch, createSchemaOrgGraph as ci, datasetResolver as cj, discussionCommentResolver as ck, discussionForumPostingResolver as cl, employerAggregateRatingResolver as cm, eventResolver as cn, foodEstablishmentResolver as co, geoCoordinatesResolver as cp, howToResolver as cq, howToSectionResolver as cr, howToStepDirectionResolver as cs, howToStepResolver as ct, imageResolver as cu, isImageObject as cv, itemListResolver as cw, jobPostingResolver as cx, listItemResolver as cy, localBusinessResolver as cz, tvSeriesResolver as d0, unitPriceSpecificationResolver as d1, vacationRentalResolver as d2, videoResolver as d3, virtualLocationResolver as d4, webPageElementResolver as d5, webPageResolver as d6, webSiteResolver as d7 };
+export type { Review as $, Arrayable as A, Book as B, Comment$1 as C, Dataset as D, EmployerAggregateRating as E, FoodEstablishment as F, OpeningHoursSpecification as G, HowTo as H, ImageObject as I, JobPosting as J, Organization as K, LocalBusinessSimple as L, MetaInput as M, Person as N, OrganizationSimple as O, PersonSimple as P, Place as Q, PodcastEpisode as R, SchemaOrgNodeDefinition as S, Thing as T, PodcastSeason as U, PodcastSeries as V, Product as W, Question as X, Quiz as Y, ReadAction as Z, Recipe as _, PostalAddress as a, MerchantReturnPolicySimple as a$, SearchAction as a0, Service as a1, SoftwareApp as a2, SoftwareAppSimple as a3, TVEpisode as a4, TVSeason as a5, TVSeries as a6, VacationRental as a7, VacationRentalSimple as a8, VideoObject as a9, DatasetSimple as aA, DefinedRegion as aB, DigitalSourceType as aC, DiscussionComment as aD, EducationQuestion as aE, EducationalOccupationalCredential as aF, EventSimple as aG, FoodEstablishmentSimple as aH, GeoCoordinates as aI, HowToDirection as aJ, HowToSection as aL, HowToSimple as aM, Id as aN, IdReference as aO, Identity as aP, InteractionCounter as aQ, ItemListSimple as aR, JobLocationRequirement as aS, JobPostingSimple as aT, ListItemSimple as aU, LocationFeatureSpecification as aV, MathSolverSimple as aW, MediaObject as aX, MemberProgram as aY, MemberProgramTier as aZ, MerchantReturnPolicy as a_, VirtualLocation as aa, WebPage as ab, WebSite as ac, ResolvedMeta as ad, SchemaOrgGraph as ae, NodeRelation as af, Accommodation as ag, Action as ah, AggregateOfferSimple as ai, AlignmentObject as aj, ArticleSimple as ak, BedDetails as al, BookEditionSimple as am, BookSimple as an, Brand as ao, BreadcrumbSimple as ap, BroadcastEvent as aq, CategoryCode as ar, Certification as as, Clip as at, CommentSimple as au, ContactPoint as av, CourseSimple as aw, CreditCard as ax, DataCatalog as ay, DataDownload as az, AggregateOffer as b, ThreeDModel as b$, MonetaryAmount as b0, MonetaryAmountSimple as b1, MovieSimple as b2, MusicAlbumSimple as b3, MusicGroupSimple as b4, MusicPlaylistSimple as b5, MusicRecordingSimple as b6, NodeRelations as b7, NutritionInformation as b8, OccupationalExperienceRequirements as b9, QuestionSimple as bA, QuizSimple as bB, Rating as bC, RatingSimple as bD, ReadActionInput as bE, RecipeSimple as bG, ResolvableDate as bH, ReviewSimple as bI, SchemaOrgNode as bJ, SearchActionInput as bK, SeekToAction as bL, ServiceChannel as bM, ServicePeriod as bO, ServiceSimple as bP, ShippingConditions as bQ, ShippingDeliveryTime as bR, ShippingRateSettings as bS, ShippingSeasonalOverride as bT, ShippingService as bU, SizeSpecification as bV, SolveMathAction as bW, SpeakableSpecification as bX, TVEpisodeSimple as bY, TVSeasonSimple as bZ, TVSeriesSimple as b_, OfferShippingDetails as ba, OpeningHoursSimple as bb, OptionalSchemaOrgPrefix as bc, PeopleAudience as bd, PerformingGroup as be, PlaceSimple as bf, PodcastEpisodeSimple as bg, PodcastSeasonSimple as bh, PodcastSeriesSimple as bi, PostalAddressName as bj, PostalAddressSimple as bk, PostalAddressStrict as bl, ProductGroup as bt, ProductSimple as bv, ProductVariantReference as bw, PropertyValue as bx, QuantitativeSimple as by, QuantitativeValue as bz, AggregateRating as c, UnitPriceSpecification as c0, UserConfig as c1, VideoSimple as c2, VirtualLocationSimple as c3, WebPageElement as c4, WebPageSimple as c5, WebSiteSimple as c6, WithResolver as c7, AggregateRatingSimple as d, Article as e, BookEdition as f, BreadcrumbList as g, Course as h, DiscussionForumPosting as i, DiscussionForumPostingSimple as j, EmployerAggregateRatingSimple as k, Event as l, HowToStep as m, HowToStepSimple as n, ImageSimple as o, ItemList as p, ListItem as q, LocalBusiness as r, MathSolver as s, Movie as t, MusicAlbum as u, MusicGroup as v, MusicPlaylist as w, MusicRecording as x, Offer as y, OfferSimple as z };

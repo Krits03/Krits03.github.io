@@ -1,0 +1,10 @@
+{
+  "name": "nuxt-llms",
+  "configKey": "llms",
+  "version": "0.2.0",
+  "docs": "https://github.com/nuxtlabs/nuxt-llms",
+  "builder": {
+    "@nuxt/module-builder": "1.0.2",
+    "unbuild": "3.6.1"
+  }
+}

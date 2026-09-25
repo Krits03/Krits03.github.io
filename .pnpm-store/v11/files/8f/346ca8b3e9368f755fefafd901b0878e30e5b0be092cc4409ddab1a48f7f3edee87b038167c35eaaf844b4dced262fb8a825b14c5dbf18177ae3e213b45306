@@ -1,0 +1,18 @@
+export function fontFormat(src) {
+  if (src.endsWith(".woff2"))
+    return "woff2";
+  if (src.endsWith(".woff"))
+    return "woff";
+  if (src.endsWith(".otf"))
+    return "otf";
+  return "ttf";
+}
+export function selectFontSource(f, supportedFormats) {
+  const primarySupported = supportedFormats.has(fontFormat(f.src));
+  const satoriSupported = !!(f.satoriSrc && supportedFormats.has(fontFormat(f.satoriSrc)));
+  if (primarySupported)
+    return { src: f.src, isStaticFallback: false };
+  if (satoriSupported)
+    return { src: f.satoriSrc, isStaticFallback: true };
+  return null;
+}

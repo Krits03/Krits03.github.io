@@ -1,0 +1,99 @@
+import { fnv1a64Base36 } from "fnv1a-64";
+import { withTrailingSlash } from "ufo";
+import { prefixStorage } from "unstorage";
+import { createError, handleCacheHeaders, setHeader, setHeaders } from "#nuxtseo/h3";
+import { useStorage } from "#nuxtseo/nitro";
+import { logger } from "../../logger.js";
+import { getEventQuery } from "./query.js";
+function safeCompare(a, b) {
+  if (a.length !== b.length)
+    return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++)
+    mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+function warnCacheBackendUnreachable(ctx, baseCacheKey, e) {
+  if (ctx._nitro._ogImageCacheBackendWarned)
+    return;
+  ctx._nitro._ogImageCacheBackendWarned = true;
+  logger.warn(`[Nuxt OG Image] Cache backend "${baseCacheKey}" unreachable, continuing without cache: ${e?.message || e}`);
+}
+export async function useOgImageBufferCache(ctx, options) {
+  const maxAge = Number(options.cacheMaxAgeSeconds);
+  const intentionallyEnabled = !import.meta.dev && !import.meta.prerender && maxAge > 0;
+  let enabled = intentionallyEnabled;
+  const cache = prefixStorage(useStorage(), withTrailingSlash(options.baseCacheKey || "/"));
+  const key = ctx.key;
+  let cachedItem = false;
+  if (enabled) {
+    const hasItem = await cache.hasItem(key).catch((e) => {
+      enabled = false;
+      warnCacheBackendUnreachable(ctx, options.baseCacheKey, e);
+      return false;
+    });
+    const entry = hasItem ? await cache.getItem(key).catch((e) => {
+      enabled = false;
+      warnCacheBackendUnreachable(ctx, options.baseCacheKey, e);
+      return null;
+    }) : null;
+    if (entry) {
+      const { value, expiresAt, headers } = entry;
+      const purgeValue = getEventQuery(ctx.e).purge;
+      if (typeof purgeValue !== "undefined") {
+        if (options.secret && !safeCompare(String(purgeValue), options.secret)) {
+          return createError({
+            statusCode: 403,
+            statusMessage: "[Nuxt OG Image] Invalid purge token. Provide the signing secret as ?purge=<secret>."
+          });
+        }
+        await cache.removeItem(key).catch((err) => {
+          void err;
+        });
+      } else if (expiresAt > Date.now()) {
+        cachedItem = Buffer.from(value, "base64");
+        if (handleCacheHeaders(ctx.e, {
+          modifiedTime: new Date(headers["last-modified"]),
+          etag: headers.etag,
+          maxAge
+        })) {
+          return;
+        }
+        setHeaders(ctx.e, headers);
+        setHeader(ctx.e, "X-OG-Cache", "HIT");
+      } else {
+        await cache.removeItem(key).catch((err) => {
+          void err;
+        });
+      }
+    }
+  }
+  if (!enabled && !import.meta.prerender) {
+    setHeader(ctx.e, "Cache-Control", "no-cache, no-store, must-revalidate");
+    setHeader(ctx.e, "Pragma", "no-cache");
+    setHeader(ctx.e, "Expires", "0");
+  }
+  return {
+    enabled,
+    cachedItem,
+    async update(item) {
+      setHeader(ctx.e, "X-OG-Cache", enabled ? "MISS" : "DISABLED");
+      if (!enabled)
+        return;
+      const value = Buffer.from(item).toString("base64");
+      const headers = {
+        // avoid multi-tenancy cache issues
+        "Vary": "accept-encoding, host",
+        "etag": `W/"${fnv1a64Base36(value)}"`,
+        "last-modified": (/* @__PURE__ */ new Date()).toUTCString(),
+        "cache-control": `public, max-age=${maxAge}, s-maxage=${maxAge}, immutable`
+      };
+      setHeaders(ctx.e, headers);
+      await cache.setItem(key, {
+        value,
+        headers,
+        expiresAt: Date.now() + maxAge * 1e3
+      }).catch((err) => logger.warn(`[Nuxt OG Image] Failed to write cache for key "${key}": ${err?.message || err}`));
+    }
+  };
+}

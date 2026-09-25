@@ -1,0 +1,56 @@
+{
+  "name": "eslint-plugin-css-properties-order",
+  "version": "0.0.1",
+  "description": "ESLint plugin to enforce CSS property order for @eslint/css, ported from stylelint-order.",
+  "keywords": [
+    "css",
+    "eslint",
+    "eslint-plugin",
+    "eslintplugin",
+    "order",
+    "properties-order",
+    "stylelint-order"
+  ],
+  "homepage": "https://github.com/elecdeer/eslint-plugin-css-properties-order#readme",
+  "bugs": {
+    "url": "https://github.com/elecdeer/eslint-plugin-css-properties-order/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "elecdeer <dev@elecdeer.dev>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elecdeer/eslint-plugin-css-properties-order.git"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./dist/index.mjs",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@eslint/core": "^1.2.1",
+    "@eslint/css": "^1.4.0",
+    "@eslint/css-tree": "^4.0.4",
+    "@types/node": "^26.1.1",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
+    "bumpp": "^11.1.0",
+    "eslint": "^10.7.0",
+    "typescript": "^7.0.2",
+    "vite-plus": "0.2.4"
+  },
+  "peerDependencies": {
+    "@eslint/css": ">=1.0.0",
+    "eslint": ">=9.15.0"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "dev": "vp pack --watch",
+    "test": "vp test",
+    "check": "vp check"
+  }
+}

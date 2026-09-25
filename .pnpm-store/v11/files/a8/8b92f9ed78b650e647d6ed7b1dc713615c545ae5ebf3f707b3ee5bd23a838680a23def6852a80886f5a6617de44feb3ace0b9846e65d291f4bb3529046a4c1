@@ -1,0 +1,4 @@
+import type { Node } from '@takumi-rs/helpers';
+import type { OgImageRenderEventContext, VNode } from '../../../types.js';
+export declare function createTakumiNodes(ctx: OgImageRenderEventContext): Promise<Node>;
+export declare function vnodeToTakumiNode(vnode: VNode, inheritedFontSize: number, inheritedColor?: string): Promise<Node>;

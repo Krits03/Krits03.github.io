@@ -1,0 +1,43 @@
+import { $fetch } from "ofetch";
+import { fetchWithEvent } from "#nuxtseo/nitro";
+import { getNitroOrigin } from "#site-config/server/composables";
+import { tryCloudflareAssetsFetch } from "./cloudflareAssets.js";
+export async function fetchLocalAsset(event, path, options) {
+  const { fetchTimeout, headers, includeExternalFallback = false, onStepFailure } = options;
+  const deadline = AbortSignal.timeout(fetchTimeout);
+  let expired = false;
+  const timer = new Promise((resolve) => {
+    setTimeout(() => {
+      expired = true;
+      resolve(void 0);
+    }, fetchTimeout);
+  });
+  const race = (p) => Promise.race([p, timer]);
+  let result = await race(tryCloudflareAssetsFetch(event, path, deadline).catch((err) => {
+    onStepFailure?.(path, err);
+    return void 0;
+  }));
+  if (result || expired)
+    return result;
+  result = await race(fetchWithEvent(event, path, {
+    responseType: "arrayBuffer",
+    signal: deadline,
+    timeout: fetchTimeout,
+    headers
+  }).catch((err) => {
+    onStepFailure?.(path, err);
+    return void 0;
+  }));
+  if (result || expired || !includeExternalFallback)
+    return result;
+  const absolute = `${getNitroOrigin(event)}${path}`;
+  return await race($fetch(absolute, {
+    responseType: "arrayBuffer",
+    signal: deadline,
+    timeout: fetchTimeout,
+    headers
+  }).catch((err) => {
+    onStepFailure?.(absolute, err);
+    return void 0;
+  }));
+}

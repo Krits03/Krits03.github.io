@@ -1,0 +1,1 @@
+import{o as n,c,n as o}from"./CgSA-cNt.js";const t={__name:"NIcon",props:{icon:{type:String,required:!1}},setup(e){return(r,s)=>(n(),c("div",{class:o(["n-icon",e.icon])},null,2))}};export{t as _};

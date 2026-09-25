@@ -1,0 +1,289 @@
+import { digest } from "ohash/crypto";
+const MAX_PATH_LENGTH = 200;
+const RE_BASE64_PADDING = /=/g;
+const RE_BASE64_PLUS = /\+/g;
+const RE_BASE64_SLASH = /\//g;
+const RE_BASE64_URL_DASH = /-/g;
+const RE_BASE64_URL_TILDE = /~/g;
+const RE_UNDERSCORE = /_/g;
+const RE_DOUBLE_UNDERSCORE = /__/g;
+const RE_PERCENT20 = /%20/g;
+const RE_PLUS = /\+/g;
+const RE_SINGLE_UNDERSCORE = /(?<!_)_(?!_)/;
+const RE_OG_PATH_PREFIX = /^\/_og\/[ds]\//;
+const RE_OG_ROUTE_PREFIX = /\/_og\/[ds]\//;
+const RE_FILE_EXTENSION_WITH_CAPTURE = /\.(\w+)$/;
+const RE_FILE_EXTENSION = /\.\w+$/;
+const RE_HASH_SEGMENT = /^o_([a-z0-9]+)$/i;
+const RE_COMMA_PARAM_SEPARATOR = /,(?=\w+_)/;
+const RE_SIGNATURE_SUFFIX = /,s_[^,]+$/;
+const RE_NON_ASCII = /[^\u0000-\u007F]/;
+const RE_WINDOWS_RESERVED_FILENAME_CHARACTERS = /[<>:"/\\|?*\u0000-\u001F]/;
+const PARAM_ALIASES = {
+  w: "width",
+  h: "height",
+  c: "component",
+  em: "emojis",
+  k: "key",
+  a: "alt",
+  u: "url",
+  cache: "cacheMaxAgeSeconds",
+  p: "_path",
+  // page path - needs alias since _path starts with underscore
+  q: "_query",
+  // query params - needs alias since _query starts with underscore
+  ch: "_componentHash"
+  // component template hash for cache busting prerendered URLs
+};
+const PARAM_TO_ALIAS = Object.fromEntries(
+  Object.entries(PARAM_ALIASES).map(([alias, param]) => [param, alias])
+);
+const KNOWN_PARAMS = /* @__PURE__ */ new Set([
+  "width",
+  "height",
+  "component",
+  "renderer",
+  "emojis",
+  "key",
+  "alt",
+  "url",
+  "cacheMaxAgeSeconds",
+  "cacheKey",
+  "extension",
+  "satori",
+  "resvg",
+  "sharp",
+  "screenshot",
+  "takumi",
+  "fonts",
+  "_query",
+  "_hash",
+  "_componentHash",
+  "socialPreview",
+  "props",
+  "_path"
+]);
+const COMPLEX_PARAMS = /* @__PURE__ */ new Set(["satori", "resvg", "sharp", "screenshot", "takumi", "fonts", "_query", "_path"]);
+function b64Encode(str) {
+  let encoded;
+  if (typeof btoa === "function") {
+    const utf8 = new TextEncoder().encode(str);
+    const binary = String.fromCharCode(...utf8);
+    encoded = btoa(binary);
+  } else {
+    encoded = Buffer.from(str, "utf8").toString("base64");
+  }
+  return encoded.replace(RE_BASE64_PADDING, "").replace(RE_BASE64_PLUS, "-").replace(RE_BASE64_SLASH, "~");
+}
+function b64Decode(str) {
+  const standard = str.replace(RE_BASE64_URL_DASH, "+").replace(RE_BASE64_URL_TILDE, "/");
+  const padded = standard + "=".repeat((4 - standard.length % 4) % 4);
+  if (typeof atob === "function") {
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+  return Buffer.from(padded, "base64").toString("utf8");
+}
+function simpleHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
+export function hashOgImageOptions(options, componentHash, version) {
+  const { _path, _hash, ...hashableOptions } = options;
+  const hashInput = componentHash || version ? [hashableOptions, componentHash || "", version || ""] : hashableOptions;
+  return simpleHash(JSON.stringify(hashInput));
+}
+export function encodeOgImageParams(options, defaults) {
+  const parts = [];
+  const flattened = {};
+  for (const [key, value] of Object.entries(options)) {
+    if (key === "props" && typeof value === "object") {
+      for (const [propKey, propValue] of Object.entries(value)) {
+        if (propValue === void 0 || propValue === null)
+          continue;
+        if (typeof propValue === "string" || typeof propValue === "number" || typeof propValue === "boolean") {
+          flattened[propKey] = propValue;
+        } else {
+          flattened.props = flattened.props || {};
+          flattened.props[propKey] = propValue;
+        }
+      }
+    } else {
+      flattened[key] = value;
+    }
+  }
+  for (const [key, value] of Object.entries(flattened)) {
+    if (value === void 0 || value === null || value === "") {
+      continue;
+    }
+    if (key === "extension" || key === "socialPreview")
+      continue;
+    if (key === "_path" && value === "/")
+      continue;
+    if (key === "_query" && typeof value === "object" && Object.keys(value).length === 0)
+      continue;
+    if (defaults && key in defaults && defaults[key] === value && key !== "component")
+      continue;
+    const alias = PARAM_TO_ALIAS[key] || key;
+    if (COMPLEX_PARAMS.has(key)) {
+      const json = JSON.stringify(value);
+      if (json === "{}")
+        continue;
+      const b64 = b64Encode(json);
+      parts.push(`${alias}_${b64}`);
+    } else if (typeof value === "object") {
+      const json = JSON.stringify(value);
+      if (json === "{}")
+        continue;
+      const b64 = b64Encode(json);
+      parts.push(`${alias}_${b64}`);
+    } else {
+      const str = String(value);
+      if (RE_NON_ASCII.test(str)) {
+        parts.push(`${alias}_~${b64Encode(str)}`);
+      } else {
+        const escaped = str.startsWith("~") ? `~${str}` : str;
+        const encoded = encodeURIComponent(escaped.replace(RE_UNDERSCORE, "__")).replace(RE_PERCENT20, "+");
+        if (encoded.includes("%") || RE_WINDOWS_RESERVED_FILENAME_CHARACTERS.test(str)) {
+          parts.push(`${alias}_~${b64Encode(str)}`);
+        } else {
+          parts.push(`${alias}_${encoded}`);
+        }
+      }
+    }
+  }
+  return parts.join(",");
+}
+const RE_NUMERIC = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
+function tryParseNumber(value) {
+  if (RE_NUMERIC.test(value)) {
+    const num = Number(value);
+    if (!Number.isNaN(num))
+      return num;
+  }
+  return value;
+}
+function decodeSimpleValue(raw) {
+  if (raw.startsWith("~~")) {
+    return decodeURIComponent(raw.slice(1).replace(RE_PLUS, "%20")).replace(RE_DOUBLE_UNDERSCORE, "_");
+  }
+  if (raw.startsWith("~")) {
+    try {
+      return b64Decode(raw.slice(1));
+    } catch {
+      return decodeURIComponent(raw.replace(RE_PLUS, "%20")).replace(RE_DOUBLE_UNDERSCORE, "_");
+    }
+  }
+  return decodeURIComponent(raw.replace(RE_PLUS, "%20")).replace(RE_DOUBLE_UNDERSCORE, "_");
+}
+export function decodeOgImageParams(encoded) {
+  if (!encoded || encoded === "default")
+    return {};
+  const options = {};
+  const parts = encoded.split(RE_COMMA_PARAM_SEPARATOR);
+  for (const part of parts) {
+    const idx = part.search(RE_SINGLE_UNDERSCORE);
+    if (idx === -1)
+      continue;
+    const alias = part.slice(0, idx);
+    let value = part.slice(idx + 1);
+    const paramName = PARAM_ALIASES[alias] || alias;
+    if (COMPLEX_PARAMS.has(paramName)) {
+      try {
+        const json = b64Decode(value);
+        options[paramName] = JSON.parse(json);
+      } catch {
+        options[paramName] = value;
+      }
+    } else if (paramName === "props") {
+      try {
+        const json = b64Decode(value);
+        options.props = { ...options.props, ...JSON.parse(json) };
+      } catch {
+      }
+    } else if (KNOWN_PARAMS.has(paramName)) {
+      value = decodeSimpleValue(value);
+      if (value === "true") {
+        options[paramName] = true;
+      } else if (value === "false") {
+        options[paramName] = false;
+      } else if (value !== "") {
+        options[paramName] = tryParseNumber(value);
+      }
+    } else {
+      value = decodeSimpleValue(value);
+      options.props = options.props || {};
+      if (value === "true") {
+        options.props[paramName] = true;
+      } else if (value === "false") {
+        options.props[paramName] = false;
+      } else if (value !== "") {
+        options.props[paramName] = tryParseNumber(value);
+      }
+    }
+  }
+  return options;
+}
+export function buildOgImageUrl(options, extension = "png", isStatic = false, defaults, secret) {
+  const encoded = encodeOgImageParams(options, defaults);
+  const prefix = isStatic ? "/_og/s" : "/_og/d";
+  if (isStatic && (encoded.length > MAX_PATH_LENGTH || encoded.includes("%"))) {
+    const hash = hashOgImageOptions(options);
+    return {
+      url: `${prefix}/o_${hash}.${extension}`,
+      hash
+    };
+  }
+  const segment = encoded || "default";
+  const signed = secret && !isStatic ? `${segment},s_${signEncodedParams(segment, secret)}` : segment;
+  return {
+    url: `${prefix}/${signed}.${extension}`
+  };
+}
+export function signEncodedParams(encoded, secret) {
+  return digest(`${secret}:${encoded}`).slice(0, 16);
+}
+export function verifyOgImageSignature(encoded, signature, secret) {
+  const expected = signEncodedParams(encoded, secret);
+  if (expected.length !== signature.length)
+    return false;
+  let result = 0;
+  for (let i = 0; i < expected.length; i++)
+    result |= expected.charCodeAt(i) ^ signature.charCodeAt(i);
+  return result === 0;
+}
+export function parseOgImageUrl(url) {
+  const isStatic = url.includes("/_og/s/");
+  const path = url.replace(RE_OG_PATH_PREFIX, "");
+  const extMatch = path.match(RE_FILE_EXTENSION_WITH_CAPTURE);
+  const extension = extMatch?.[1] || "png";
+  const encoded = path.replace(RE_FILE_EXTENSION, "");
+  const hashMatch = encoded.match(RE_HASH_SEGMENT);
+  if (hashMatch) {
+    return {
+      options: {},
+      extension,
+      isStatic,
+      hash: hashMatch[1]
+    };
+  }
+  const paramsOnly = encoded.replace(RE_SIGNATURE_SUFFIX, "");
+  return {
+    options: decodeOgImageParams(paramsOnly),
+    extension,
+    isStatic
+  };
+}
+export function extractEncodedSegment(path, extension) {
+  const match = path.match(RE_OG_ROUTE_PREFIX);
+  if (match?.index != null) {
+    return path.slice(match.index + match[0].length).replace(new RegExp(`\\.${extension}$`), "");
+  }
+  return path.split("/").pop().replace(new RegExp(`\\.${extension}$`), "");
+}

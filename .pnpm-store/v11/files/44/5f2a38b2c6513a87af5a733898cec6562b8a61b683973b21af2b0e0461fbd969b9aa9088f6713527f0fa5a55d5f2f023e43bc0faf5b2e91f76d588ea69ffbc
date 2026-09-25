@@ -1,0 +1,31 @@
+import { ref, useEventListener } from "#imports";
+export function usePointer(el, options) {
+  const {
+    filter = () => true
+  } = options;
+  const isHolding = ref(false);
+  useEventListener(el, "pointerdown", (event) => {
+    if (!filter(event)) {
+      return;
+    }
+    options.onPointerdown?.(event);
+    isHolding.value = true;
+  });
+  useEventListener("pointermove", (event) => {
+    if (!isHolding.value || !filter(event)) {
+      return;
+    }
+    options.onPointermove?.(event);
+  });
+  useEventListener("pointerup", (event) => {
+    if (!isHolding.value) {
+      return;
+    }
+    if (options.onPointerup?.(event) !== false) {
+      isHolding.value = false;
+    }
+  });
+  return {
+    isHolding
+  };
+}
